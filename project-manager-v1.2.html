@@ -812,7 +812,9 @@
         <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none">
       </div>
       <div class="import-preview" id="importPreview">
-        <table><thead id="importHead"></thead><tbody id="importBody"></tbody></table>
+        <div style="overflow-x:auto">
+          <table><thead id="importHead"></thead><tbody id="importBody"></tbody></table>
+        </div>
       </div>
       <div class="import-footer">
         <button class="btn-cancel" onclick="closeImport()">关闭</button>
@@ -878,7 +880,9 @@
 
       <!-- 预览 -->
       <div class="import-preview" id="yuquePreview" style="max-height:240px;overflow-y:auto;display:none">
-        <table><thead id="yuqueHead"></thead><tbody id="yuqueBody"></tbody></table>
+        <div style="overflow-x:auto">
+          <table><thead id="yuqueHead"></thead><tbody id="yuqueBody"></tbody></table>
+        </div>
       </div>
 
       <div class="import-footer">
@@ -1180,7 +1184,13 @@
     <div style="display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.08);flex-shrink:0">
       <span style="font-size:1.1rem">🔬</span>
       <div style="font-size:.9rem;font-weight:700;color:#eee;letter-spacing:.04em">沙盒调试台</div>
-      <span style="font-size:.62rem;color:#555;margin-left:4px">使用内置 Claude 沙盒，无需配置 API Key</span>
+      <div style="display:flex;align-items:center;gap:8px;margin-left:16px">
+        <span style="font-size:.62rem;color:#7eccd8">模型选择：</span>
+        <select id="sbx-model-select" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:4px;padding:2px 6px;font-size:.62rem;color:#aaa;outline:none">
+          <option value="sandbox">内置 Claude 沙盒</option>
+          <option value="global">全局 AI 模型</option>
+        </select>
+      </div>
       <button onclick="closeSandbox()" style="margin-left:auto;background:none;border:none;font-size:1.1rem;cursor:pointer;color:#555;padding:4px 8px">✕</button>
     </div>
 
@@ -1188,6 +1198,7 @@
     <div style="display:flex;gap:0;border-bottom:1px solid rgba(255,255,255,.08);flex-shrink:0">
       <div class="sbx-tab active" id="sbxtab-btn-contract" onclick="switchSandboxTab('contract',this)" style="padding:10px 20px;font-size:.75rem;cursor:pointer;color:#aaa;border-bottom:2px solid transparent;transition:all .2s">📄 合同调试</div>
       <div class="sbx-tab" id="sbxtab-btn-agreement" onclick="switchSandboxTab('agreement',this)" style="padding:10px 20px;font-size:.75rem;cursor:pointer;color:#aaa;border-bottom:2px solid transparent;transition:all .2s">📋 技术协议调试</div>
+      <div class="sbx-tab" id="sbxtab-btn-table" onclick="switchSandboxTab('table',this)" style="padding:10px 20px;font-size:.75rem;cursor:pointer;color:#aaa;border-bottom:2px solid transparent;transition:all .2s">📊 表格识别</div>
     </div>
 
     <div style="overflow-y:auto;flex:1;padding:0">
@@ -1292,6 +1303,56 @@
         </div>
       </div>
 
+      <!-- ── 表格识别 Tab ── -->
+      <div id="sbxtab-table" style="padding:16px 20px;display:none">
+        <div style="font-size:.68rem;color:#7eccd8;background:rgba(126,204,216,.06);border:1px solid rgba(126,204,216,.15);border-radius:8px;padding:10px 14px;margin-bottom:16px">
+          使用 AI 智能识别 Excel 或语雀表格的列名，自动映射到项目管理字段
+        </div>
+
+        <!-- 上传区 -->
+        <div id="sbx-t-drop" style="border:2px dashed rgba(126,204,216,.3);border-radius:10px;padding:20px;text-align:center;cursor:pointer;color:#666;font-size:.78rem;transition:all .2s;margin-bottom:12px" onclick="document.getElementById('sbx-t-file').click()">
+          🗂 拖拽或点击上传 Excel 文件（.xlsx / .xls）
+        </div>
+        <input type="file" id="sbx-t-file" accept=".xlsx,.xls" style="display:none" onchange="sbxTableFileSelected(this)">
+        <div id="sbx-t-file-info" style="font-size:.72rem;color:#666;margin-bottom:10px;display:none"></div>
+
+        <!-- 操作按钮 -->
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <button class="ai-test-btn" style="flex:1;padding:9px" id="sbx-t-btn-parse" onclick="sbxTableAnalyze()" disabled>🔍 识别表格</button>
+          <button class="ai-test-btn" style="flex:1;padding:9px" id="sbx-t-btn-clear" onclick="sbxTableClear()">🗑 清空</button>
+        </div>
+
+        <!-- 表格预览 -->
+        <div id="sbx-t-table-sec" style="display:none;margin-bottom:10px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+            <span style="font-size:.65rem;color:#7eccd8;font-weight:600">表格数据预览</span>
+            <span id="sbx-t-table-info" style="font-size:.62rem;color:#555"></span>
+          </div>
+          <div id="sbx-t-raw-table" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:10px;font-size:.68rem;color:#888;max-height:150px;overflow-y:auto;white-space:pre-wrap;font-family:monospace;line-height:1.5"></div>
+        </div>
+
+        <!-- Prompt 编辑区 -->
+        <div id="sbx-t-prompt-sec" style="display:none;margin-bottom:10px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+            <span style="font-size:.65rem;color:#7eccd8;font-weight:600">Prompt（可修改后重跑）</span>
+            <button class="ai-test-btn" style="padding:3px 10px;font-size:.63rem" onclick="sbxTableRerun()">↺ 重新运行</button>
+          </div>
+          <textarea id="sbx-t-prompt-edit" style="width:100%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:10px;font-size:.67rem;color:#aaa;height:130px;resize:vertical;font-family:monospace;outline:none;box-sizing:border-box;line-height:1.5"></textarea>
+        </div>
+
+        <!-- AI 原始响应 -->
+        <div id="sbx-t-raw-sec" style="display:none;margin-bottom:10px">
+          <div style="font-size:.65rem;color:#7eccd8;font-weight:600;margin-bottom:5px">AI 原始响应</div>
+          <div id="sbx-t-raw-resp" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:10px;font-size:.68rem;color:#aaa;max-height:140px;overflow-y:auto;white-space:pre-wrap;font-family:monospace;line-height:1.5"></div>
+        </div>
+
+        <!-- 解析结果 -->
+        <div id="sbx-t-result-sec" style="display:none">
+          <div style="font-size:.65rem;color:#7eccd8;font-weight:600;margin-bottom:5px">解析结果</div>
+          <div id="sbx-t-result-body"></div>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -1373,6 +1434,15 @@
             <button class="ai-test-btn" onclick="testAiConnection()">测试连接</button>
           </div>
           <div class="ai-status" id="ai-conn-status"></div>
+        </div>
+
+        <!-- Token 配置 -->
+        <div class="ai-cfg-section">
+          <div class="ai-cfg-label">模型配置</div>
+          <div class="ai-cfg-row">
+            <input class="ai-cfg-input" id="ai-max-tokens" type="number" min="10" max="32768" placeholder="最大输出 Token 数（默认 2000）" oninput="saveAiMaxTokens(this.value)">
+            <span class="ai-cfg-tag">max_tokens</span>
+          </div>
         </div>
 
         <!-- 测试对话框 -->
@@ -2441,9 +2511,31 @@ async function renameProjectDir(oldDirName, newDirName) {
     // 尝试获取旧目录
     const oldDir = await fsRootHandle.getDirectoryHandle(oldDirName, { create: false }).catch(() => null);
     if (!oldDir) return; // 旧目录不存在，无需重命名
-    // 创建新目录
+    
+    // 检查新目录是否已存在
+    const newDirExists = await fsRootHandle.getDirectoryHandle(newDirName, { create: false }).catch(() => null);
+    if (newDirExists) {
+      console.warn('新目录已存在:', newDirName);
+      showToast(`⚠️  新目录已存在，无法重命名`);
+      return;
+    }
+    
+    // 尝试使用File System API的rename方法（如果支持）
+    if (typeof fsRootHandle.rename === 'function') {
+      try {
+        await fsRootHandle.rename(oldDirName, newDirName);
+        showToast(`📁 目录已更名为「${newDirName}」`);
+        return;
+      } catch(e) {
+        console.warn('直接重命名失败，使用复制方式:', e.message);
+      }
+    }
+    
+    // 回退方案：创建新目录、复制文件、删除旧目录
     const newDir = await fsRootHandle.getDirectoryHandle(newDirName, { create: true });
+    
     // 复制所有文件
+    let filesCopied = 0;
     for await (const [name, handle] of oldDir.entries()) {
       if (handle.kind === 'file') {
         const file = await handle.getFile();
@@ -2451,17 +2543,26 @@ async function renameProjectDir(oldDirName, newDirName) {
         const writable = await newHandle.createWritable();
         await writable.write(file);
         await writable.close();
+        filesCopied++;
       }
     }
-    // 删除旧目录中的文件（不能直接删目录，逐一删文件）
+    
+    // 删除旧目录中的文件
     for await (const [name, handle] of oldDir.entries()) {
       if (handle.kind === 'file') await oldDir.removeEntry(name);
     }
-    // 删除旧目录（需浏览器支持，不强制）
-    try { await fsRootHandle.removeEntry(oldDirName); } catch(e) {}
-    showToast(`📁 目录已更名为「${newDirName}」`);
+    
+    // 删除旧目录
+    try {
+      await fsRootHandle.removeEntry(oldDirName);
+      showToast(`📁 目录已更名为「${newDirName}」`);
+    } catch(e) {
+      console.warn('删除旧目录失败:', e.message);
+      showToast(`📁 目录文件已迁移至「${newDirName}」`);
+    }
   } catch(e) {
     console.warn('目录重命名失败:', e.message);
+    showToast('⚠️  目录重命名失败，请检查权限');
   }
 }
 
@@ -2561,31 +2662,128 @@ async function parseExcel(buf, filename) {
     if (rows.length < 2) { showImportError('文件为空'); return; }
     const headers = rows[0].map(h=>String(h).trim());
 
+    console.log('Excel解析开始:', { filename, rows: rows.length, headers });
+
     // 根据读取方式决定列名映射
     let colIdx = {};
     if (getParseMode() === 'ai') {
       document.getElementById('dropText').innerHTML = `<b>${filename}</b> 🤖 AI 正在理解列名…`;
       try {
+        // 生成更全面的提示词
+        const sampleRows = rows.slice(1, 4); // 取前3行作为样本
+        const prompt = generateTablePrompt(headers, sampleRows);
+        
         const data = await claudeCall({
           task: 'Excel列名识别',
-          max_tokens: 500,
-          messages: [{ role: 'user', content: `以下是一个项目管理Excel的列名列表：\n${JSON.stringify(headers)}\n\n请将每个列名映射到以下字段之一（不匹配则跳过）：\n- name: 项目名称\n- source: 项目来源/客户\n- owner: 负责人/销售\n- product: 产品选型/方案\n- desc: 项目简介/描述\n- stageLabel: 项目阶段/状态\n- quote: 报价金额（万元）\n- quote_yuan: 报价金额（元）\n- contract: 合同金额（万元）\n- contract_yuan: 合同金额（元）\n- cost: 成本评估（万元）\n- collected: 已回款（万元）\n- todosRaw: 待办事项\n\n只返回JSON，key是列名，value是字段名。` }]
+          max_tokens: 1000,
+          messages: [{ role: 'user', content: prompt }]
         });
+        
+        // 改进解析逻辑
         const text = data._parsed?.text || data.content?.[0]?.text || '';
-        const match = text.match(/\{[\s\S]*\}/);
-        if (match) {
-          const mapping = JSON.parse(match[0]);
+        console.log('AI响应:', text);
+        
+        // 尝试提取JSON：首先查找第一个 { 和最后一个 } 之间的内容
+        const firstBrace = text.indexOf('{');
+        const lastBrace = text.lastIndexOf('}');
+        
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+          const jsonStr = text.substring(firstBrace, lastBrace + 1);
+          console.log('提取的JSON:', jsonStr);
+          const mapping = JSON.parse(jsonStr);
           headers.forEach((h, i) => { if (mapping[h]) colIdx[mapping[h]] = i; });
+        } else {
+          // 尝试查找包含 JSON 的代码块
+          const codeBlockMatch = text.match(/```json[\s\S]*?```/);
+          if (codeBlockMatch) {
+            const jsonStr = codeBlockMatch[0].replace(/```json|```/g, '').trim();
+            console.log('提取的代码块JSON:', jsonStr);
+            const mapping = JSON.parse(jsonStr);
+            headers.forEach((h, i) => { if (mapping[h]) colIdx[mapping[h]] = i; });
+          }
         }
       } catch(e) {
+        console.log('AI识别失败，回退到固定映射:', e.message);
+        // 失败时回退到固定映射
         headers.forEach((h,i)=>{ if(COL_MAP[h]) colIdx[COL_MAP[h]] = i; });
+        
+        // 如果没有找到项目名称列，尝试查找包含"名称"的列
+        if (!colIdx.name) {
+          for (let i = 0; i < headers.length; i++) {
+            if (headers[i].includes('名称')) {
+              colIdx.name = i;
+              console.log('找到包含"名称"的列:', headers[i], i);
+              break;
+            }
+          }
+        }
       }
     } else {
       // 模板模式：固定映射
       headers.forEach((h,i)=>{ if(COL_MAP[h]) colIdx[COL_MAP[h]] = i; });
+      
+      // 如果没有找到项目名称列，尝试查找包含"名称"的列
+      if (!colIdx.name) {
+        for (let i = 0; i < headers.length; i++) {
+          if (headers[i].includes('名称')) {
+            colIdx.name = i;
+            console.log('找到包含"名称"的列:', headers[i], i);
+            break;
+          }
+        }
+      }
     }
 
-    pendingImport = rows.slice(1).filter(r=>r.some(c=>c!=='')).map(r=>{
+    console.log('列映射结果:', colIdx);
+
+    // 如果仍然没有找到项目名称列，尝试使用第一列作为项目名称
+    if (!colIdx.name && headers.length > 0) {
+      // 尝试找到包含"项目"或"名称"的列
+      let found = false;
+      for (let i = 0; i < headers.length; i++) {
+        if (headers[i].includes('项目') && headers[i].includes('名称')) {
+          colIdx.name = i;
+          console.log('找到包含"项目"和"名称"的列:', headers[i], i);
+          found = true;
+          break;
+        }
+      }
+      
+      // 如果没有找到，尝试找到包含"项目"的列
+      if (!found) {
+        for (let i = 0; i < headers.length; i++) {
+          if (headers[i].includes('项目')) {
+            colIdx.name = i;
+            console.log('找到包含"项目"的列:', headers[i], i);
+            found = true;
+            break;
+          }
+        }
+      }
+      
+      // 如果仍然没有找到，尝试找到包含"名称"的列
+      if (!found) {
+        for (let i = 0; i < headers.length; i++) {
+          if (headers[i].includes('名称')) {
+            colIdx.name = i;
+            console.log('找到包含"名称"的列:', headers[i], i);
+            found = true;
+            break;
+          }
+        }
+      }
+      
+      // 如果仍然没有找到，使用第一列
+      if (!found) {
+        colIdx.name = 0;
+        console.log('使用第一列作为项目名称:', headers[0]);
+      }
+    }
+
+    const filteredRows = rows.slice(1).filter(r=>r.some(c=>c!==''));
+    console.log('过滤后的行数:', filteredRows.length);
+
+    pendingImport = filteredRows.map(r=>{
       const obj = {};
       Object.entries(colIdx).forEach(([field,idx])=>{
         let val = String(r[idx]||'').trim();
@@ -2593,36 +2791,156 @@ async function parseExcel(buf, filename) {
           const n = parseFloat(val); obj[field.replace('_yuan','')] = isNaN(n)?'':(n/10000).toFixed(2);
         } else { obj[field] = val; }
       });
-      const slRaw = (obj.stageLabel||'').trim();
+      
+      // 处理项目阶段
+      let slRaw = (obj.stageLabel || obj.stage || '').trim();
+      
+      // 尝试从其他可能的字段中获取阶段信息
+      if (!slRaw) {
+        // 尝试从包含"阶段"或"状态"的字段中获取
+        for (const [key, value] of Object.entries(obj)) {
+          if (key.includes('阶段') || key.includes('状态')) {
+            slRaw = String(value).trim();
+            break;
+          }
+        }
+      }
+      
       const numPrefix = slRaw.match(/^(\d+)/)?.[1];
       const sl = slRaw.replace(/^\d+/,'').replace(/\s/g,'');
       if (numPrefix === '1') obj.stage = 0;       // 1x = 洽谈中
       else if (numPrefix === '2') obj.stage = 1;  // 2x = 已签单·执行中
       else if (numPrefix === '3') obj.stage = 2;  // 3x = 已完结
       else obj.stage = STAGE_MAP_IMPORT[sl] ?? 0;
-      obj.todos = (obj.todosRaw||'').split('|').map(t=>({text:t.trim(),done:false})).filter(t=>t.text);
-      delete obj.todosRaw; delete obj.stageLabel;
+      
+      // 处理待办事项
+      if (obj.todos) {
+        obj.todos = obj.todos.split('|').map(t=>({text:t.trim(),done:false})).filter(t=>t.text);
+      } else if (obj.todosRaw) {
+        obj.todos = obj.todosRaw.split('|').map(t=>({text:t.trim(),done:false})).filter(t=>t.text);
+        delete obj.todosRaw;
+      } else {
+        obj.todos = [];
+      }
+      
+      // 处理催款任务
+      if (obj.collectTasks) {
+        // 简单处理，实际可能需要更复杂的解析
+        obj.collectTasks = obj.collectTasks.split('|').map(task=>({
+          text: task.trim(),
+          date: '',
+          amount: '',
+          done: false
+        })).filter(task=>task.text);
+      } else {
+        obj.collectTasks = [];
+      }
+      
+      // 处理更新日志
+      if (obj.logs) {
+        // 简单处理，实际可能需要更复杂的解析
+        obj.logs = obj.logs.split('|').map(log=>({
+          time: new Date().toLocaleString(),
+          text: log.trim()
+        })).filter(log=>log.text);
+      } else {
+        obj.logs = [];
+      }
+      
+      // 清理临时字段
+      delete obj.stageLabel;
+      
+      // 添加基本字段
       obj.id = Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-      obj.collectTasks = []; obj.logs = []; obj.active = 'active';
+      obj.active = obj.active || 'active';
+      
       return obj;
     }).filter(p=>p.name);
+
+    console.log('最终解析结果:', pendingImport.length, pendingImport);
 
     // 预览
     const preview = document.getElementById('importPreview');
     const existNames = new Set(projects.map(p=>p.name));
     const stageNames = ['洽谈中','已签单·执行中','已完结'];
-    document.getElementById('importHead').innerHTML =
-      `<tr><th>状态</th><th>项目名称</th><th>阶段</th><th>负责人</th><th>报价（万）</th><th>合同（万）</th></tr>`;
-    document.getElementById('importBody').innerHTML = pendingImport.slice(0,10).map(p=>`
-      <tr>
-        <td>${existNames.has(p.name)?'<span class="tag-update">↻ 更新</span>':'<span class="tag-new">＋ 新增</span>'}</td>
-        <td>${p.name}</td><td>${stageNames[p.stage]||'-'}</td>
-        <td>${p.owner||'-'}</td><td>${p.quote||'-'}</td><td>${p.contract||'-'}</td>
-      </tr>`).join('') + (pendingImport.length>10?`<tr><td colspan="6" style="text-align:center;color:#aaa">…还有${pendingImport.length-10}条</td></tr>`:'');
+    
+    // 分析有信息的列
+    const fieldStats = {};
+    const fieldLabels = {
+      name: '项目名称',
+      stage: '阶段',
+      owner: '负责人',
+      source: '项目来源',
+      product: '产品选型',
+      desc: '项目简介',
+      quote: '报价（万）',
+      contract: '合同（万）',
+      cost: '成本（万）',
+      collected: '已回款（万）',
+      projectCode: '项目编号',
+      contractDate: '合同日期',
+      deliveryBrief: '交付内容',
+      deliveryNote: '交付详情'
+    };
+    
+    // 统计每列的非空值数量
+    pendingImport.forEach(p => {
+      Object.keys(p).forEach(field => {
+        if (field === 'id' || field === 'todos' || field === 'collectTasks' || field === 'logs' || field === 'active') return;
+        if (p[field] && String(p[field]).trim()) {
+          fieldStats[field] = (fieldStats[field] || 0) + 1;
+        }
+      });
+    });
+    
+    // 选择有信息的列（至少有一个非空值）
+    const visibleFields = Object.keys(fieldStats).filter(field => fieldStats[field] > 0);
+    
+    // 确保项目名称始终在最前面
+    if (visibleFields.includes('name')) {
+      visibleFields.splice(visibleFields.indexOf('name'), 1);
+      visibleFields.unshift('name');
+    }
+    
+    // 生成表头
+    let headerHtml = '<tr><th>状态</th>';
+    visibleFields.forEach(field => {
+      headerHtml += `<th>${fieldLabels[field] || field}</th>`;
+    });
+    headerHtml += '</tr>';
+    document.getElementById('importHead').innerHTML = headerHtml;
+    
+    // 生成表格内容
+    let bodyHtml = '';
+    const displayProjects = pendingImport.slice(0, 10);
+    displayProjects.forEach(p => {
+      let rowHtml = `<tr><td>${existNames.has(p.name)?'<span class="tag-update">↻ 更新</span>':'<span class="tag-new">＋ 新增</span>'}</td>`;
+      visibleFields.forEach(field => {
+        let value = '-';
+        if (field === 'stage') {
+          value = stageNames[p.stage] || '-';
+        } else if (p[field]) {
+          value = String(p[field]).trim();
+        }
+        rowHtml += `<td>${value}</td>`;
+      });
+      rowHtml += '</tr>';
+      bodyHtml += rowHtml;
+    });
+    
+    // 添加更多记录提示
+    if (pendingImport.length > 10) {
+      bodyHtml += `<tr><td colspan="${visibleFields.length + 1}" style="text-align:center;color:#aaa">…还有${pendingImport.length - 10}条</td></tr>`;
+    }
+    
+    document.getElementById('importBody').innerHTML = bodyHtml;
     document.getElementById('dropText').innerHTML = `<b>${filename}</b> 已解析 ${pendingImport.length} 条`;
     preview.classList.add('show');
     document.getElementById('btnConfirmImport').style.display = pendingImport.length?'inline-block':'none';
-  } catch(err) { showImportError('解析失败：'+err.message); }
+  } catch(err) {
+    console.error('解析失败:', err);
+    showImportError('解析失败：'+err.message);
+  }
 }
 function showImportError(msg) {
   document.getElementById('importPreview').classList.remove('show');
@@ -2879,7 +3197,7 @@ async function fetchYuqueDoc() {
 
     yuquePendingImport = rawProjects.filter(p => p.name).map(p => ({
       ...p,
-      stage: STAGE_MAP_YUQUE[p.stage] ?? 0,
+      stage: typeof p.stage === 'number' ? p.stage : (STAGE_MAP_YUQUE[p.stage] ?? 0),
       todos: [], collectTasks: [], logs: [], active: 'active',
       id: Date.now().toString(36) + Math.random().toString(36).slice(2,6)}));
 
@@ -2897,17 +3215,170 @@ async function parseTableWithClaude(table, docTitle) {
   const headers = table[0];
   const sampleRows = table.slice(1, 4); // 取前3行作为样本
 
-  const data = await claudeCall({
-    task: '语雀表格列名识别',
-    max_tokens: 600,
-    messages: [{ role: 'user', content: `以下是项目管理表格的列名：\n${JSON.stringify(headers)}\n\n样本数据：\n${JSON.stringify(sampleRows)}\n\n请将列名映射到字段（不匹配跳过）：\n- name, source, owner, product, desc, stageLabel, quote, quote_yuan, contract, contract_yuan, cost, collected\n\n只返回JSON，key是列名，value是字段名。` }]
-  });
-  const text = data._parsed?.text || data.content?.[0]?.text || '';
-  const match = text.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error('AI 未能识别列名映射');
-  const mapping = JSON.parse(match[0]);
+  console.log('语雀表格解析开始:', { headers, rows: table.length });
 
-  return table.slice(1).map(row => {
+  // 生成更明确的提示词
+  let prompt = `以下是项目管理表格的列名：\n${JSON.stringify(headers)}\n\n样本数据：\n${JSON.stringify(sampleRows)}\n\n请将列名映射到字段（不匹配跳过）：\n\n基本信息：\n- name: 项目名称\n- source: 项目来源/客户\n- owner: 负责人/销售\n- product: 产品选型/方案\n- desc: 项目简介/描述\n- stageLabel: 项目阶段/状态\n- active: 项目状态（active或inactive）\n- projectCode: 项目编号\n- contractDate: 合同签署日期\n\n财务信息：\n- quote: 报价金额（万元）\n- quote_yuan: 报价金额（元）\n- contract: 合同金额（万元）\n- contract_yuan: 合同金额（元）\n- cost: 成本评估（万元）\n- collected: 已回款（万元）\n\n交付信息：\n- deliveryBrief: 交付内容简要\n- deliveryNote: 交付内容详细记录\n\n其他信息：\n- todos: 待办事项（用|分隔多个）\n- collectTasks: 催款任务\n- logs: 更新日志\n\n重要要求：\n1. 只返回JSON对象，不要添加任何额外说明\n2. JSON的key是列名，value是字段名\n3. 确保返回的是有效的JSON格式\n4. 不要包含任何JSON之外的内容\n5. 如果没有匹配的列名，返回空对象{}即可\n6. 示例输出格式：\n{"项目名称": "name", "客户": "source", "负责人": "owner", "产品": "product", "描述": "desc", "状态": "stageLabel", "报价": "quote", "合同金额": "contract", "成本": "cost", "已回款": "collected", "交付内容": "deliveryBrief", "合同日期": "contractDate"}`;
+  
+  let mapping = {};
+  
+  try {
+    const data = await claudeCall({
+      task: '语雀表格列名识别',
+      max_tokens: 1000,
+      messages: [{ role: 'user', content: prompt }]
+    });
+    
+    const text = data._parsed?.text || data.content?.[0]?.text || '';
+    console.log('AI响应:', text);
+    
+    // 改进解析逻辑
+    // 尝试提取JSON：首先查找第一个 { 和最后一个 } 之间的内容
+    const firstBrace = text.indexOf('{');
+    const lastBrace = text.lastIndexOf('}');
+    
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      try {
+        const jsonStr = text.substring(firstBrace, lastBrace + 1);
+        console.log('提取的JSON:', jsonStr);
+        mapping = JSON.parse(jsonStr);
+      } catch (e) {
+        // 尝试查找包含 JSON 的代码块
+        const codeBlockMatch = text.match(/```json[\s\S]*?```/);
+        if (codeBlockMatch) {
+          try {
+            const jsonStr = codeBlockMatch[0].replace(/```json|```/g, '').trim();
+            console.log('提取的代码块JSON:', jsonStr);
+            mapping = JSON.parse(jsonStr);
+          } catch (e2) {
+            // 尝试查找任何包含 {} 的内容
+            const anyBraceMatch = text.match(/\{[^{}]*\}/);
+            if (anyBraceMatch) {
+              try {
+                mapping = JSON.parse(anyBraceMatch[0]);
+              } catch (e3) {
+                console.error('JSON解析失败:', e3);
+                // 回退到固定映射
+                mapping = {};
+              }
+            } else {
+              console.error('未找到JSON内容');
+              // 回退到固定映射
+              mapping = {};
+            }
+          }
+        } else {
+          console.error('未找到JSON内容');
+          // 回退到固定映射
+          mapping = {};
+        }
+      }
+    } else {
+      // 尝试查找包含 JSON 的代码块
+      const codeBlockMatch = text.match(/```json[\s\S]*?```/);
+      if (codeBlockMatch) {
+        try {
+          const jsonStr = codeBlockMatch[0].replace(/```json|```/g, '').trim();
+          console.log('提取的代码块JSON:', jsonStr);
+          mapping = JSON.parse(jsonStr);
+        } catch (e) {
+          console.error('JSON解析失败:', e);
+          // 回退到固定映射
+          mapping = {};
+        }
+      } else {
+        // 尝试查找任何包含 {} 的内容
+        const anyBraceMatch = text.match(/\{[^{}]*\}/);
+        if (anyBraceMatch) {
+          try {
+            mapping = JSON.parse(anyBraceMatch[0]);
+          } catch (e) {
+            console.error('JSON解析失败:', e);
+            // 回退到固定映射
+            mapping = {};
+          }
+        } else {
+          console.error('未找到JSON内容');
+          // 回退到固定映射
+          mapping = {};
+        }
+      }
+    }
+  } catch (e) {
+    console.error('AI调用失败:', e);
+    // 回退到固定映射
+    mapping = {};
+  }
+
+  console.log('AI映射结果:', mapping);
+
+  // 如果AI未能识别映射，使用固定映射
+  if (Object.keys(mapping).length === 0) {
+    console.log('使用固定映射');
+    headers.forEach((h, i) => {
+      const key = COL_MAP[h?.trim()];
+      if (key) mapping[h] = key;
+    });
+    
+    // 如果没有找到项目名称列，尝试查找包含"名称"的列
+    if (!Object.values(mapping).includes('name')) {
+      for (let i = 0; i < headers.length; i++) {
+        if (headers[i]?.includes('名称')) {
+          mapping[headers[i]] = 'name';
+          console.log('找到包含"名称"的列:', headers[i], i);
+          break;
+        }
+      }
+    }
+    
+    // 如果仍然没有找到项目名称列，尝试使用第一列
+    if (!Object.values(mapping).includes('name') && headers.length > 0) {
+      // 尝试找到包含"项目"或"名称"的列
+      let found = false;
+      for (let i = 0; i < headers.length; i++) {
+        if (headers[i]?.includes('项目') && headers[i]?.includes('名称')) {
+          mapping[headers[i]] = 'name';
+          console.log('找到包含"项目"和"名称"的列:', headers[i], i);
+          found = true;
+          break;
+        }
+      }
+      
+      // 如果没有找到，尝试找到包含"项目"的列
+      if (!found) {
+        for (let i = 0; i < headers.length; i++) {
+          if (headers[i]?.includes('项目')) {
+            mapping[headers[i]] = 'name';
+            console.log('找到包含"项目"的列:', headers[i], i);
+            found = true;
+            break;
+          }
+        }
+      }
+      
+      // 如果仍然没有找到，尝试找到包含"名称"的列
+      if (!found) {
+        for (let i = 0; i < headers.length; i++) {
+          if (headers[i]?.includes('名称')) {
+            mapping[headers[i]] = 'name';
+            console.log('找到包含"名称"的列:', headers[i], i);
+            found = true;
+            break;
+          }
+        }
+      }
+      
+      // 如果仍然没有找到，使用第一列
+      if (!found) {
+        mapping[headers[0]] = 'name';
+        console.log('使用第一列作为项目名称:', headers[0]);
+      }
+    }
+  }
+
+  console.log('最终映射结果:', mapping);
+
+  const result = table.slice(1).map(row => {
     const obj = {};
     headers.forEach((h, i) => {
       const field = mapping[h];
@@ -2920,11 +3391,74 @@ async function parseTableWithClaude(table, docTitle) {
         obj[field] = val;
       }
     });
-    const sl = (obj.stageLabel || '').replace(/^\d+/, '').replace(/\s/g, '');
-    obj.stage = STAGE_MAP_YUQUE[sl] ?? 0;
+    
+    // 处理项目阶段
+    let slRaw = (obj.stageLabel || obj.stage || '').trim();
+    
+    // 尝试从其他可能的字段中获取阶段信息
+    if (!slRaw) {
+      // 尝试从包含"阶段"或"状态"的字段中获取
+      for (const [key, value] of Object.entries(obj)) {
+        if (key.includes('阶段') || key.includes('状态')) {
+          slRaw = String(value).trim();
+          break;
+        }
+      }
+    }
+    
+    const numPrefix = slRaw.match(/^(\d+)/)?.[1];
+    const sl = slRaw.replace(/^\d+/, '').replace(/\s/g, '');
+    if (numPrefix === '1') obj.stage = 0;       // 1x = 洽谈中
+    else if (numPrefix === '2') obj.stage = 1;  // 2x = 已签单·执行中
+    else if (numPrefix === '3') obj.stage = 2;  // 3x = 已完结
+    else obj.stage = STAGE_MAP_YUQUE[sl] ?? 0;
+    
+    // 处理待办事项
+    if (obj.todos) {
+      obj.todos = obj.todos.split('|').map(t=>({text:t.trim(),done:false})).filter(t=>t.text);
+    } else {
+      obj.todos = [];
+    }
+    
+    // 处理催款任务
+    if (obj.collectTasks) {
+      obj.collectTasks = obj.collectTasks.split('|').map(task=>({
+        text: task.trim(),
+        date: '',
+        amount: '',
+        done: false
+      })).filter(task=>task.text);
+    } else {
+      obj.collectTasks = [];
+    }
+    
+    // 处理更新日志
+    if (obj.logs) {
+      obj.logs = obj.logs.split('|').map(log=>({
+        time: new Date().toLocaleString(),
+        text: log.trim()
+      })).filter(log=>log.text);
+    } else {
+      obj.logs = [];
+    }
+    
+    // 清理临时字段
     delete obj.stageLabel;
+    
+    // 添加基本字段
+    obj.id = Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    obj.active = obj.active || 'active';
+    
     return obj;
   }).filter(p => p.name);
+
+  console.log('语雀表格解析结果:', result.length, result);
+  
+  if (result.length === 0) {
+    throw new Error('未能从表格中识别到项目数据，请确保表格包含项目名称列');
+  }
+  
+  return result;
 }
 
 // 直接解析 lakesheet 的 body_sheet 字段（模板模式，固定列名映射）
@@ -3032,14 +3566,71 @@ function renderYuquePreview(docTitle) {
   setYuqueStatus(`✅ 从「${docTitle}」识别到 <b>${yuquePendingImport.length}</b> 个项目`, false);
   const existNames = new Set(projects.map(p=>p.name));
   const stageNames = ['洽谈中','已签单·执行中','已完结'];
-  document.getElementById('yuqueHead').innerHTML =
-    `<tr><th>状态</th><th>项目名称</th><th>阶段</th><th>负责人</th><th>报价（万）</th><th>合同（万）</th></tr>`;
-  document.getElementById('yuqueBody').innerHTML = yuquePendingImport.map(p=>`
-    <tr>
-      <td>${existNames.has(p.name)?'<span class="tag-update">↻ 更新</span>':'<span class="tag-new">＋ 新增</span>'}</td>
-      <td>${p.name}</td><td>${stageNames[p.stage]||'-'}</td>
-      <td>${p.owner||'-'}</td><td>${p.quote||'-'}</td><td>${p.contract||'-'}</td>
-    </tr>`).join('');
+  
+  // 分析有信息的列
+  const fieldStats = {};
+  const fieldLabels = {
+    name: '项目名称',
+    stage: '阶段',
+    owner: '负责人',
+    source: '项目来源',
+    product: '产品选型',
+    desc: '项目简介',
+    quote: '报价（万）',
+    contract: '合同（万）',
+    cost: '成本（万）',
+    collected: '已回款（万）',
+    projectCode: '项目编号',
+    contractDate: '合同日期',
+    deliveryBrief: '交付内容',
+    deliveryNote: '交付详情'
+  };
+  
+  // 统计每列的非空值数量
+  yuquePendingImport.forEach(p => {
+    Object.keys(p).forEach(field => {
+      if (field === 'id' || field === 'todos' || field === 'collectTasks' || field === 'logs' || field === 'active') return;
+      if (p[field] && String(p[field]).trim()) {
+        fieldStats[field] = (fieldStats[field] || 0) + 1;
+      }
+    });
+  });
+  
+  // 选择有信息的列（至少有一个非空值）
+  const visibleFields = Object.keys(fieldStats).filter(field => fieldStats[field] > 0);
+  
+  // 确保项目名称始终在最前面
+  if (visibleFields.includes('name')) {
+    visibleFields.splice(visibleFields.indexOf('name'), 1);
+    visibleFields.unshift('name');
+  }
+  
+  // 生成表头
+  let headerHtml = '<tr><th>状态</th>';
+  visibleFields.forEach(field => {
+    headerHtml += `<th>${fieldLabels[field] || field}</th>`;
+  });
+  headerHtml += '</tr>';
+  document.getElementById('yuqueHead').innerHTML = headerHtml;
+  
+  // 生成表格内容
+  let bodyHtml = '';
+  yuquePendingImport.forEach(p => {
+    let rowHtml = `<tr><td>${existNames.has(p.name)?'<span class="tag-update">↻ 更新</span>':'<span class="tag-new">＋ 新增</span>'}</td>`;
+    visibleFields.forEach(field => {
+      let value = '-';
+      if (field === 'stage') {
+        value = stageNames[p.stage] || '-';
+      } else if (p[field]) {
+        value = String(p[field]).trim();
+      }
+      rowHtml += `<td>${value}</td>`;
+    });
+    rowHtml += '</tr>';
+    bodyHtml += rowHtml;
+  });
+  document.getElementById('yuqueBody').innerHTML = bodyHtml;
+  
   document.getElementById('yuquePreview').style.display = 'block';
   document.getElementById('btnConfirmYuque').style.display = 'inline-block';
 }
@@ -3394,14 +3985,16 @@ function getAiConfig() {
       model:       localStorage.getItem('ai_model')        || 'claude-haiku-4-5-20251001',
       proxy:       (localStorage.getItem('ai_proxy')       || '').replace(/\/+$/, ''),
       key:         localStorage.getItem('ai_key')          || '',
-      modelPolicy: localStorage.getItem('ai_model_policy') || 'auto'};
-  } catch(e) { return { provider:'claude', model:'claude-haiku-4-5-20251001', proxy:'', key:'', modelPolicy:'auto' }; }
+      modelPolicy: localStorage.getItem('ai_model_policy') || 'auto',
+      maxTokens:   parseInt(localStorage.getItem('ai_max_tokens')) || 2000};
+  } catch(e) { return { provider:'claude', model:'claude-haiku-4-5-20251001', proxy:'', key:'', modelPolicy:'auto', maxTokens: 2000 }; }
 }
 function saveAiProxy(v)       { try { localStorage.setItem('ai_proxy', v.trim()); } catch(e) {} }
 function saveAiKey(v)         { try { localStorage.setItem('ai_key', v.trim()); } catch(e) {} }
 function saveAiModel(v)       { try { localStorage.setItem('ai_model', v); } catch(e) {} }
 function saveAiProvider(v)    { try { localStorage.setItem('ai_provider', v); } catch(e) {} }
 function saveModelPolicy(v)   { try { localStorage.setItem('ai_model_policy', v); } catch(e) {} }
+function saveAiMaxTokens(v)   { try { localStorage.setItem('ai_max_tokens', parseInt(v) || 2000); } catch(e) {} }
 
 // 自定义服务商的路由前缀（通过 Worker 转发）
 const CUSTOM_ROUTE = '/custom';
@@ -3455,6 +4048,7 @@ function loadAiConfig() {
   const cfg = getAiConfig();
   document.getElementById('ai-proxy-input').value = cfg.proxy;
   document.getElementById('ai-key-input').value   = cfg.key;
+  document.getElementById('ai-max-tokens').value  = cfg.maxTokens;
   document.querySelectorAll('.ai-provider-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('provider-' + cfg.provider)?.classList.add('active');
   updateModelSelect(cfg.provider);
@@ -3518,8 +4112,8 @@ async function testAiConnection() {
   const statusEl = document.getElementById('ai-conn-status');
   statusEl.textContent = '测试中…'; statusEl.style.color = '#666';
   try {
-    const data = await claudeCall({ task: 'API连接测试', max_tokens: 10, messages: [{ role: 'user', content: '回复ok' }] });
     const cfg = getAiConfig();
+    const data = await claudeCall({ task: 'API连接测试', max_tokens: cfg.maxTokens, messages: [{ role: 'user', content: '回复ok' }] });
     const p = AI_PROVIDERS[cfg.provider];
     const parsed = p.parseResponse(data);
     if (parsed.error) throw new Error(parsed.error);
@@ -3562,7 +4156,7 @@ async function claudeCall({ task, model, max_tokens, messages }) {
   }
 
   const headers = provider.buildHeaders(cfg.key, cfg.proxy);
-  const body    = provider.buildBody(usedModel, max_tokens || 2000, messages);
+  const body    = provider.buildBody(usedModel, max_tokens || cfg.maxTokens, messages);
 
   try {
     const resp = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body) });
@@ -4215,18 +4809,427 @@ function switchSandboxTab(tab, el) {
   el.classList.add('active');
   document.getElementById('sbxtab-contract').style.display  = tab === 'contract'  ? 'block' : 'none';
   document.getElementById('sbxtab-agreement').style.display = tab === 'agreement' ? 'block' : 'none';
+  document.getElementById('sbxtab-table').style.display     = tab === 'table'     ? 'block' : 'none';
+}
+
+// ── 项目字段定义 ──
+function getProjectFields() {
+  return {
+    basic: [
+      { field: 'name', label: '项目名称' },
+      { field: 'source', label: '项目来源/客户' },
+      { field: 'owner', label: '负责人/销售' },
+      { field: 'product', label: '产品选型/方案' },
+      { field: 'desc', label: '项目简介/描述' },
+      { field: 'stageLabel', label: '项目阶段/状态（会自动转换为stage字段）' },
+      { field: 'active', label: '项目状态（active或inactive）' },
+      { field: 'projectCode', label: '项目编号' },
+      { field: 'contractDate', label: '合同签署日期' }
+    ],
+    finance: [
+      { field: 'quote', label: '报价金额（万元）' },
+      { field: 'quote_yuan', label: '报价金额（元）' },
+      { field: 'contract', label: '合同金额（万元）' },
+      { field: 'contract_yuan', label: '合同金额（元）' },
+      { field: 'cost', label: '成本评估（万元）' },
+      { field: 'collected', label: '已回款（万元）' }
+    ],
+    delivery: [
+      { field: 'deliveryBrief', label: '交付内容简要' },
+      { field: 'deliveryNote', label: '交付内容详细记录' }
+    ],
+    other: [
+      { field: 'todos', label: '待办事项（用|分隔多个）' },
+      { field: 'collectTasks', label: '催款任务' },
+      { field: 'logs', label: '更新日志' }
+    ]
+  };
+}
+
+// ── 生成表格识别提示词 ──
+function generateTablePrompt(headers, sampleRows) {
+  const fields = getProjectFields();
+  
+  let prompt = `以下是项目管理表格的列名：\n${JSON.stringify(headers)}\n\n样本数据：\n${JSON.stringify(sampleRows)}\n\n请将列名映射到字段（不匹配跳过）：\n\n`;
+  
+  // 添加基本信息字段
+  prompt += '基本信息：\n';
+  fields.basic.forEach(item => {
+    prompt += `- ${item.field}: ${item.label}\n`;
+  });
+  
+  // 添加财务信息字段
+  prompt += '\n财务信息：\n';
+  fields.finance.forEach(item => {
+    prompt += `- ${item.field}: ${item.label}\n`;
+  });
+  
+  // 添加交付信息字段
+  prompt += '\n交付信息：\n';
+  fields.delivery.forEach(item => {
+    prompt += `- ${item.field}: ${item.label}\n`;
+  });
+  
+  // 添加其他信息字段
+  prompt += '\n其他信息：\n';
+  fields.other.forEach(item => {
+    prompt += `- ${item.field}: ${item.label}\n`;
+  });
+  
+  // 添加重要要求
+  prompt += '\n重要要求：\n';
+  prompt += '1. 只返回JSON对象，不要添加任何额外说明\n';
+  prompt += '2. JSON的key是列名，value是字段名\n';
+  prompt += '3. 确保返回的是有效的JSON格式\n';
+  prompt += '4. 不要包含任何JSON之外的内容\n';
+  prompt += '5. 如果没有匹配的列名，返回空对象{}即可\n';
+  
+  // 添加示例输出格式
+  prompt += '\n示例输出格式：\n';
+  prompt += '{"项目名称": "name", "客户": "source", "负责人": "owner", "产品": "product", "描述": "desc", "状态": "stageLabel", "报价": "quote", "合同金额": "contract", "成本": "cost", "已回款": "collected", "交付内容": "deliveryBrief", "合同日期": "contractDate"}';
+  
+  return prompt;
+}
+
+// ── 沙盒 AI 调用（根据选择的模型类型）──
+async function sbxCallAI(messages, maxTokens = 2000, task = '沙盒测试') {
+  const modelType = document.getElementById('sbx-model-select').value;
+  
+  try {
+    if (modelType === 'sandbox') {
+      // 使用内置 Claude 沙盒
+      const resp = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: maxTokens, messages })
+      });
+      
+      // 检查响应状态
+      if (!resp.ok) {
+        const errorData = await resp.json().catch(() => ({}));
+        throw new Error(`内置 Claude 沙盒请求失败：HTTP ${resp.status} ${errorData.error?.message || resp.statusText}`);
+      }
+      
+      const data = await resp.json();
+      if (data.error) throw new Error(`内置 Claude 沙盒错误：${data.error.message}`);
+      
+      // 检查响应内容
+      if (!data.content || !Array.isArray(data.content)) {
+        throw new Error(`内置 Claude 沙盒返回格式错误：缺少 content 字段或格式不正确`);
+      }
+      
+      const responseText = data.content.filter(b => b.type === "text").map(b => b.text).join("") || "";
+      if (!responseText) {
+        throw new Error(`AI 返回了空响应。响应数据：${JSON.stringify(data)}`);
+      }
+      return responseText;
+    } else {
+      // 使用全局 AI 模型
+      const cfg = getAiConfig();
+      const data = await claudeCall({ 
+        task: task,
+        max_tokens: maxTokens, 
+        messages: messages 
+      });
+      
+      // 详细的调试信息
+      if (!data._parsed) {
+        throw new Error(`全局模型返回数据格式错误：缺少 _parsed 字段。原始响应：${JSON.stringify(data)}`);
+      }
+      
+      if (data._parsed.error) {
+        throw new Error(`全局模型错误：${data._parsed.error}`);
+      }
+      
+      const responseText = data._parsed?.text || data.content?.[0]?.text || '';
+      if (!responseText) {
+        // 尝试获取更多调试信息
+        throw new Error(`AI 返回了空响应。服务商：${cfg.provider}，模型：${cfg.model}，原始响应：${JSON.stringify(data)}`);
+      }
+      
+      return responseText;
+    }
+  } catch (e) {
+    return `[错误] ${e.message}`;
+  }
 }
 
 // ── 沙盒 Claude 调用（内置API，无需配置Key）──
 async function claudeCallSandbox(messages, maxTokens = 2000) {
-  const resp = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: maxTokens, messages })
-  });
-  const data = await resp.json();
-  if (data.error) throw new Error(data.error.message);
-  return data.content?.filter(b => b.type === "text").map(b => b.text).join("") || "";
+  return sbxCallAI(messages, maxTokens, '沙盒测试（内置）');
+}
+
+// ─────────────────────────────────────────
+// 表格识别 Tab
+// ─────────────────────────────────────────
+let sbxTableFile = null;
+let sbxTableData = [];
+let sbxTableHeaders = [];
+let sbxTablePrompt = '';
+
+function sbxTableFileSelected(input) {
+  const file = input.files[0];
+  if (!file) return;
+  
+  sbxTableFile = file;
+  document.getElementById('sbx-t-file-info').textContent = `已选择：${file.name} (${(file.size / 1024).toFixed(1)}KB)`;
+  document.getElementById('sbx-t-file-info').style.display = 'block';
+  document.getElementById('sbx-t-btn-parse').disabled = false;
+  
+  // 读取Excel文件
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+      
+      sbxTableData = jsonData;
+      if (jsonData.length > 0) {
+        sbxTableHeaders = jsonData[0];
+        
+        // 显示表格预览
+        const preview = document.getElementById('sbx-t-raw-table');
+        const info = document.getElementById('sbx-t-table-info');
+        info.textContent = `共 ${jsonData.length} 行，${jsonData[0].length} 列`;
+        
+        // 只显示前10行预览
+        const previewData = jsonData.slice(0, 10);
+        preview.textContent = previewData.map(row => row.join('\t')).join('\n');
+        document.getElementById('sbx-t-table-sec').style.display = 'block';
+      }
+    } catch(e) {
+      alert('读取Excel文件失败：' + e.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+async function sbxTableAnalyze() {
+  if (!sbxTableData.length) {
+    alert('请先上传Excel文件');
+    return;
+  }
+  
+  const btn = document.getElementById('sbx-t-btn-parse');
+  btn.disabled = true;
+  btn.textContent = '🔍 识别中...';
+  
+  try {
+    const headers = sbxTableHeaders;
+    const sampleRows = sbxTableData.slice(1, 4); // 取前3行作为样本
+    
+    // 生成Prompt
+    sbxTablePrompt = generateTablePrompt(headers, sampleRows);
+    
+    // 显示Prompt编辑区
+    document.getElementById('sbx-t-prompt-edit').value = sbxTablePrompt;
+    document.getElementById('sbx-t-prompt-sec').style.display = 'block';
+    
+    // 调用AI
+    const messages = [{ role: 'user', content: sbxTablePrompt }];
+    const response = await sbxCallAI(messages, 1000, '表格识别（沙盒）');
+    
+    // 显示原始响应
+    document.getElementById('sbx-t-raw-resp').textContent = response;
+    document.getElementById('sbx-t-raw-sec').style.display = 'block';
+    
+    // 检查是否为错误响应
+    if (response.startsWith('[错误]')) {
+      // 显示错误信息
+      const resultBody = document.getElementById('sbx-t-result-body');
+      resultBody.innerHTML = `<div style="background:rgba(255,204,128,.06);border:1px solid rgba(255,204,128,.15);border-radius:7px;padding:12px">
+        <div style="font-size:.7rem;color:#ffcc80;margin-bottom:8px;font-weight:600">AI 调用错误：</div>
+        <div style="color:#aaa;font-size:.68rem;margin-bottom:8px">${response.replace('[错误] ', '')}</div>
+        <div style="font-size:.65rem;color:#666">请检查网络连接或AI模型配置。</div>
+      </div>`;
+      document.getElementById('sbx-t-result-sec').style.display = 'block';
+    } else {
+      // 解析响应
+      let mapping = {};
+      let parseError = null;
+      
+      try {
+        // 尝试提取JSON：首先查找第一个 { 和最后一个 } 之间的内容
+        const firstBrace = response.indexOf('{');
+        const lastBrace = response.lastIndexOf('}');
+        
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+          const jsonStr = response.substring(firstBrace, lastBrace + 1);
+          mapping = JSON.parse(jsonStr);
+        } else {
+          // 尝试查找包含 JSON 的代码块
+          const codeBlockMatch = response.match(/```json[\s\S]*?```/);
+          if (codeBlockMatch) {
+            const jsonStr = codeBlockMatch[0].replace(/```json|```/g, '').trim();
+            mapping = JSON.parse(jsonStr);
+          } else {
+            // 尝试直接解析整个响应
+            mapping = JSON.parse(response);
+          }
+        }
+      } catch (e) {
+        parseError = e.message;
+      }
+      
+      if (parseError) {
+        // 显示解析错误信息，但仍然显示原始响应
+        const resultBody = document.getElementById('sbx-t-result-body');
+        resultBody.innerHTML = `<div style="background:rgba(255,204,128,.06);border:1px solid rgba(255,204,128,.15);border-radius:7px;padding:12px">
+          <div style="font-size:.7rem;color:#ffcc80;margin-bottom:8px;font-weight:600">解析错误：</div>
+          <div style="color:#aaa;font-size:.68rem;margin-bottom:8px">${parseError}</div>
+          <div style="font-size:.65rem;color:#666">请检查AI响应格式，确保返回的是有效的JSON对象。</div>
+        </div>`;
+        document.getElementById('sbx-t-result-sec').style.display = 'block';
+      } else {
+        // 显示解析结果
+        const resultBody = document.getElementById('sbx-t-result-body');
+        let html = '<div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:12px">';
+        html += '<div style="font-size:.7rem;color:#7eccd8;margin-bottom:8px;font-weight:600">列名映射结果：</div>';
+        
+        if (Object.keys(mapping).length === 0) {
+          html += '<div style="color:#aaa;font-size:.68rem">未识别到任何列名映射</div>';
+        } else {
+          Object.entries(mapping).forEach(([column, field]) => {
+            html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.05)">`;
+            html += `<span style="color:#aaa">${column}</span>`;
+            html += `<span style="color:#7eccd8;font-weight:600">${field}</span>`;
+            html += `</div>`;
+          });
+        }
+        
+        html += '</div>';
+        resultBody.innerHTML = html;
+        document.getElementById('sbx-t-result-sec').style.display = 'block';
+      }
+    }
+  } catch(e) {
+    alert('识别失败：' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔍 识别表格';
+  }
+}
+
+async function sbxTableRerun() {
+  const prompt = document.getElementById('sbx-t-prompt-edit').value;
+  if (!prompt) {
+    alert('请输入Prompt');
+    return;
+  }
+  
+  const btn = document.getElementById('sbx-t-btn-parse');
+  btn.disabled = true;
+  btn.textContent = '🔍 重新识别中...';
+  
+  try {
+    const messages = [{ role: 'user', content: prompt }];
+    const response = await sbxCallAI(messages, 1000, '表格识别（沙盒）');
+    
+    // 显示原始响应
+    document.getElementById('sbx-t-raw-resp').textContent = response;
+    document.getElementById('sbx-t-raw-sec').style.display = 'block';
+    
+    // 检查是否为错误响应
+    if (response.startsWith('[错误]')) {
+      // 显示错误信息
+      const resultBody = document.getElementById('sbx-t-result-body');
+      resultBody.innerHTML = `<div style="background:rgba(255,204,128,.06);border:1px solid rgba(255,204,128,.15);border-radius:7px;padding:12px">
+        <div style="font-size:.7rem;color:#ffcc80;margin-bottom:8px;font-weight:600">AI 调用错误：</div>
+        <div style="color:#aaa;font-size:.68rem;margin-bottom:8px">${response.replace('[错误] ', '')}</div>
+        <div style="font-size:.65rem;color:#666">请检查网络连接或AI模型配置。</div>
+      </div>`;
+      document.getElementById('sbx-t-result-sec').style.display = 'block';
+    } else {
+      // 解析响应
+      let mapping = {};
+      let parseError = null;
+      
+      try {
+        // 尝试提取JSON：首先查找第一个 { 和最后一个 } 之间的内容
+        const firstBrace = response.indexOf('{');
+        const lastBrace = response.lastIndexOf('}');
+        
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+          const jsonStr = response.substring(firstBrace, lastBrace + 1);
+          mapping = JSON.parse(jsonStr);
+        } else {
+          // 尝试查找包含 JSON 的代码块
+          const codeBlockMatch = response.match(/```json[\s\S]*?```/);
+          if (codeBlockMatch) {
+            const jsonStr = codeBlockMatch[0].replace(/```json|```/g, '').trim();
+            mapping = JSON.parse(jsonStr);
+          } else {
+            // 尝试直接解析整个响应
+            mapping = JSON.parse(response);
+          }
+        }
+      } catch (e) {
+        parseError = e.message;
+      }
+      
+      if (parseError) {
+        // 显示解析错误信息，但仍然显示原始响应
+        const resultBody = document.getElementById('sbx-t-result-body');
+        resultBody.innerHTML = `<div style="background:rgba(255,204,128,.06);border:1px solid rgba(255,204,128,.15);border-radius:7px;padding:12px">
+          <div style="font-size:.7rem;color:#ffcc80;margin-bottom:8px;font-weight:600">解析错误：</div>
+          <div style="color:#aaa;font-size:.68rem;margin-bottom:8px">${parseError}</div>
+          <div style="font-size:.65rem;color:#666">请检查AI响应格式，确保返回的是有效的JSON对象。</div>
+        </div>`;
+        document.getElementById('sbx-t-result-sec').style.display = 'block';
+      } else {
+        // 显示解析结果
+        const resultBody = document.getElementById('sbx-t-result-body');
+        let html = '<div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:12px">';
+        html += '<div style="font-size:.7rem;color:#7eccd8;margin-bottom:8px;font-weight:600">列名映射结果：</div>';
+        
+        if (Object.keys(mapping).length === 0) {
+          html += '<div style="color:#aaa;font-size:.68rem">未识别到任何列名映射</div>';
+        } else {
+          Object.entries(mapping).forEach(([column, field]) => {
+            html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.05)">`;
+            html += `<span style="color:#aaa">${column}</span>`;
+            html += `<span style="color:#7eccd8;font-weight:600">${field}</span>`;
+            html += `</div>`;
+          });
+        }
+        
+        html += '</div>';
+        resultBody.innerHTML = html;
+        document.getElementById('sbx-t-result-sec').style.display = 'block';
+      }
+    }
+  } catch(e) {
+    alert('识别失败：' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔍 识别表格';
+  }
+}
+
+function sbxTableClear() {
+  // 清空文件输入
+  document.getElementById('sbx-t-file').value = '';
+  document.getElementById('sbx-t-file-info').style.display = 'none';
+  document.getElementById('sbx-t-btn-parse').disabled = true;
+  
+  // 清空数据
+  sbxTableFile = null;
+  sbxTableData = [];
+  sbxTableHeaders = [];
+  sbxTablePrompt = '';
+  
+  // 清空界面
+  document.getElementById('sbx-t-table-sec').style.display = 'none';
+  document.getElementById('sbx-t-prompt-sec').style.display = 'none';
+  document.getElementById('sbx-t-raw-sec').style.display = 'none';
+  document.getElementById('sbx-t-result-sec').style.display = 'none';
+  document.getElementById('sbx-t-raw-table').textContent = '';
+  document.getElementById('sbx-t-prompt-edit').value = '';
+  document.getElementById('sbx-t-raw-resp').textContent = '';
+  document.getElementById('sbx-t-result-body').innerHTML = '';
 }
 
 // ─────────────────────────────────────────
@@ -4326,12 +5329,12 @@ async function sbxContractAnalyze(mode) {
     if (ext === 'pdf') {
       const ab = await sbxContractFile.arrayBuffer();
       const b64 = btoa(String.fromCharCode(...new Uint8Array(ab)));
-      rawText = await claudeCallSandbox([{ role:'user', content:[
+      rawText = await sbxCallAI([{ role:'user', content:[
         { type:'document', source:{ type:'base64', media_type:'application/pdf', data:b64 } },
         { type:'text', text:prompt }
-      ]}]);
+      ]}], 4000, '合同识别（沙盒）');
     } else {
-      rawText = await claudeCallSandbox([{ role:'user', content: document.getElementById('sbx-c-prompt-edit').value }]);
+      rawText = await sbxCallAI([{ role:'user', content: document.getElementById('sbx-c-prompt-edit').value }], 4000, '合同识别（沙盒）');
     }
     document.getElementById('sbx-c-raw-resp').textContent = rawText || '（空响应）';
     sbxRenderContractResult(rawText, mode);
@@ -4347,7 +5350,7 @@ async function sbxContractRerun() {
   document.getElementById('sbx-c-raw-resp').textContent = '请求中…';
   document.getElementById('sbx-c-result-sec').style.display = 'none';
   try {
-    const rawText = await claudeCallSandbox([{ role:'user', content:fullPrompt }]);
+    const rawText = await sbxCallAI([{ role:'user', content:fullPrompt }], 4000, '合同识别（沙盒）');
     document.getElementById('sbx-c-raw-resp').textContent = rawText || '（空响应）';
     sbxRenderContractResult(rawText, sbxContractMode);
   } catch(e) {
@@ -4474,12 +5477,12 @@ async function sbxAgreementAnalyze() {
     if (ext === 'pdf') {
       const ab = await sbxAgreementFile.arrayBuffer();
       const b64 = btoa(String.fromCharCode(...new Uint8Array(ab)));
-      rawText = await claudeCallSandbox([{ role:'user', content:[
+      rawText = await sbxCallAI([{ role:'user', content:[
         { type:'document', source:{ type:'base64', media_type:'application/pdf', data:b64 } },
         { type:'text', text:SBX_AGREEMENT_PROMPT }
-      ]}]);
+      ]}], 4000, '技术协议识别（沙盒）');
     } else {
-      rawText = await claudeCallSandbox([{ role:'user', content: document.getElementById('sbx-a-prompt-edit').value }]);
+      rawText = await sbxCallAI([{ role:'user', content: document.getElementById('sbx-a-prompt-edit').value }], 4000, '技术协议识别（沙盒）');
     }
     document.getElementById('sbx-a-raw-resp').textContent = rawText || '（空响应）';
     sbxRenderAgreementResult(rawText);
@@ -4495,7 +5498,7 @@ async function sbxAgreementRerun() {
   document.getElementById('sbx-a-raw-resp').textContent = '请求中…';
   document.getElementById('sbx-a-result-sec').style.display = 'none';
   try {
-    const rawText = await claudeCallSandbox([{ role:'user', content:fullPrompt }]);
+    const rawText = await sbxCallAI([{ role:'user', content:fullPrompt }], 4000, '技术协议识别（沙盒）');
     document.getElementById('sbx-a-raw-resp').textContent = rawText || '（空响应）';
     sbxRenderAgreementResult(rawText);
   } catch(e) {
