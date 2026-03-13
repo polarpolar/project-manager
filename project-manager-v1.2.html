@@ -353,11 +353,11 @@
   .drop-zone { border:2px dashed var(--paper3); border-radius:10px; padding:32px; text-align:center; cursor:pointer; transition:border-color .2s; margin-bottom:16px; }
   .drop-zone:hover, .drop-zone.over { border-color:var(--accent); background:var(--paper); }
   .drop-text { font-size:.8rem; color:#aaa; }
-  .import-preview { display:none; margin-bottom:16px; }
+  .import-preview { display:none; margin-bottom:16px; overflow-x:auto; }
   .import-preview.show { display:block; }
-  .import-preview table { width:100%; border-collapse:collapse; font-size:.72rem; }
-  .import-preview th { background:var(--ink); color:var(--gold); padding:7px 10px; text-align:left; }
-  .import-preview td { padding:6px 10px; border-bottom:1px solid var(--paper2); color:#555; }
+  .import-preview table { width:100%; min-width:800px; border-collapse:collapse; font-size:.72rem; }
+.import-preview th { background:var(--ink); color:var(--gold); padding:7px 12px; text-align:left; white-space:nowrap; }
+.import-preview td { padding:6px 12px; border-bottom:1px solid var(--paper2); color:#555; white-space:nowrap; }
   .import-footer { display:flex; gap:10px; justify-content:flex-end; }
   .tag-new { color:#2e7d32; font-weight:700; }
   .tag-update { color:#e65100; font-weight:700; }
@@ -627,7 +627,13 @@
 
   <!-- 统计数字 -->
   <div class="sb-stats">
-    <div class="sb-stats-title">OVERVIEW</div>
+    <div class="sb-stats-title" style="display:flex;justify-content:space-between;align-items:center;">
+      <span>OVERVIEW</span>
+      <div style="display:flex;gap:4px;">
+        <button class="sb-btn" style="font-size:.55rem;padding:2px 6px;" onclick="setStatsFilter('all')">全部</button>
+        <button class="sb-btn" style="font-size:.55rem;padding:2px 6px;" onclick="setStatsFilter('thisYear')">本年</button>
+      </div>
+    </div>
     <div class="stat-item">
       <span class="stat-label">全部项目</span>
       <span class="stat-val"><span class="stat-num" id="stat-total">0</span><span class="stat-unit">个</span></span>
@@ -637,7 +643,7 @@
       <span class="stat-val"><span class="stat-num" id="stat-quote">0.00</span><span class="stat-unit">万</span></span>
     </div>
     <div class="stat-item">
-      <span class="stat-label">合同总额（本年）</span>
+      <span class="stat-label">合同总额</span>
       <span class="stat-val"><span class="stat-num" id="stat-contract">0.00</span><span class="stat-unit">万</span></span>
     </div>
     <div class="stat-item">
@@ -760,7 +766,7 @@
   <div class="ledger-body">
     <table class="ledger-table">
       <thead><tr>
-        <th>项目名称</th><th>阶段</th><th>来源</th><th>负责人</th>
+        <th>项目名称</th><th>阶段</th><th>项目来源</th><th>客户</th><th>负责人</th>
         <th>报价（万）</th><th>合同（万）</th><th>签订日期</th><th>已回款</th><th>回款进度</th><th>毛利润</th><th>待办</th>
       </tr></thead>
       <tbody id="ledgerBody"></tbody>
@@ -908,20 +914,9 @@
     <!-- Tab 导航 -->
     <div class="modal-tabs">
       <div class="m-tab active" onclick="switchModalTab('basic',this)">📋 基本信息</div>
-      <div class="m-tab" onclick="switchModalTab('payment',this)" style="display:flex;align-items:center;gap:5px">
-        💰 金额与回款
-        <span id="tab-payment-ai-btn" onclick="event.stopPropagation();openFilePanelFromModal('contract')"
-          style="font-size:.58rem;padding:1px 6px;border-radius:6px;border:1px solid rgba(77,182,172,.35);background:rgba(77,182,172,.1);color:var(--sc);cursor:pointer;display:none">
-          🤖 AI
-        </span>
-      </div>
-      <div class="m-tab" onclick="switchModalTab('delivery',this)" style="display:flex;align-items:center;gap:5px">
-        📦 交付情况
-        <span id="tab-delivery-ai-btn" onclick="event.stopPropagation();openFilePanelFromModal('agreement')"
-          style="font-size:.58rem;padding:1px 6px;border-radius:6px;border:1px solid rgba(126,204,216,.35);background:rgba(126,204,216,.1);color:#7eccd8;cursor:pointer;display:none">
-          🤖 AI
-        </span>
-      </div>
+      <div class="m-tab" onclick="switchModalTab('payment',this)">💰 回款管理</div>
+      <div class="m-tab" onclick="switchModalTab('delivery',this)">📦 交付情况</div>
+      <div class="m-tab" onclick="switchModalTab('files',this)">📁 本地文件</div>
       <div class="m-tab" onclick="switchModalTab('payment',this)" style="display:none" id="tab-contract-ai-wrap">
       </div>
       <div class="m-tab" onclick="switchModalTab('log',this)">📝 更新日志</div>
@@ -941,14 +936,23 @@
         </div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label>项目来源</label><input type="text" id="f-source" placeholder="例：老客户介绍"></div>
+        <div class="form-group"><label>项目来源</label><input type="text" id="f-channel" placeholder="例：老客户介绍、展会、网络搜索"></div>
+        <div class="form-group"><label>客户名称</label><input type="text" id="f-source" placeholder="例：XX科技有限公司"></div>
         <div class="form-group"><label>负责人</label><input type="text" id="f-owner" placeholder="例：苏奕玮"></div>
         <div class="form-group"><label>产品/方案</label><input type="text" id="f-product" placeholder="例：G01+V03"></div>
       </div>
       <div class="form-group"><label>项目简介</label><textarea id="f-desc" placeholder="简要描述项目背景与需求…"></textarea></div>
 
+      <!-- 报价/预算金额（洽谈中和已终止项目显示） -->
+      <div class="form-row" id="f-quote-amount-group" style="margin-bottom:4px">
+        <div class="form-group" style="margin-bottom:0">
+          <label style="display:flex;align-items:center;gap:5px">报价/预算金额（万元）</label>
+          <input type="number" id="f-quote" placeholder="0.00" step="0.01" min="0">
+        </div>
+      </div>
+      
       <!-- 合同金额 & 回款总金额（只读汇总，与金额Tab联动） -->
-      <div class="form-row" style="margin-bottom:4px">
+      <div class="form-row" style="margin-bottom:4px" id="f-contract-amount-group">
         <div class="form-group" style="margin-bottom:0">
           <label style="display:flex;align-items:center;gap:5px">合同金额（万元）
             <span style="font-size:.6rem;color:#bbb;font-weight:400">→ 在「金额与回款」Tab编辑</span>
@@ -958,7 +962,7 @@
             oninput="document.getElementById('f-contract').value=this.value;updatePaymentPct();syncPnFromContract()"
             onfocus="switchModalTabById('payment')">
         </div>
-        <div class="form-group" style="margin-bottom:0">
+        <div class="form-group" style="margin-bottom:0" id="f-collected-amount-group">
           <label style="display:flex;align-items:center;gap:5px">回款总金额（万元）
             <span style="font-size:.6rem;color:#bbb;font-weight:400">已回款</span>
           </label>
@@ -968,7 +972,9 @@
             onfocus="switchModalTabById('payment')">
         </div>
       </div>
-      <div class="form-group" style="margin-bottom:8px">
+      
+      <!-- 交付内容 -->
+      <div class="form-group" style="margin-bottom:8px" id="f-delivery-content-group">
         <label style="display:flex;align-items:center;gap:6px">
           📦 交付内容
           <span id="dt-ai-hint2" style="font-size:.62rem;color:#7eccd8;font-weight:400"></span>
@@ -981,10 +987,19 @@
           <div class="dtag dtag-ot off" id="dtag2-ot" onclick="toggleDtag2('ot')">📎 其他</div>
         </div>
       </div>
-      <div class="form-group">
+      
+      <!-- 内容简介 -->
+      <div class="form-group" id="f-delivery-brief-group">
         <label>内容简介（合同约定的交付物概述）</label>
         <textarea id="f-delivery-brief" placeholder="简要描述合同约定的交付内容，如：无线传感器×20套、数据平台软件一套…" style="min-height:64px"></textarea>
       </div>
+      
+      <!-- 终止原因 -->
+      <div class="form-group" id="f-termination-reason-group" style="display:none">
+        <label>终止原因</label>
+        <textarea id="f-termination-reason" placeholder="简要描述项目终止的原因…" style="min-height:64px"></textarea>
+      </div>
+      
       <div class="form-row">
         <div class="form-group">
           <label>项目阶段</label>
@@ -1003,7 +1018,7 @@
             <option value="合同谈判">合同谈判</option>
           </select>
         </div>
-        <div class="form-group">
+        <div class="form-group" id="f-active-group">
           <label>活跃度</label>
           <select id="f-active">
             <option value="active">🟢 活跃</option>
@@ -1054,7 +1069,10 @@
         <div style="font-size:.72rem;font-weight:700;color:var(--sc)">📌 回款节点
           <span id="pn-ai-hint" style="font-size:.62rem;color:#7eccd8;font-weight:400;margin-left:6px"></span>
         </div>
-        <button type="button" class="btn-add-pn" style="width:auto;padding:4px 12px;margin:0" onclick="addPaymentNode()">＋ 手动添加</button>
+        <div style="display:flex;gap:6px">
+          <button type="button" class="ca-analyze-btn" onclick="analyzeContractsForPayment()" style="font-size:.68rem;padding:4px 10px">🔍 识别合同</button>
+          <button type="button" class="btn-add-pn" style="width:auto;padding:4px 12px;margin:0" onclick="addPaymentNode()">＋ 手动添加</button>
+        </div>
       </div>
       <div class="pn-list" id="f-pn-list"></div>
       <div id="f-pn-empty" style="font-size:.73rem;color:#ccc;text-align:center;padding:14px 0;display:none">
@@ -1072,8 +1090,11 @@
     <!-- Tab 3：交付情况 -->
     <div class="m-tab-body" id="mtab-delivery">
       <div style="margin-bottom:12px">
-        <div style="font-size:.72rem;font-weight:700;color:var(--s1);margin-bottom:6px">📦 交付内容
-          <span id="dt-ai-hint" style="font-size:.62rem;color:#7eccd8;font-weight:400;margin-left:6px"></span>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <div style="font-size:.72rem;font-weight:700;color:var(--s1)">📦 交付内容
+            <span id="dt-ai-hint" style="font-size:.62rem;color:#7eccd8;font-weight:400;margin-left:6px"></span>
+          </div>
+          <button type="button" class="ca-analyze-btn" onclick="analyzeContractsForDelivery()" style="font-size:.68rem;padding:4px 10px">🔍 识别交付内容</button>
         </div>
         <div style="font-size:.68rem;color:#aaa;margin-bottom:10px">点击标签切换是否包含该交付类型（可由合同识别自动填入）</div>
         <div class="dtag-wrap">
@@ -1084,12 +1105,118 @@
         </div>
       </div>
       <div class="form-group">
+        <label>交付内容描述（由AI自动更新）</label>
+        <textarea id="f-delivery-brief" placeholder="AI将根据合同和技术协议自动生成交付内容描述…" style="min-height:80px"></textarea>
+      </div>
+      <div class="form-group">
         <label>补充说明（交付细节、安装调试情况、客户反馈等）</label>
         <textarea id="f-delivery-note" placeholder="记录具体交付内容、安装进展、调试记录、客户验收情况…" style="min-height:120px"></textarea>
       </div>
     </div>
 
-    <!-- Tab 4：更新日志 -->
+    <!-- Tab 4：本地文件 -->
+    <div class="m-tab-body" id="mtab-files">
+      <!-- 根目录状态 -->
+      <div class="fs-root-bar" id="modalFsRootBar" style="margin-bottom:12px">
+        <span>📂 本地文件目录：</span>
+        <span class="root-path" id="modalFsRootPath" style="cursor:pointer;" onclick="selectRootDir()">未选择</span>
+        <button class="btn-hdr btn-hdr-ghost" style="font-size:.68rem;padding:4px 10px" onclick="selectRootDir()">选择目录</button>
+
+      </div>
+      <!-- 拖拽上传区 -->
+      <div class="file-drop-zone" id="modalFileDropZone" onclick="triggerFileUpload()" style="margin-bottom:16px">
+        拖拽文件到此处，或点击上传
+      </div>
+      <input type="file" id="modalFileUploadInput" multiple style="display:none">
+
+      <!-- 合同区域 -->
+      <div class="file-section" style="margin-bottom:14px" id="modalContractSection">
+        <div class="file-section-header">
+          <span>📄</span>
+          <div class="file-section-title">合同</div>
+          <span class="file-section-count" id="modalContractCount">0 个文件</span>
+          <span id="modalContractSelectHint" style="font-size:.6rem;color:#bbb;display:none">点击文件可多选</span>
+          <button class="ca-analyze-btn" id="modalContractAnalyzeBtn" onclick="analyzeContracts()" style="display:none">🔍 识别合同</button>
+        </div>
+        <div class="file-section-body">
+          <div id="modalContractFileGrid" class="file-list" style="margin-bottom:0"></div>
+          <div id="modalContractEmpty" class="file-section-empty">暂无合同文件</div>
+          <!-- 合同识别结果 -->
+          <div id="modalContractAnalysis" style="display:none"></div>
+        </div>
+      </div>
+
+      <!-- 技术协议区域 -->
+      <div class="file-section" style="margin-bottom:14px" id="modalAgreementSection">
+        <div class="file-section-header">
+          <span>📋</span>
+          <div class="file-section-title">技术协议</div>
+          <span class="file-section-count" id="modalAgreementCount">0 个文件</span>
+          <span id="modalAgreementSelectHint" style="font-size:.6rem;color:#bbb;display:none">点击文件可多选</span>
+          <button class="ca-analyze-btn" id="modalAgreementAnalyzeBtn" onclick="analyzeAgreements()" style="display:none">🤖 识别交付内容</button>
+        </div>
+        <div class="file-section-body">
+          <div id="modalAgreementFileGrid" class="file-list" style="margin-bottom:0"></div>
+          <div id="modalAgreementEmpty" class="file-section-empty">暂无技术协议文件</div>
+          <div id="modalAgreementAnalysis" style="display:none"></div>
+        </div>
+      </div>
+
+      <!-- 技术方案区域 -->
+      <div class="file-section" style="margin-bottom:14px" id="modalTechPlanSection">
+        <div class="file-section-header">
+          <span>📋</span>
+          <div class="file-section-title">技术方案</div>
+          <span class="file-section-count" id="modalTechPlanCount">0 个文件</span>
+          <span id="modalTechPlanSelectHint" style="font-size:.6rem;color:#bbb;display:none">点击文件可多选</span>
+        </div>
+        <div class="file-section-body">
+          <div id="modalTechPlanFileGrid" class="file-list" style="margin-bottom:0"></div>
+          <div id="modalTechPlanEmpty" class="file-section-empty">暂无技术方案文件</div>
+        </div>
+      </div>
+
+      <!-- 方案报价区域 -->
+      <div class="file-section" style="margin-bottom:14px" id="modalQuoteSection">
+        <div class="file-section-header">
+          <span>💰</span>
+          <div class="file-section-title">方案报价</div>
+          <span class="file-section-count" id="modalQuoteCount">0 个文件</span>
+          <span id="modalQuoteSelectHint" style="font-size:.6rem;color:#bbb;display:none">点击文件可多选</span>
+          <button class="ca-analyze-btn" id="modalQuoteAnalyzeBtn" onclick="analyzeQuotes()" style="display:none">🔍 识别报价</button>
+        </div>
+        <div class="file-section-body">
+          <div id="modalQuoteFileGrid" class="file-list" style="margin-bottom:0"></div>
+          <div id="modalQuoteEmpty" class="file-section-empty">暂无方案报价文件</div>
+          <div id="modalQuoteAnalysis" style="display:none"></div>
+        </div>
+      </div>
+
+      <!-- 其他文件区域 -->
+      <div class="file-section" style="margin-bottom:14px">
+        <div class="file-section-header">
+          <span>🗂️</span>
+          <div class="file-section-title">其他文件</div>
+          <span class="file-section-count" id="modalOtherCount">0 个文件</span>
+        </div>
+        <div class="file-section-body">
+          <div id="modalOtherFileGrid" class="file-list" style="margin-bottom:0"></div>
+          <div id="modalOtherEmpty" class="file-section-empty">暂无其他文件</div>
+        </div>
+      </div>
+
+      <!-- 备注区 -->
+      <div class="file-note-area">
+        <div style="font-size:.7rem;font-weight:700;color:var(--ink);margin-bottom:8px">📝 项目备注</div>
+        <textarea id="modalFileNoteText" placeholder="在此记录项目备注，保存后会写入项目文件夹中的「备注.txt」…"></textarea>
+        <div class="file-note-save">
+          <span id="modalFileNoteSaveStatus" style="font-size:.68rem;color:#aaa"></span>
+          <button class="btn-save" style="padding:6px 16px;font-size:.75rem" onclick="saveNote()">保存备注</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 5：更新日志 -->
     <div class="m-tab-body" id="mtab-log">
       <div class="form-group">
         <label>本次更新内容（保存后自动添加时间戳）</label>
@@ -1120,6 +1247,7 @@
         <span>📂 根目录：</span>
         <span class="root-path" id="fsRootPath">未选择</span>
         <button class="btn-hdr btn-hdr-ghost" style="font-size:.68rem;padding:4px 10px" onclick="selectRootDir()">选择目录</button>
+
       </div>
       <!-- 拖拽上传区 -->
       <div class="file-drop-zone" id="fileDropZone" onclick="triggerFileUpload()">
@@ -1521,33 +1649,101 @@
 let projects = [];
 let recycleBin = [];
 let editingId = null;
+let currentEditProjectId = null;
+let statsFilter = 'thisYear'; // all 或 thisYear
 
 try {
   const raw = localStorage.getItem('pm_projects_v3');
-  if (raw) projects = JSON.parse(raw);
-  else {
+  if (raw) {
+    try {
+      projects = JSON.parse(raw);
+      console.log('项目数据加载成功，数量：', projects.length);
+    } catch (parseError) {
+      console.error('解析项目数据失败：', parseError);
+      // 尝试从旧版本迁移
+      const old = localStorage.getItem('pm_projects_v2');
+      if (old) {
+        try {
+          const oldArr = JSON.parse(old);
+          projects = oldArr.map(p => ({
+            ...p,
+            // 旧阶段映射：0→0, 1→1, 2→1(执行中), 3→2
+            stage: p.stage === 3 ? 2 : (p.stage === 2 ? 1 : p.stage),
+            collectTasks: p.collectTasks || [],
+            collected: p.collected || '',
+            paymentPct: p.paymentPct || 0}));
+          console.log('从旧版本迁移数据成功，数量：', projects.length);
+          // 保存迁移后的数据
+          localStorage.setItem('pm_projects_v3', JSON.stringify(projects));
+        } catch (oldParseError) {
+          console.error('解析旧版本数据失败：', oldParseError);
+          projects = [];
+        }
+      } else {
+        projects = [];
+      }
+    }
+  } else {
     // 尝试迁移旧数据
     const old = localStorage.getItem('pm_projects_v2');
     if (old) {
-      const oldArr = JSON.parse(old);
-      projects = oldArr.map(p => ({
-        ...p,
-        // 旧阶段映射：0→0, 1→1, 2→1(执行中), 3→2
-        stage: p.stage === 3 ? 2 : (p.stage === 2 ? 1 : p.stage),
-        collectTasks: p.collectTasks || [],
-        collected: p.collected || '',
-        paymentPct: p.paymentPct || 0}));
+      try {
+        const oldArr = JSON.parse(old);
+        projects = oldArr.map(p => ({
+          ...p,
+          // 旧阶段映射：0→0, 1→1, 2→1(执行中), 3→2
+          stage: p.stage === 3 ? 2 : (p.stage === 2 ? 1 : p.stage),
+          collectTasks: p.collectTasks || [],
+          collected: p.collected || '',
+          paymentPct: p.paymentPct || 0}));
+        console.log('从旧版本迁移数据成功，数量：', projects.length);
+        // 保存迁移后的数据
+        localStorage.setItem('pm_projects_v3', JSON.stringify(projects));
+      } catch (oldParseError) {
+        console.error('解析旧版本数据失败：', oldParseError);
+        projects = [];
+      }
     }
   }
   
   // 加载回收站数据
   const recycleRaw = localStorage.getItem('pm_recycle_bin_v1');
-  if (recycleRaw) recycleBin = JSON.parse(recycleRaw);
-} catch(e) {}
+  if (recycleRaw) {
+    try {
+      recycleBin = JSON.parse(recycleRaw);
+      console.log('回收站数据加载成功，数量：', recycleBin.length);
+    } catch (recycleParseError) {
+      console.error('解析回收站数据失败：', recycleParseError);
+      recycleBin = [];
+    }
+  }
+} catch(e) {
+  console.error('加载数据失败：', e);
+  projects = [];
+  recycleBin = [];
+}
 
 function save() {
-  try { localStorage.setItem('pm_projects_v3', JSON.stringify(projects)); } catch(e) {}
-  try { localStorage.setItem('pm_recycle_bin_v1', JSON.stringify(recycleBin)); } catch(e) {}
+  try {
+    const projectsData = JSON.stringify(projects);
+    const recycleData = JSON.stringify(recycleBin);
+    
+    // 检查数据大小
+    const projectsSize = new Blob([projectsData]).size;
+    const recycleSize = new Blob([recycleData]).size;
+    const totalSize = projectsSize + recycleSize;
+    
+    // 检查是否超过localStorage容量限制（约5MB）
+    if (totalSize > 5 * 1024 * 1024) {
+      console.warn('localStorage容量警告：数据大小为', (totalSize / (1024 * 1024)).toFixed(2), 'MB，可能接近容量限制');
+    }
+    
+    localStorage.setItem('pm_projects_v3', projectsData);
+    localStorage.setItem('pm_recycle_bin_v1', recycleData);
+    console.log('数据保存成功，大小：', (totalSize / 1024).toFixed(2), 'KB');
+  } catch(e) {
+    console.error('保存数据失败：', e);
+  }
   render();
   if (document.getElementById('todosPanel').classList.contains('open')) renderTodosPanel();
   if (document.getElementById('ledgerPanel').classList.contains('open')) renderLedger();
@@ -1815,6 +2011,18 @@ function toggleSidebar() {
 })();
 
 function render() {
+  // 初始化筛选按钮样式
+  const buttons = document.querySelectorAll('.sb-stats-title button');
+  buttons.forEach(btn => {
+    if (btn.onclick.toString().includes(statsFilter)) {
+      btn.style.background = 'var(--gold)';
+      btn.style.color = 'var(--ink)';
+    } else {
+      btn.style.background = 'none';
+      btn.style.color = 'rgba(255,255,255,.72)';
+    }
+  });
+  
   const cols = { '0':[], '1':[], 'c':[], '2':[], '3':[] };
   projects.forEach(p => cols[getBoardColumn(p)].push(p));
 
@@ -1837,15 +2045,34 @@ function render() {
   });
 
   const thisYear = new Date().getFullYear();
-  const quoteSum    = projects.reduce((a,p)=>a+(parseFloat(p.quote)||0),0);
-  // 合同总额：仅统计本年度签单的项目（依据 contractDate，无日期则不计入）
-  const contractSum = projects.reduce((a,p)=>{
-    if (!p.contractDate) return a;
-    const y = new Date(p.contractDate).getFullYear();
-    return y === thisYear ? a+(parseFloat(p.contract)||0) : a;
-  }, 0);
-  const todoCount   = projects.reduce((a,p)=>a+(p.todos||[]).filter(t=>!t.done).length,0);
-  document.getElementById('stat-total').textContent    = projects.length;
+  
+  // 根据筛选条件过滤项目
+  const filteredProjects = statsFilter === 'thisYear' ? 
+    projects.filter(p => {
+      if (!p.contractDate) return false;
+      const y = new Date(p.contractDate).getFullYear();
+      return y === thisYear;
+    }) : 
+    // 全部项目：包含洽谈中的项目和本年签单的项目
+    projects.filter(p => {
+      // 洽谈中的项目
+      if (p.stage === 0) return true;
+      // 本年签单的项目
+      if (p.contractDate) {
+        const y = new Date(p.contractDate).getFullYear();
+        return y === thisYear;
+      }
+      return false;
+    });
+
+  // 全部项目数量：始终显示所有项目的数量
+  const totalCount = projects.length;
+  // 报价总额：只包含所有洽谈中的项目，不受时间影响
+  const quoteSum = projects.filter(p => p.stage === 0).reduce((a,p)=>a+(parseFloat(p.quote)||0),0);
+  const contractSum = filteredProjects.reduce((a,p)=>a+(parseFloat(p.contract)||0),0);
+  const todoCount = filteredProjects.reduce((a,p)=>a+(p.todos||[]).filter(t=>!t.done).length,0);
+  
+  document.getElementById('stat-total').textContent    = totalCount;
   document.getElementById('stat-quote').textContent    = quoteSum.toFixed(2);
   document.getElementById('stat-contract').textContent = contractSum.toFixed(2);
   document.getElementById('stat-todo').textContent     = todoCount;
@@ -1854,8 +2081,9 @@ function render() {
 function cardHTML(p, colKey) {
   const sAttr = colKey === 'c' ? 'c' : STAGE_S_ATTR[p.stage];
 
-  const metaHtml = (p.source||p.owner||p.product||(p.stage===0&&p.洽谈状态)) ? `
+  const metaHtml = (p.channel||p.source||p.owner||p.product||(p.stage===0&&p.洽谈状态)) ? `
     <div class="card-meta">
+      ${p.channel ? `<span class="card-tag">🌐 ${p.channel}</span>` : ''}
       ${p.source  ? `<span class="card-tag">📌 ${p.source}</span>` : ''}
       ${p.owner   ? `<span class="card-tag">👤 ${p.owner}</span>`   : ''}
       ${p.product ? `<span class="card-tag">📦 ${p.product}</span>` : ''}
@@ -1883,8 +2111,7 @@ function cardHTML(p, colKey) {
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:${hasDelivery?'5px':'0'}">
         <span style="font-size:.6rem;color:var(--s1);font-weight:600">📦 交付内容</span>
       </div>
-      ${tagItems.length ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:${(p.deliveryBrief||p.deliveryNote)?'4px':'0'}">${tagItems.join('')}</div>` : ''}
-      ${p.deliveryBrief ? `<div style="font-size:.68rem;color:#555;line-height:1.4">${p.deliveryBrief}</div>` : ''}
+      ${tagItems.length ? `<div style="display:flex;gap:4px;flex-wrap:wrap">${tagItems.join('')}</div>` : ''}
       ${!hasDelivery ? `<div style="font-size:.65rem;color:#bbb">暂无交付信息，可通过文件面板识别技术协议自动提取</div>` : ''}
     </div>` : '';
 
@@ -1895,13 +2122,13 @@ function cardHTML(p, colKey) {
     const nodes = p.paymentNodes || [];
     const doneCount = nodes.filter(n=>n.done).length;
     const nodePreview = nodes.slice(0,3).map(n => `
-      <div style="display:flex;align-items:center;gap:5px;padding:3px 0;border-bottom:1px solid var(--paper2)">
-        <span style="width:12px;height:12px;border-radius:50%;border:1.5px solid ${n.done?'var(--sc)':'#ddd'};background:${n.done?'var(--sc)':'transparent'};flex-shrink:0;display:flex;align-items:center;justify-content:center">
+      <div style="display:flex;align-items:flex-start;gap:5px;padding:3px 0;border-bottom:1px solid var(--paper2);flex-wrap:wrap">
+        <span style="width:12px;height:12px;border-radius:50%;border:1.5px solid ${n.done?'var(--sc)':'#ddd'};background:${n.done?'var(--sc)':'transparent'};flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-top:2px">
           ${n.done ? '<span style="color:#fff;font-size:8px">✓</span>' : ''}
         </span>
-        <span style="font-size:.65rem;color:#666;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${n.condition||'付款节点'}</span>
-        ${n.ratio ? `<span style="font-size:.63rem;color:var(--sc);font-weight:700;flex-shrink:0">${n.ratio}</span>` : ''}
-        ${n.contractAmountYuan ? `<span style="font-size:.62rem;color:#888;flex-shrink:0">${fmtYuan(n.contractAmountYuan)} 元</span>` : n.amount ? `<span style="font-size:.62rem;color:#888;flex-shrink:0">${n.amount}</span>` : ''}
+        <span style="font-size:.65rem;color:#666;flex:1;min-width:0;word-wrap:break-word">${n.condition||'付款节点'}</span>
+        ${n.ratio ? `<span style="font-size:.63rem;color:var(--sc);font-weight:700;flex-shrink:0;margin-top:2px">${n.ratio}</span>` : ''}
+        ${n.contractAmountYuan ? `<span style="font-size:.62rem;color:#888;flex-shrink:0;margin-top:2px">${fmtYuan(n.contractAmountYuan)} 元</span>` : n.amount ? `<span style="font-size:.62rem;color:#888;flex-shrink:0;margin-top:2px">${n.amount}</span>` : ''}
       </div>`).join('');
     paymentHtml = `
     <div class="card-payment">
@@ -1954,7 +2181,7 @@ function cardHTML(p, colKey) {
   let actionBtns = '';
   if (p.stage === 0) actionBtns += `<button class="btn-sm btn-next" onclick="moveStage('${p.id}',1)">→ 已签单执行中</button>`;
   if (p.stage === 1) actionBtns += `<button class="btn-sm btn-done" onclick="moveStage('${p.id}',2)">→ 已完结</button>`;
-  actionBtns += `<button class="btn-sm" style="background:rgba(206,147,216,.15);color:var(--accent2)" onclick="openFilePanel('${p.id}')">📁 文件</button>`;
+
   actionBtns += `<button class="btn-sm btn-del" onclick="deleteProject('${p.id}')">✕</button>`;
 
   return `
@@ -1963,7 +2190,7 @@ function cardHTML(p, colKey) {
       <div class="card-name" onclick="editProject('${p.id}')">${p.name}</div>
       <span class="card-active ${p.active==='inactive'?'off':'on'}">${p.active==='inactive'?'🔴 不活跃':'🟢 活跃'}</span>
     </div>
-    ${updatedHtml}${logHtml}${metaHtml}${amtHtml}${deliveryHtml}${paymentHtml}${collectHtml}${descHtml}${todoHtml}
+    ${updatedHtml}${logHtml}${metaHtml}${amtHtml}${deliveryHtml}${paymentHtml}${descHtml}${todoHtml}
     <div class="card-actions">${actionBtns}</div>
   </div>`;
 }
@@ -1975,10 +2202,80 @@ function cardHTML(p, colKey) {
 // 阶段切换时：控制合同签署日期字段和洽谈状态字段显隐
 function onStageChange() {
   const stage = parseInt(document.getElementById('f-stage').value);
+  console.log('项目阶段变更为:', stage);
+  
   const cdGroup = document.getElementById('f-contract-date-group');
   const dsGroup = document.getElementById('f-discuss-status-group');
-  if (cdGroup) cdGroup.style.display = (stage === 1 || stage === 2) ? 'block' : 'none';
-  if (dsGroup) dsGroup.style.display = (stage === 0) ? 'block' : 'none';
+  const activeGroup = document.getElementById('f-active-group');
+  const terminationReasonGroup = document.getElementById('f-termination-reason-group');
+  const contractAmountGroup = document.getElementById('f-contract-amount-group');
+  const collectedAmountGroup = document.getElementById('f-collected-amount-group');
+  const quoteAmountGroup = document.getElementById('f-quote-amount-group');
+  const deliveryContentGroup = document.getElementById('f-delivery-content-group');
+  const deliveryBriefGroup = document.getElementById('f-delivery-brief-group');
+  
+  // 显示/隐藏合同签署日期字段
+  if (cdGroup) {
+    cdGroup.style.display = (stage === 1 || stage === 2) ? 'block' : 'none';
+    console.log('合同签署日期字段显示状态:', (stage === 1 || stage === 2) ? 'block' : 'none');
+  }
+  
+  // 显示/隐藏洽谈状态字段
+  if (dsGroup) {
+    dsGroup.style.display = (stage === 0) ? 'block' : 'none';
+    console.log('洽谈状态字段显示状态:', (stage === 0) ? 'block' : 'none');
+  }
+  
+  // 显示/隐藏活跃度字段（已终止项目不显示）
+  if (activeGroup) {
+    activeGroup.style.display = (stage !== 3) ? 'block' : 'none';
+    console.log('活跃度字段显示状态:', (stage !== 3) ? 'block' : 'none');
+  }
+  
+  // 显示/隐藏终止原因字段（仅已终止项目显示）
+  if (terminationReasonGroup) {
+    terminationReasonGroup.style.display = (stage === 3) ? 'block' : 'none';
+    console.log('终止原因字段显示状态:', (stage === 3) ? 'block' : 'none');
+  }
+  
+  // 显示/隐藏合同金额和回款金额字段（洽谈中和已终止项目不显示）
+  if (contractAmountGroup) {
+    contractAmountGroup.style.display = (stage === 1 || stage === 2) ? 'block' : 'none';
+    console.log('合同金额字段显示状态:', (stage === 1 || stage === 2) ? 'block' : 'none');
+  }
+  if (collectedAmountGroup) {
+    collectedAmountGroup.style.display = (stage === 1 || stage === 2) ? 'block' : 'none';
+    console.log('回款金额字段显示状态:', (stage === 1 || stage === 2) ? 'block' : 'none');
+  }
+  
+  // 显示/隐藏报价/预算金额字段（洽谈中和已终止项目显示）
+  if (quoteAmountGroup) {
+    quoteAmountGroup.style.display = (stage === 0 || stage === 3) ? 'block' : 'none';
+    console.log('报价/预算金额字段显示状态:', (stage === 0 || stage === 3) ? 'block' : 'none');
+  }
+  
+  // 显示/隐藏交付内容和内容简介字段（洽谈中和已终止项目不显示）
+  if (deliveryContentGroup) {
+    deliveryContentGroup.style.display = (stage === 1 || stage === 2) ? 'block' : 'none';
+    console.log('交付内容字段显示状态:', (stage === 1 || stage === 2) ? 'block' : 'none');
+  }
+  if (deliveryBriefGroup) {
+    deliveryBriefGroup.style.display = (stage === 1 || stage === 2) ? 'block' : 'none';
+    console.log('内容简介字段显示状态:', (stage === 1 || stage === 2) ? 'block' : 'none');
+  }
+  
+  // 显示/隐藏金额与回款、交付情况tab页（洽谈中和已终止项目不显示）
+  const paymentTab = document.querySelector('.m-tab[onclick="switchModalTab(\'payment\',this)"]');
+  const deliveryTab = document.querySelector('.m-tab[onclick="switchModalTab(\'delivery\',this)"]');
+  
+  if (paymentTab) {
+    paymentTab.style.display = (stage === 1 || stage === 2) ? 'flex' : 'none';
+    console.log('金额与回款tab显示状态:', (stage === 1 || stage === 2) ? 'flex' : 'none');
+  }
+  if (deliveryTab) {
+    deliveryTab.style.display = (stage === 1 || stage === 2) ? 'flex' : 'none';
+    console.log('交付情况tab显示状态:', (stage === 1 || stage === 2) ? 'flex' : 'none');
+  }
 }
 
 // 合同签署日期变化时：更新编号尾部年月（预览）
@@ -2047,12 +2344,43 @@ function switchModalTab(tab, el) {
   document.querySelectorAll('.m-tab-body').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
   document.getElementById('mtab-' + tab).classList.add('active');
+  
+  // 切换到本地文件标签页时更新目录显示和模块显示
+  if (tab === 'files' && currentEditProjectId) {
+    const p = projects.find(x => x.id === currentEditProjectId);
+    if (p) {
+      updateRootBar(getProjectDirName(p));
+      
+      // 根据项目阶段显示或隐藏不同的文件模块
+      const contractSection = document.getElementById('modalContractSection');
+      const agreementSection = document.getElementById('modalAgreementSection');
+      const techPlanSection = document.getElementById('modalTechPlanSection');
+      const quoteSection = document.getElementById('modalQuoteSection');
+      
+      if (p.stage === 0 || p.stage === 3) {
+        // 洽谈中项目和已终止项目：显示技术方案、方案报价和其他文件模块
+        if (contractSection) contractSection.style.display = 'none';
+        if (agreementSection) agreementSection.style.display = 'none';
+        if (techPlanSection) techPlanSection.style.display = 'block';
+        if (quoteSection) quoteSection.style.display = 'block';
+      } else if (p.stage === 1 || p.stage === 2) {
+        // 执行中项目和已完结项目：显示合同、技术协议和其他文件模块
+        if (contractSection) contractSection.style.display = 'block';
+        if (agreementSection) agreementSection.style.display = 'block';
+        if (techPlanSection) techPlanSection.style.display = 'none';
+        if (quoteSection) quoteSection.style.display = 'none';
+      }
+      
+      // 加载项目文件
+      loadModalFilePanel(p.id);
+    }
+  }
 }
 
 function switchModalTabById(tab) {
   const tabs = document.querySelectorAll('.m-tab');
   const bodies = document.querySelectorAll('.m-tab-body');
-  const tabMap = ['basic','payment','delivery','log'];
+  const tabMap = ['basic','payment','delivery','files','log'];
   const i = tabMap.indexOf(tab);
   if (i < 0) return;
   tabs.forEach((t,j) => t.classList.toggle('active', j===i));
@@ -2381,14 +2709,12 @@ function removePaymentNode(btn) {
 function getPaymentNodes() {
   return [...document.querySelectorAll('#f-pn-list .pn-row')].map(r => ({
     condition:          r.querySelector('.pn-condition').value.trim(),
-    ratio:              r.querySelector('.pn-ratio').value.trim(),
-    contractAmountYuan: r.querySelector('.pn-amount').value.trim(),
-    amount:             r.dataset.contractAmountYuan || '',
-    actualAmount:       r.querySelector('.pn-actual').value.trim(),
-    deliverDone:        r.querySelector('.pn-deliver-chk')?.checked || false,
-    done:               r.querySelector('.pn-done-toggle input[type=checkbox]')?.checked || false,
-    _fromAi:            r.querySelector('.pn-ai-badge') !== null
-  })).filter(n => n.condition || n.ratio || n.contractAmountYuan);
+    ratio:              r.querySelector('input:nth-of-type(2)').value.trim(),
+    amount:             r.querySelector('input:nth-of-type(3)').value.trim(),
+    actualAmount:       r.querySelector('input:nth-of-type(4)').value.trim(),
+    done:               r.querySelector('.pn-status-btn input[type=checkbox]')?.checked || false,
+    _fromAi:            true
+  })).filter(n => n.condition || n.ratio || n.amount);
 }
 
 // ── 交付标签 ──
@@ -2488,7 +2814,7 @@ function openModal() {
   editingId = null;
   _pendingLogs = [];
   document.getElementById('modal-title').textContent = '新建项目';
-  ['f-name','f-source','f-owner','f-product','f-desc','f-quote','f-contract','f-cost','f-collected','f-update-log','f-delivery-note','f-delivery-brief','f-contract-mirror','f-collected-mirror']
+  ['f-name','f-source','f-owner','f-product','f-desc','f-quote','f-contract','f-cost','f-collected','f-update-log','f-delivery-note','f-delivery-brief','f-contract-mirror','f-collected-mirror','f-termination-reason']
     .forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   document.getElementById('f-stage').value = '0';
   document.getElementById('f-active').value = 'active';
@@ -2521,12 +2847,13 @@ function openModal() {
 }
 
 function editProject(id) {
-  const p = projects.find(x=>x.id===id);
+  const p = projects.find(x=>String(x.id)===String(id));
   if (!p) return;
   editingId = id;
   _pendingLogs = [];
   document.getElementById('modal-title').textContent = p.name;
   document.getElementById('f-name').value      = p.name||'';
+  document.getElementById('f-channel').value   = p.channel||'';
   document.getElementById('f-source').value    = p.source||'';
   document.getElementById('f-owner').value     = p.owner||'';
   document.getElementById('f-product').value   = p.product||'';
@@ -2537,6 +2864,8 @@ function editProject(id) {
   document.getElementById('f-contract').value  = p.contract||'';
   document.getElementById('f-cost').value      = p.cost||'';
   document.getElementById('f-collected').value = p.collected||'';
+  // 调用onStageChange来更新UI元素的显示状态
+  onStageChange();
   // 同步基本信息Tab的镜像字段
   const cm = document.getElementById('f-contract-mirror');
   const rm = document.getElementById('f-collected-mirror');
@@ -2544,6 +2873,7 @@ function editProject(id) {
   if (rm) rm.value = p.collected||'';
   document.getElementById('f-delivery-note').value = p.deliveryNote||'';
   document.getElementById('f-delivery-brief').value = p.deliveryBrief||'';
+  document.getElementById('f-termination-reason').value = p.terminationReason||'';
   document.getElementById('f-update-log').value = '';
   // 合同签署日期 & 项目编号
   const cdEl = document.getElementById('f-contract-date');
@@ -2579,9 +2909,16 @@ function editProject(id) {
   document.querySelectorAll('.m-tab-body').forEach((b,i)=>b.classList.toggle('active',i===0));
   document.getElementById('overlay').classList.add('show');
   updateTabAiBtns();
+  // 设置当前编辑项目ID并更新本地文件目录显示
+  currentEditProjectId = id;
+  updateRootBar(getProjectDirName(p));
 }
 
-function closeModal() { document.getElementById('overlay').classList.remove('show'); }
+function closeModal() { 
+  document.getElementById('overlay').classList.remove('show'); 
+  editingId = null; 
+  currentEditProjectId = null; 
+}
 
 function saveProject() {
   const name = document.getElementById('f-name').value.trim();
@@ -2605,6 +2942,7 @@ function saveProject() {
   const deliveryTags = getDtags();
   const data = {
     name, stage,
+    channel:      document.getElementById('f-channel').value.trim(),
     source:       document.getElementById('f-source').value.trim(),
     owner:        document.getElementById('f-owner').value.trim(),
     product:      document.getElementById('f-product').value.trim(),
@@ -2616,6 +2954,7 @@ function saveProject() {
     collected:    document.getElementById('f-collected').value,
     deliveryNote: document.getElementById('f-delivery-note').value.trim(),
     deliveryBrief: document.getElementById('f-delivery-brief').value.trim(),
+    terminationReason: document.getElementById('f-termination-reason')?.value.trim() || '',
     paymentPct, paymentNodes, deliveryTags,
     collectTasks: getCollectTasks(),
     todos:        getTodos(),
@@ -2871,13 +3210,15 @@ const STAGE_MAP_IMPORT = {
   '已完结':2};
 const COL_MAP = {
   '项目名称':     'name',  '项目名称*': 'name',
-  '项目来源':     'source','负责人':    'owner',
+  '项目来源':     'channel','客户名称': 'source',
+  '负责人':    'owner',
   '产品类型':     'product','产品选型': 'product',
   '项目简介':     'desc',  '项目阶段':  'stageLabel',
   '报价金额':     'quote', '报价金额(万元)':'quote','报价金额(元)':'quote_yuan','报价金额/元':'quote_yuan',
   '合同金额':     'contract','合同金额(万元)':'contract','合同金额(元)':'contract_yuan','合同金额/元':'contract_yuan',
   '成本评估':     'cost',  '成本评估(万元)':'cost','成本评估(元)':'cost_yuan',
   '已回款金额(万元)':'collected','已回款金额':'collected',
+  '合同签署日期': 'contractDate', '合同日期': 'contractDate', '签署日期': 'contractDate',
   '待办事项':     'todosRaw','待办事项(用|分隔)':'todosRaw'};
 const YUAN_COLS = new Set(['quote_yuan','contract_yuan','cost_yuan']);
 
@@ -3113,8 +3454,9 @@ async function parseExcel(buf, filename) {
     const fieldLabels = {
       name: '项目名称',
       stage: '阶段',
+      channel: '项目来源',
+      source: '客户名称',
       owner: '负责人',
-      source: '项目来源',
       product: '产品选型',
       desc: '项目简介',
       quote: '报价（万）',
@@ -3317,9 +3659,14 @@ function getYuqueBase() {
 // 测试代理连通性
 async function testProxy() {
   const statusEl = document.getElementById('yuque-proxy-status');
+  const btn = document.querySelector('[onclick="testProxy()"]');
   const proxy = getProxyBase();
   const token = document.getElementById('yuque-token').value.trim();
   statusEl.innerHTML = '测试中…';
+  if (btn) {
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+  }
   try {
     const headers = { 'Content-Type': 'application/json' };
     if (token) headers['X-Auth-Token'] = token;
@@ -3328,6 +3675,11 @@ async function testProxy() {
     saveYuqueProxy();
   } catch(e) {
     statusEl.innerHTML = `<span style="color:#e53935">❌ 无法连接代理：${e.message}</span>`;
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+    }
   }
 }
 
@@ -3335,38 +3687,50 @@ async function testProxy() {
 async function testYuqueToken() {
   const token = document.getElementById('yuque-token').value.trim();
   const statusEl = document.getElementById('yuque-token-status');
+  const btn = document.querySelector('[onclick="testYuqueToken()"]');
   if (!token) { statusEl.innerHTML = '<span style="color:#e53935">请先输入 Token</span>'; return; }
   statusEl.innerHTML = '验证中…';
-
-  // pi2star 私有部署的语雀，尝试多个可能的用户接口路径
-  const tryPaths = ['/api/v2/user', '/api/v2/users/me', '/api/v2/hello'];
-  let lastError = '';
-
-  for (const path of tryPaths) {
-    try {
-      const url = getYuqueBase() + path;
-      const resp = await fetch(url, {
-        headers: { 'X-Auth-Token': token, 'Content-Type': 'application/json' }
-      });
-      const text = await resp.text();
-      if (text.trim().startsWith('<')) { lastError = '接口返回了 HTML，跳过'; continue; }
-      const json = JSON.parse(text);
-
-      if (resp.ok && json?.data) {
-        const name = json.data?.name || json.data?.login || json.data?.id || '用户';
-        statusEl.innerHTML = `<span style="color:#2e7d32">✅ Token 有效，用户：${name}</span>`;
-        saveYuqueToken();
-        return;
-      }
-      // 返回了 JSON 但不是 ok，说明代理通了，只是接口或权限问题
-      lastError = `接口 ${path} 返回 ${resp.status}：${json?.message || JSON.stringify(json).slice(0,80)}`;
-    } catch(e) {
-      lastError = e.message;
-    }
+  if (btn) {
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
   }
 
-  // 所有路径都试过了，代理能通说明 Token 大概率没问题，可以直接读文档
-  statusEl.innerHTML = `<span style="color:#2e7d32">✅ 代理连接正常，可直接读取文档</span>`;
+  try {
+    // pi2star 私有部署的语雀，尝试多个可能的用户接口路径
+    const tryPaths = ['/api/v2/user', '/api/v2/users/me', '/api/v2/hello'];
+    let lastError = '';
+
+    for (const path of tryPaths) {
+      try {
+        const url = getYuqueBase() + path;
+        const resp = await fetch(url, {
+          headers: { 'X-Auth-Token': token, 'Content-Type': 'application/json' }
+        });
+        const text = await resp.text();
+        if (text.trim().startsWith('<')) { lastError = '接口返回了 HTML，跳过'; continue; }
+        const json = JSON.parse(text);
+
+        if (resp.ok && json?.data) {
+          const name = json.data?.name || json.data?.login || json.data?.id || '用户';
+          statusEl.innerHTML = `<span style="color:#2e7d32">✅ Token 有效，用户：${name}</span>`;
+          saveYuqueToken();
+          return;
+        }
+        // 返回了 JSON 但不是 ok，说明代理通了，只是接口或权限问题
+        lastError = `接口 ${path} 返回 ${resp.status}：${json?.message || JSON.stringify(json).slice(0,80)}`;
+      } catch(e) {
+        lastError = e.message;
+      }
+    }
+
+    // 所有路径都试过了，代理能通说明 Token 大概率没问题，可以直接读文档
+    statusEl.innerHTML = `<span style="color:#2e7d32">✅ 代理连接正常，可直接读取文档</span>`;
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+    }
+  }
 }
 
 
@@ -3390,6 +3754,7 @@ async function fetchYuqueDoc() {
 
   const btn = document.getElementById('yuque-fetch-btn');
   btn.disabled = true;
+  btn.style.opacity = '0.5';
   document.getElementById('btnConfirmYuque').style.display = 'none';
   document.getElementById('yuquePreview').style.display = 'none';
   yuquePendingImport = [];
@@ -3450,6 +3815,7 @@ async function fetchYuqueDoc() {
     setYuqueStatus('❌ ' + e.message, false, true);
   } finally {
     btn.disabled = false;
+    btn.style.opacity = '1';
   }
 }
 
@@ -3714,11 +4080,13 @@ function parseBodySheet(bodySheetStr, docTitle) {
   // 列名到字段的映射（field 以 _yuan 结尾表示单位是元，需÷10000）
   const COL_MAP = {
     '项目名称': 'name', '名称': 'name',
-    '项目来源': 'source', '来源': 'source', '客户来源': 'source', '客户': 'source',
+    '项目来源': 'channel', '来源': 'channel', '客户来源': 'channel',
+    '客户名称': 'source', '客户': 'source',
     '负责人': 'owner', '销售': 'owner', '业务员': 'owner',
     '产品选型': 'product', '产品': 'product', '方案': 'product',
     '项目简介': 'desc', '简介': 'desc', '描述': 'desc', '备注': 'desc',
     '项目阶段': 'stage', '阶段': 'stage', '状态': 'stage',
+    '合同签署日期': 'contractDate', '合同日期': 'contractDate', '签署日期': 'contractDate',
     // 万元列
     '报价金额': 'quote', '报价': 'quote',
     '报价金额(万元)': 'quote', '报价金额（万元）': 'quote',
@@ -3816,8 +4184,9 @@ function renderYuquePreview(docTitle) {
   const fieldLabels = {
     name: '项目名称',
     stage: '阶段',
+    channel: '项目来源',
+    source: '客户名称',
     owner: '负责人',
-    source: '项目来源',
     product: '产品选型',
     desc: '项目简介',
     quote: '报价（万）',
@@ -4088,6 +4457,7 @@ function renderLedger() {
     return `<tr class="${isAi?'ai-match':''}">
       <td class="l-name"><div class="l-name-inner" title="${p.name}" onclick="editProject('${p.id}');closeLedger()">${p.name}</div></td>
       <td>${stageLabel}</td>
+      <td style="color:#888;font-size:.7rem">${p.channel||'—'}</td>
       <td style="color:#888;font-size:.7rem">${p.source||'—'}</td>
       <td style="font-size:.73rem">${p.owner||'—'}</td>
       <td class="l-amt q">${p.quote?fmtWanShort(p.quote)+' 万':'<span class="l-empty">—</span>'}</td>
@@ -4102,10 +4472,12 @@ function renderLedger() {
 }
 async function ledgerAiSearch() {
   const query=document.getElementById('ledgerAiInput').value.trim(); if(!query) return;
-  const btn=document.getElementById('ledgerAiBtn'); btn.disabled=true;
+  const btn=document.getElementById('ledgerAiBtn'); 
+  btn.disabled=true;
+  btn.style.opacity='0.5';
   const bar=document.getElementById('ledgerFilterBar');
   bar.innerHTML=`<div class="ai-thinking"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div>&nbsp;AI 理解中…</div>`;
-  const summary=projects.map(p=>({ id:p.id, name:p.name, stage:STAGE_LABEL[p.stage], hasPendingCollect:hasOpenCollect(p), source:p.source||'', owner:p.owner||'', quote:parseFloat(p.quote)||0, contract:parseFloat(p.contract)||0, cost:parseFloat(p.cost)||0, paymentPct:p.paymentPct||0, pendingTodos:(p.todos||[]).filter(t=>!t.done).length }));
+  const summary=projects.map(p=>({ id:p.id, name:p.name, stage:STAGE_LABEL[p.stage], hasPendingCollect:hasOpenCollect(p), channel:p.channel||'', source:p.source||'', owner:p.owner||'', quote:parseFloat(p.quote)||0, contract:parseFloat(p.contract)||0, cost:parseFloat(p.cost)||0, paymentPct:p.paymentPct||0, pendingTodos:(p.todos||[]).filter(t=>!t.done).length }));
   try {
     const data=await claudeCall({task:'台账AI筛选',max_tokens:800,messages:[{role:'user',content:`项目台账筛选。从列表中找出符合条件的项目ID，只返回JSON不加说明。\n项目列表：${JSON.stringify(summary)}\n条件：「${query}」\n格式：{"matchIds":["id1"],"explanation":"一句话","tags":["标签"]}`}]});
     const text=(data._parsed?.text||data.content?.map(c=>c.text||'').join('')||'').replace(/```json|```/g,'').trim();
@@ -4118,7 +4490,10 @@ async function ledgerAiSearch() {
     renderLedger();
   } catch(e) {
     bar.innerHTML=`<span style="color:#e57373;font-size:.7rem">⚠️ AI筛选失败</span><span style="margin-left:auto;cursor:pointer;font-size:.7rem;color:#aaa" onclick="clearAiFilter()">✕</span>`;
-  } finally { btn.disabled=false; }
+  } finally { 
+    btn.disabled=false;
+    btn.style.opacity='1';
+  }
 }
 function clearAiFilter() {
   ledgerFilter={type:'all',aiMatchIds:null}; document.getElementById('ledgerAiInput').value=''; document.getElementById('ledgerFilterBar').innerHTML='';
@@ -4354,7 +4729,12 @@ async function sendTestChat() {
 
 async function testAiConnection() {
   const statusEl = document.getElementById('ai-conn-status');
+  const btn = document.querySelector('[onclick="testAiConnection()"]');
   statusEl.textContent = '测试中…'; statusEl.style.color = '#666';
+  if (btn) {
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+  }
   try {
     const cfg = getAiConfig();
     const data = await claudeCall({ task: 'API连接测试', max_tokens: cfg.maxTokens, messages: [{ role: 'user', content: '回复ok' }] });
@@ -4364,6 +4744,11 @@ async function testAiConnection() {
     statusEl.textContent = '✅ 连接成功'; statusEl.style.color = '#81c784';
   } catch(e) {
     statusEl.textContent = '❌ ' + e.message; statusEl.style.color = '#e57373';
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+    }
   }
 }
 
@@ -4467,18 +4852,32 @@ document.getElementById('monitorPanel').addEventListener('click', e => { if (e.t
 
 let fsRootHandle = null;   // 根目录句柄
 let fsCurrentProjectId = null; // 当前打开的项目ID
+// 防止多次打开文件选择器
+let isFilePickerOpen = false;
 
 // 选择根目录
 async function selectRootDir() {
+  if (isFilePickerOpen) return;
+  
   try {
+    isFilePickerOpen = true;
     fsRootHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
     // 持久化权限（IndexedDB存储句柄）
     await saveRootHandle(fsRootHandle);
     updateRootBar();
     showToast('✅ 根目录已设置：' + fsRootHandle.name);
     if (fsCurrentProjectId) await loadFilePanel(fsCurrentProjectId);
+    // 如果当前在本地文件标签页，更新显示
+    if (currentEditProjectId) {
+      const p = projects.find(x => x.id === currentEditProjectId);
+      if (p) {
+        updateRootBar(getProjectDirName(p));
+      }
+    }
   } catch(e) {
     if (e.name !== 'AbortError') showToast('❌ 选择目录失败：' + e.message);
+  } finally {
+    isFilePickerOpen = false;
   }
 }
 
@@ -4512,9 +4911,658 @@ async function loadRootHandle() {
 }
 
 // 更新根目录状态栏
-function updateRootBar() {
+function updateRootBar(projectName) {
+  // 更新主文件面板的根目录状态栏
   const pathEl = document.getElementById('fsRootPath');
-  pathEl.textContent = fsRootHandle ? '📂 ' + fsRootHandle.name : '未选择';
+  if (pathEl) {
+    if (fsRootHandle) {
+      if (projectName) {
+        pathEl.textContent = `${fsRootHandle.name} / ${projectName}`;
+      } else {
+        pathEl.textContent = fsRootHandle.name;
+      }
+    } else {
+      pathEl.textContent = '未选择';
+    }
+  }
+  
+  // 更新项目编辑页面的根目录状态栏
+  const modalPathEl = document.getElementById('modalFsRootPath');
+  if (modalPathEl) {
+    if (fsRootHandle) {
+      if (projectName) {
+        modalPathEl.textContent = projectName;
+      } else {
+        modalPathEl.textContent = fsRootHandle.name;
+      }
+      // 根目录已配置，移除点击事件和可点击样式
+      modalPathEl.style.cursor = 'default';
+      modalPathEl.onclick = null;
+    } else {
+      modalPathEl.textContent = '未选择';
+      // 根目录未配置，添加点击事件和可点击样式
+      modalPathEl.style.cursor = 'pointer';
+      modalPathEl.onclick = selectRootDir;
+    }
+  }
+}
+
+// 加载项目编辑页面的文件
+async function loadModalFilePanel(projectId) {
+  const p = projects.find(x => x.id === projectId);
+  if (!p) return;
+
+  if (!fsRootHandle) {
+    // 根目录未配置，清空所有文件网格
+    ['modalContractFileGrid', 'modalAgreementFileGrid', 'modalTechPlanFileGrid', 'modalQuoteFileGrid'].forEach(id =>
+      document.getElementById(id).innerHTML = '');
+    return;
+  }
+
+  const dir = await getProjectDir(p.name);
+  if (!dir) {
+    // 项目文件夹不存在，清空所有文件网格
+    ['modalContractFileGrid', 'modalAgreementFileGrid', 'modalTechPlanFileGrid', 'modalQuoteFileGrid'].forEach(id =>
+      document.getElementById(id).innerHTML = '');
+    return;
+  }
+
+  // 读取文件列表
+  const files = [];
+  for await (const [name, handle] of dir.entries()) {
+    if (handle.kind === 'file') {
+      try {
+        const file = await handle.getFile();
+        files.push({ name, handle, lastModified: file.lastModified });
+      } catch(e) {
+        files.push({ name, handle, lastModified: 0 });
+      }
+    }
+  }
+
+  // 过滤排除备注.txt 和隐藏文件（以.开头）
+  const displayFiles = files.filter(f => f.name !== '备注.txt' && !f.name.startsWith('.'));
+
+  // 先用 AI 分类，再分区渲染
+  const tagMap = displayFiles.length ? await classifyFileNames(displayFiles.map(f => f.name)) : {};
+
+  // 按分类分组
+  const contractFiles  = displayFiles.filter(f => tagMap[f.name]?.cat === '合同').sort((a, b) => b.lastModified - a.lastModified);
+  const agreementFiles = displayFiles.filter(f => tagMap[f.name]?.cat === '技术协议' || tagMap[f.name]?.cat === '技术方案').sort((a, b) => b.lastModified - a.lastModified);
+  const techPlanFiles  = displayFiles.filter(f => tagMap[f.name]?.cat === '技术方案').sort((a, b) => b.lastModified - a.lastModified);
+  const quoteFiles     = displayFiles.filter(f => tagMap[f.name]?.cat === '报价单' || tagMap[f.name]?.cat === '方案报价').sort((a, b) => b.lastModified - a.lastModified);
+  const otherFiles     = displayFiles.filter(f => !['合同','技术协议','技术方案','报价单','方案报价'].includes(tagMap[f.name]?.cat)).sort((a, b) => b.lastModified - a.lastModified);
+
+  // 渲染文件网格
+  renderModalFileSection('contract', contractFiles, p.id, tagMap);
+  renderModalFileSection('agreement', agreementFiles, p.id, tagMap);
+  renderModalFileSection('techPlan', techPlanFiles, p.id, tagMap);
+  renderModalFileSection('quote', quoteFiles, p.id, tagMap);
+  
+  // 显示AI识别按钮
+  const modalContractAnalyzeBtn = document.getElementById('modalContractAnalyzeBtn');
+  const modalAgreementAnalyzeBtn = document.getElementById('modalAgreementAnalyzeBtn');
+  
+  if (modalContractAnalyzeBtn) {
+    modalContractAnalyzeBtn.style.display = contractFiles.length ? 'inline-block' : 'none';
+    modalContractAnalyzeBtn.dataset.projectId = p.id;
+  }
+  
+  if (modalAgreementAnalyzeBtn) {
+    modalAgreementAnalyzeBtn.style.display = agreementFiles.length ? 'inline-block' : 'none';
+    modalAgreementAnalyzeBtn.dataset.projectId = p.id;
+  }
+  
+  // 显示多选提示
+  const modalContractSelectHint = document.getElementById('modalContractSelectHint');
+  const modalAgreementSelectHint = document.getElementById('modalAgreementSelectHint');
+  
+  if (modalContractSelectHint) {
+    modalContractSelectHint.style.display = contractFiles.length > 1 ? 'inline' : 'none';
+  }
+  
+  if (modalAgreementSelectHint) {
+    modalAgreementSelectHint.style.display = agreementFiles.length > 1 ? 'inline' : 'none';
+  }
+}
+
+// 渲染项目编辑页面的文件网格
+function renderModalFileSection(type, files, projectId, tagMap) {
+  const gridId = `modal${type.charAt(0).toUpperCase() + type.slice(1)}FileGrid`;
+  const emptyId = `modal${type.charAt(0).toUpperCase() + type.slice(1)}Empty`;
+  const grid = document.getElementById(gridId);
+  const empty = document.getElementById(emptyId);
+  
+  if (!grid || !empty) return;
+  
+  if (files.length === 0) {
+    grid.innerHTML = '';
+    empty.style.display = 'block';
+  } else {
+    grid.innerHTML = files.map(f => `
+      <div class="file-item file-item-selected" data-filename="${f.name}" data-lastmodified="${f.lastModified}">
+        <div class="file-item-icon">📄</div>
+        <div class="file-item-name">${f.name}</div>
+        <div class="file-item-check">✓</div>
+      </div>
+    `).join('');
+    
+    // 添加点击事件，只用于选择/取消选择，不预览
+    grid.querySelectorAll('.file-item').forEach(item => {
+      item.addEventListener('click', function() {
+        toggleFileSelection(this, this.dataset.filename);
+      });
+    });
+    empty.style.display = 'none';
+  }
+}
+
+// 切换文件选择状态
+function toggleFileSelection(el, fileName) {
+  el.classList.toggle('file-item-selected');
+  
+  // 更新多选提示
+  const grid = el.closest('.file-list');
+  if (grid) {
+    const selectedCount = grid.querySelectorAll('.file-item-selected').length;
+    const type = grid.id.replace('modal', '').replace('FileGrid', '').toLowerCase();
+    const hintEl = document.getElementById(`modal${type.charAt(0).toUpperCase() + type.slice(1)}SelectHint`);
+    if (hintEl) {
+      hintEl.style.display = selectedCount > 1 ? 'inline' : 'none';
+    }
+  }
+}
+
+// 渲染回款节点
+function renderPaymentNodes(p) {
+  const list = document.getElementById('f-pn-list');
+  const empty = document.getElementById('f-pn-empty');
+  if (!list || !empty) return;
+  
+  if (!p.paymentNodes || !p.paymentNodes.length) {
+    list.innerHTML = '';
+    empty.style.display = 'block';
+  } else {
+    list.innerHTML = p.paymentNodes.map((node, i) => `
+      <div class="pn-row ${node.done ? 'done-row' : ''}">
+        <div class="pn-toolbar">
+          <div class="pn-idx">${i+1}</div>
+          <button class="pn-rm" onclick="removePaymentNode(${i})">×</button>
+        </div>
+        <div class="pn-task-area">
+          <div class="pn-task-label">回款条件</div>
+          <div class="pn-task-row" style="flex-direction: column; align-items: flex-start; gap: 8px;">
+            <textarea class="pn-condition" onchange="updatePaymentNode(${i}, 'condition', this.value)" onfocus="this.style.borderColor='rgba(103,58,183,.35)'; this.style.background='#fff'; this.style.boxShadow='0 0 0 2px rgba(103,58,183,.06)';" onblur="this.style.borderColor='var(--paper2)'; this.style.background='#fafafa'; this.style.boxShadow='none';" style="width: 100%; min-height: 60px; resize: vertical; border:1px solid var(--paper2); border-radius:7px; padding:6px 10px; font-size:.79rem; font-family:inherit; color:var(--ink); outline:none; background:#fafafa; font-weight:500; transition:border-color .15s;">${node.condition || ''}</textarea>
+            <div class="pn-deliver-toggle" onclick="onPnDeliverToggle(this)" style="align-self: flex-start;">
+              <input type="checkbox" class="pn-deliver-chk" ${node.deliverDone?'checked':''}>
+              <div class="pn-status-btn ${node.deliverDone?'active-deliver':''}">
+                ${node.deliverDone?'✅ 交付任务完成':'○ 交付任务完成'}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="pn-body">
+          <div class="pn-col">
+            <div class="pn-col-title">回款目标</div>
+            <div class="pn-field">
+              <label>回款比例</label>
+              <input type="text" value="${node.ratio || ''}" onchange="updatePaymentNode(${i}, 'ratio', this.value)">
+            </div>
+            <div class="pn-field">
+              <label>金额（万元）</label>
+              <input type="text" value="${node.amount || ''}" onchange="updatePaymentNode(${i}, 'amount', this.value)">
+            </div>
+          </div>
+          <div class="pn-col">
+            <div class="pn-col-title">回款落实</div>
+            <div class="pn-field">
+              <label>实际到账（万元）</label>
+              <input type="text" class="pn-actual-done" value="${node.actualAmount || ''}" onchange="updatePaymentNode(${i}, 'actualAmount', this.value)">
+            </div>
+            <div class="pn-done-toggle" onclick="onPnDoneToggle(this)" style="margin-top: 6px;">
+              <input type="checkbox" ${node.done?'checked':''}>
+              <div class="pn-status-btn ${node.done?'active-done':''}">
+                ${node.done?'✅ 回款已到账':'○ 回款已到账'}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+    empty.style.display = 'none';
+  }
+}
+
+// 更新回款节点
+function updatePaymentNode(index, field, value) {
+  if (!currentEditProjectId) return;
+  const p = projects.find(x => x.id === currentEditProjectId);
+  if (!p || !p.paymentNodes) return;
+  
+  p.paymentNodes[index][field] = value;
+  
+  // 自动计算金额或百分比
+  const node = p.paymentNodes[index];
+  const contractAmount = parseFloat(p.contract) || 0;
+  
+  if (field === 'ratio' && value) {
+    // 输入了百分比，自动计算金额
+    const ratioValue = parseFloat(value.replace('%', '')) / 100;
+    node.amount = (contractAmount * ratioValue).toFixed(2);
+  } else if (field === 'amount' && value) {
+    // 输入了金额，自动计算百分比
+    const amountValue = parseFloat(value);
+    if (contractAmount > 0) {
+      const ratioValue = (amountValue / contractAmount) * 100;
+      node.ratio = ratioValue.toFixed(0) + '%';
+    }
+  }
+  
+  // 检查合同金额与百分比是否一致
+  if (node.ratio && node.amount && contractAmount > 0) {
+    const ratioValue = parseFloat(node.ratio.replace('%', '')) / 100;
+    const calculatedAmount = (contractAmount * ratioValue).toFixed(2);
+    if (Math.abs(parseFloat(node.amount) - parseFloat(calculatedAmount)) > 0.01) {
+      // 显示不一致提示
+      showToast('⚠️ 回款节点金额与百分比不一致，请检查');
+    }
+  }
+  
+  // 检查已回款金额是否大于或等于应收金额
+  const actualAmount = parseFloat(node.actualAmount) || 0;
+  const amount = parseFloat(node.amount) || 0;
+  
+  if (actualAmount >= amount) {
+    node.done = true;
+  }
+  
+  // 重新渲染回款节点
+  renderPaymentNodes(p);
+  save();
+}
+
+// 切换回款节点完成状态
+function togglePaymentNodeDone(index) {
+  if (!currentEditProjectId) return;
+  const p = projects.find(x => x.id === currentEditProjectId);
+  if (!p || !p.paymentNodes) return;
+  
+  p.paymentNodes[index].done = !p.paymentNodes[index].done;
+  
+  // 重新渲染回款节点
+  renderPaymentNodes(p);
+  save();
+}
+
+// 切换回款节点任务完成状态
+function togglePaymentNodeTaskCompleted(index) {
+  if (!currentEditProjectId) return;
+  const p = projects.find(x => x.id === currentEditProjectId);
+  if (!p || !p.paymentNodes) return;
+  
+  p.paymentNodes[index].taskCompleted = !p.paymentNodes[index].taskCompleted;
+  
+  // 重新渲染回款节点
+  renderPaymentNodes(p);
+  save();
+}
+
+// 移除回款节点
+function removePaymentNode(index) {
+  if (!currentEditProjectId) return;
+  const p = projects.find(x => x.id === currentEditProjectId);
+  if (!p || !p.paymentNodes) return;
+  
+  p.paymentNodes.splice(index, 1);
+  
+  // 重新渲染回款节点
+  renderPaymentNodes(p);
+  save();
+}
+
+// 添加回款节点
+function addPaymentNode() {
+  if (!currentEditProjectId) return;
+  const p = projects.find(x => x.id === currentEditProjectId);
+  if (!p) return;
+  
+  if (!p.paymentNodes) {
+    p.paymentNodes = [];
+  }
+  
+  p.paymentNodes.push({
+    condition: '',
+    ratio: '',
+    amount: '',
+    actualAmount: '',
+    done: false,
+    deliverDone: false
+  });
+  
+  // 重新渲染回款节点
+  renderPaymentNodes(p);
+  save();
+}
+
+// 回款节点页面的合同识别
+async function analyzeContractsForPayment() {
+  if (!currentEditProjectId) return;
+  
+  const p = projects.find(x => x.id === currentEditProjectId);
+  if (!p) return;
+  
+  if (!fsRootHandle) {
+    showToast('请先选择根目录');
+    return;
+  }
+  
+  // 禁用按钮
+  const btn = document.querySelector('[onclick="analyzeContractsForPayment()"]');
+  if (btn) {
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+  }
+  
+  const dir = await getProjectDir(p.name);
+  if (!dir) {
+    showToast('项目文件夹不存在');
+    // 启用按钮
+    if (btn) {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+    }
+    return;
+  }
+  
+  // 读取所有合同文件
+  const files = [];
+  for await (const [name, handle] of dir.entries()) {
+    if (handle.kind === 'file' && name !== '备注.txt' && !name.startsWith('.')) {
+      try {
+        const file = await handle.getFile();
+        files.push({ name, lastModified: file.lastModified });
+      } catch(e) {
+        files.push({ name, lastModified: 0 });
+      }
+    }
+  }
+  
+  // 过滤合同文件
+  let contractFiles = files.filter(f => f.name.includes('合同') || f.name.includes('采购') || f.name.includes('销售'));
+  if (!contractFiles.length) {
+    showToast('没有找到合同文件');
+    return;
+  }
+  
+  // 按文件类型分组，选择每种类型中最新的文件
+  const contractFilesByType = {};
+  contractFiles.forEach(file => {
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (!contractFilesByType[ext] || file.lastModified > contractFilesByType[ext].lastModified) {
+      contractFilesByType[ext] = file;
+    }
+  });
+  
+  // 转换回数组
+  contractFiles = Object.values(contractFilesByType).map(f => f.name);
+  
+  // 显示加载提示
+  const pnAiHint = document.getElementById('pn-ai-hint');
+  if (pnAiHint) {
+    pnAiHint.textContent = '正在识别合同…';
+  }
+  
+  try {
+    // 读取合同文件内容
+    let combinedText = '';
+    for (const name of contractFiles) {
+      try {
+        const fh = await dir.getFileHandle(name);
+        const file = await fh.getFile();
+        const ext = name.split('.').pop().toLowerCase();
+        if (['txt','md'].includes(ext)) {
+          combinedText += `\n\n【文件：${name}】\n` + await file.text();
+        } else if (['doc','docx'].includes(ext)) {
+          const text = await readDocxText(file);
+          combinedText += `\n\n【文件：${name}】\n` + text;
+        } else if (ext === 'pdf') {
+          // PDF 处理逻辑
+          const ab = await file.arrayBuffer();
+          const b64 = btoa(String.fromCharCode(...new Uint8Array(ab)));
+          await analyzeContractFile(name, b64, 'pdf', null, null);
+          return;
+        }
+      } catch(e) {
+        console.error('读取文件失败:', e);
+      }
+    }
+    
+    if (!combinedText.trim()) {
+      showToast('无法读取合同内容');
+      return;
+    }
+    
+    // 使用全局AI模型分析合同
+    await analyzeContractText(combinedText, null);
+    
+    // 更新UI
+    if (pnAiHint) {
+      pnAiHint.textContent = '识别完成';
+    }
+    
+    // 重新渲染回款节点
+    renderPaymentNodes(p);
+    
+  } catch(e) {
+    console.error('合同识别失败:', e);
+    showToast('合同识别失败：' + e.message);
+  } finally {
+    if (pnAiHint) {
+      pnAiHint.textContent = '';
+    }
+    // 启用按钮
+    const btn = document.querySelector('[onclick="analyzeContractsForPayment()"]');
+    if (btn) {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+    }
+  }
+}
+
+// 交付情况页面的合同和技术协议识别
+async function analyzeContractsForDelivery() {
+  if (!currentEditProjectId) return;
+  
+  const p = projects.find(x => x.id === currentEditProjectId);
+  if (!p) return;
+  
+  if (!fsRootHandle) {
+    showToast('请先选择根目录');
+    return;
+  }
+  
+  // 禁用按钮
+  const btn = document.querySelector('[onclick="analyzeContractsForDelivery()"]');
+  if (btn) {
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+  }
+  
+  const dir = await getProjectDir(p.name);
+  if (!dir) {
+    showToast('项目文件夹不存在');
+    // 启用按钮
+    if (btn) {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+    }
+    return;
+  }
+  
+  // 读取所有文件
+  const files = [];
+  for await (const [name, handle] of dir.entries()) {
+    if (handle.kind === 'file' && name !== '备注.txt' && !name.startsWith('.')) {
+      try {
+        const file = await handle.getFile();
+        files.push({ name, lastModified: file.lastModified });
+      } catch(e) {
+        files.push({ name, lastModified: 0 });
+      }
+    }
+  }
+  
+  // 过滤合同文件
+  let contractFiles = files.filter(f => f.name.includes('合同') || f.name.includes('采购') || f.name.includes('销售'));
+  // 按文件类型分组，选择每种类型中最新的文件
+  const contractFilesByType = {};
+  contractFiles.forEach(file => {
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (!contractFilesByType[ext] || file.lastModified > contractFilesByType[ext].lastModified) {
+      contractFilesByType[ext] = file;
+    }
+  });
+  contractFiles = Object.values(contractFilesByType).map(f => f.name);
+  
+  // 过滤技术协议文件
+  let agreementFiles = files.filter(f => f.name.includes('技术协议') || f.name.includes('技术方案') || f.name.includes('需求文档'));
+  // 按文件类型分组，选择每种类型中最新的文件
+  const agreementFilesByType = {};
+  agreementFiles.forEach(file => {
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (!agreementFilesByType[ext] || file.lastModified > agreementFilesByType[ext].lastModified) {
+      agreementFilesByType[ext] = file;
+    }
+  });
+  agreementFiles = Object.values(agreementFilesByType).map(f => f.name);
+  
+  if (!contractFiles.length && !agreementFiles.length) {
+    showToast('没有找到合同或技术协议文件');
+    return;
+  }
+  
+  // 显示加载提示
+  const dtAiHint = document.getElementById('dt-ai-hint');
+  if (dtAiHint) {
+    dtAiHint.textContent = '正在识别交付内容…';
+  }
+  
+  try {
+    // 读取合同文件内容
+    let contractText = '';
+    for (const name of contractFiles) {
+      try {
+        const fh = await dir.getFileHandle(name);
+        const file = await fh.getFile();
+        const ext = name.split('.').pop().toLowerCase();
+        if (['txt','md'].includes(ext)) {
+          contractText += `\n\n【合同文件：${name}】\n` + await file.text();
+        } else if (['doc','docx'].includes(ext)) {
+          const text = await readDocxText(file);
+          contractText += `\n\n【合同文件：${name}】\n` + text;
+        }
+      } catch(e) {
+        console.error('读取合同文件失败:', e);
+      }
+    }
+    
+    // 读取技术协议文件内容
+    let agreementText = '';
+    for (const name of agreementFiles) {
+      try {
+        const fh = await dir.getFileHandle(name);
+        const file = await fh.getFile();
+        const ext = name.split('.').pop().toLowerCase();
+        if (['txt','md'].includes(ext)) {
+          agreementText += `\n\n【技术协议文件：${name}】\n` + await file.text();
+        } else if (['doc','docx'].includes(ext)) {
+          const text = await readDocxText(file);
+          agreementText += `\n\n【技术协议文件：${name}】\n` + text;
+        }
+      } catch(e) {
+        console.error('读取技术协议文件失败:', e);
+      }
+    }
+    
+    // 合并文本
+    const combinedText = contractText + agreementText;
+    if (!combinedText.trim()) {
+      showToast('无法读取文件内容');
+      return;
+    }
+    
+    // 使用全局AI模型分析交付内容
+    const data = await claudeCall({
+      task: '交付内容解析',
+      max_tokens: 4000,
+      messages: [{ role: 'user', content: AGREEMENT_ANALYZE_PROMPT + '\n\n以下是合同和技术协议内容：\n' + combinedText.slice(0, 12000) }]
+    });
+    
+    // 解析结果
+    const rawText = (data._parsed?.text || data.choices?.[0]?.message?.content || data.content?.filter(b => b.type==='text').map(b => b.text).join('') || '').replace(/```json|```/g,'').trim();
+    if (!rawText) throw new Error('AI 返回空响应');
+    
+    const match = rawText.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error('未找到JSON');
+    
+    const result = JSON.parse(match[0]);
+    
+    // 更新项目
+    const idx = projects.findIndex(x => x.id === currentEditProjectId);
+    if (idx !== -1) {
+      projects[idx].deliveryTags = {
+        wireless_hardware: !!result.wireless_hardware,
+        wired_hardware: !!result.wired_hardware,
+        software: !!result.software,
+        other: result.other || '',
+        _fromAi: true
+      };
+      
+      if (result.brief) {
+        projects[idx].deliveryBrief = result.brief;
+        // 同步到UI
+        const briefEl = document.getElementById('f-delivery-brief');
+        if (briefEl) briefEl.value = result.brief;
+      }
+      
+      // 同步交付标签
+      setDtags(projects[idx].deliveryTags);
+      save();
+      showToast('✅ 交付内容识别完成，数据已更新');
+    }
+    
+  } catch(e) {
+    console.error('交付内容识别失败:', e);
+    showToast('交付内容识别失败：' + e.message);
+  } finally {
+    if (dtAiHint) {
+      dtAiHint.textContent = '';
+    }
+    // 启用按钮
+    const btn = document.querySelector('[onclick="analyzeContractsForDelivery()"]');
+    if (btn) {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+    }
+  }
+}
+
+// 设置统计筛选条件
+function setStatsFilter(filter) {
+  statsFilter = filter;
+  render();
+  
+  // 更新按钮样式
+  const buttons = document.querySelectorAll('.sb-stats-title button');
+  buttons.forEach(btn => {
+    if (btn.onclick.toString().includes(filter)) {
+      btn.style.background = 'var(--gold)';
+      btn.style.color = 'var(--ink)';
+    } else {
+      btn.style.background = 'none';
+      btn.style.color = 'rgba(255,255,255,.72)';
+    }
+  });
 }
 
 // 打开项目文件面板
@@ -4576,6 +5624,9 @@ async function loadFilePanel(projectId) {
   const dir = await getProjectDir(p.name);
   if (!dir) return;
 
+  // 更新根目录状态栏，显示项目文件夹名称
+  updateRootBar(getProjectDirName(p));
+
   // 读取文件列表
   const files = [];
   for await (const [name, handle] of dir.entries()) {
@@ -4608,37 +5659,134 @@ async function loadFilePanel(projectId) {
   const quoteFiles     = displayFiles.filter(f => tagMap[f.name]?.cat === '报价单' || tagMap[f.name]?.cat === '方案报价').sort((a, b) => b.lastModified - a.lastModified);
   const otherFiles     = displayFiles.filter(f => !['合同','技术协议','技术方案','报价单','方案报价'].includes(tagMap[f.name]?.cat)).sort((a, b) => b.lastModified - a.lastModified);
 
-  // 渲染分区
-  renderFileSection('contract',  contractFiles,  p.id, tagMap);
-  renderFileSection('agreement', agreementFiles, p.id, tagMap);
-  renderFileSection('quote',     quoteFiles,     p.id, tagMap);
-  renderFileSection('other',     otherFiles,     p.id, tagMap);
-
-  // 合同识别按钮 + 多选提示
-  const analyzeBtn = document.getElementById('contractAnalyzeBtn');
-  analyzeBtn.style.display = contractFiles.length ? 'inline-block' : 'none';
-  analyzeBtn.dataset.projectId = p.id;
-  const cHint = document.getElementById('contractSelectHint');
-  if (cHint) cHint.style.display = contractFiles.length > 1 ? 'inline' : 'none';
-
-  // 技术协议识别按钮 + 多选提示
-  const agreeBtn = document.getElementById('agreementAnalyzeBtn');
-  agreeBtn.style.display = agreementFiles.length ? 'inline-block' : 'none';
-  agreeBtn.dataset.projectId = p.id;
-  const aHint = document.getElementById('agreementSelectHint');
-  if (aHint) aHint.style.display = agreementFiles.length > 1 ? 'inline' : 'none';
-
-  // 方案报价识别按钮 + 多选提示
-  const quoteBtn = document.getElementById('quoteAnalyzeBtn');
-  quoteBtn.style.display = quoteFiles.length ? 'inline-block' : 'none';
-  quoteBtn.dataset.projectId = p.id;
-  const qHint = document.getElementById('quoteSelectHint');
-  if (qHint) qHint.style.display = quoteFiles.length > 1 ? 'inline' : 'none';
+  // 渲染分区 - 不同阶段显示不同分块
+  const isNegotiationStage = p.stage === 0;
+  const isDeliveryStage = p.stage === 1;
+  console.log('项目阶段:', p.stage, '是否为洽谈中:', isNegotiationStage, '是否为交付中:', isDeliveryStage);
+  
+  // 直接找到所有file-section并遍历找到各分块
+  const fileSections = document.querySelectorAll('.file-section');
+  console.log('所有file-section:', fileSections.length);
+  
+  let contractSection = null;
+  let agreementSection = null;
+  let quoteSection = null;
+  let otherSection = null;
+  
+  fileSections.forEach((section, index) => {
+    const title = section.querySelector('.file-section-title');
+    console.log(`第${index+1}个file-section标题:`, title ? title.textContent : '无标题');
+    if (title) {
+      if (title.textContent === '合同') contractSection = section;
+      else if (title.textContent === '技术方案') agreementSection = section;
+      else if (title.textContent === '方案报价') quoteSection = section;
+      else if (title.textContent === '其他文件') otherSection = section;
+    }
+  });
+  
+  console.log('找到的分块:', { contractSection, agreementSection, quoteSection, otherSection });
+  
+  if (isDeliveryStage) {
+    // 交付中项目：只显示合同、技术协议、其他文件
+    console.log('交付中项目，只显示合同、技术协议、其他文件');
+    
+    // 显示合同分块
+    if (contractSection) contractSection.style.display = 'block';
+    renderFileSection('contract',  contractFiles,  p.id, tagMap);
+    // 合同识别按钮 + 多选提示
+    const analyzeBtn = document.getElementById('contractAnalyzeBtn');
+    analyzeBtn.style.display = contractFiles.length ? 'inline-block' : 'none';
+    analyzeBtn.dataset.projectId = p.id;
+    const cHint = document.getElementById('contractSelectHint');
+    if (cHint) cHint.style.display = contractFiles.length > 1 ? 'inline' : 'none';
+    
+    // 显示技术协议分块（技术方案）
+    if (agreementSection) agreementSection.style.display = 'block';
+    renderFileSection('agreement', agreementFiles, p.id, tagMap);
+    // 技术协议识别按钮 + 多选提示
+    const agreeBtn = document.getElementById('agreementAnalyzeBtn');
+    agreeBtn.style.display = agreementFiles.length ? 'inline-block' : 'none';
+    agreeBtn.dataset.projectId = p.id;
+    const aHint = document.getElementById('agreementSelectHint');
+    if (aHint) aHint.style.display = agreementFiles.length > 1 ? 'inline' : 'none';
+    
+    // 隐藏报价单分块
+    if (quoteSection) quoteSection.style.display = 'none';
+    
+    // 显示其他文件分块
+    if (otherSection) otherSection.style.display = 'block';
+    renderFileSection('other',     otherFiles,     p.id, tagMap);
+    
+  } else if (!isNegotiationStage) {
+    // 非洽谈中、非交付中项目：显示所有分块
+    console.log('非洽谈中、非交付中项目，显示所有分块');
+    
+    if (contractSection) contractSection.style.display = 'block';
+    renderFileSection('contract',  contractFiles,  p.id, tagMap);
+    // 合同识别按钮 + 多选提示
+    const analyzeBtn = document.getElementById('contractAnalyzeBtn');
+    analyzeBtn.style.display = contractFiles.length ? 'inline-block' : 'none';
+    analyzeBtn.dataset.projectId = p.id;
+    const cHint = document.getElementById('contractSelectHint');
+    if (cHint) cHint.style.display = contractFiles.length > 1 ? 'inline' : 'none';
+    
+    if (agreementSection) agreementSection.style.display = 'block';
+    renderFileSection('agreement', agreementFiles, p.id, tagMap);
+    // 技术协议识别按钮 + 多选提示
+    const agreeBtn = document.getElementById('agreementAnalyzeBtn');
+    agreeBtn.style.display = agreementFiles.length ? 'inline-block' : 'none';
+    agreeBtn.dataset.projectId = p.id;
+    const aHint = document.getElementById('agreementSelectHint');
+    if (aHint) aHint.style.display = agreementFiles.length > 1 ? 'inline' : 'none';
+    
+    if (quoteSection) quoteSection.style.display = 'block';
+    renderFileSection('quote',     quoteFiles,     p.id, tagMap);
+    // 方案报价识别按钮 + 多选提示
+    const quoteBtn = document.getElementById('quoteAnalyzeBtn');
+    quoteBtn.style.display = quoteFiles.length ? 'inline-block' : 'none';
+    quoteBtn.dataset.projectId = p.id;
+    const qHint = document.getElementById('quoteSelectHint');
+    if (qHint) qHint.style.display = quoteFiles.length > 1 ? 'inline' : 'none';
+    
+    if (otherSection) otherSection.style.display = 'block';
+    renderFileSection('other',     otherFiles,     p.id, tagMap);
+    
+  } else {
+    // 洽谈中项目：隐藏合同分块，显示其他分块
+    console.log('洽谈中项目，隐藏合同分块');
+    
+    if (contractSection) contractSection.style.display = 'none';
+    
+    if (agreementSection) agreementSection.style.display = 'block';
+    renderFileSection('agreement', agreementFiles, p.id, tagMap);
+    // 技术协议识别按钮 + 多选提示
+    const agreeBtn = document.getElementById('agreementAnalyzeBtn');
+    agreeBtn.style.display = agreementFiles.length ? 'inline-block' : 'none';
+    agreeBtn.dataset.projectId = p.id;
+    const aHint = document.getElementById('agreementSelectHint');
+    if (aHint) aHint.style.display = agreementFiles.length > 1 ? 'inline' : 'none';
+    
+    if (quoteSection) quoteSection.style.display = 'block';
+    renderFileSection('quote',     quoteFiles,     p.id, tagMap);
+    // 方案报价识别按钮 + 多选提示
+    const quoteBtn = document.getElementById('quoteAnalyzeBtn');
+    quoteBtn.style.display = quoteFiles.length ? 'inline-block' : 'none';
+    quoteBtn.dataset.projectId = p.id;
+    const qHint = document.getElementById('quoteSelectHint');
+    if (qHint) qHint.style.display = quoteFiles.length > 1 ? 'inline' : 'none';
+    
+    if (otherSection) otherSection.style.display = 'block';
+    renderFileSection('other',     otherFiles,     p.id, tagMap);
+  }
 
   // 设置拖拽上传
   setupFileDrop(dir, projectId);
   const input = document.getElementById('fileUploadInput');
   input.onchange = async () => { await uploadFiles(Array.from(input.files), dir, projectId); input.value=''; };
+  
+  // 保存当前项目ID，用于打开文件夹功能
+  fsCurrentProjectId = projectId;
+  currentEditProjectId = projectId;
 }
 
 function renderFileSection(type, files, projectId, tagMap) {
@@ -4684,7 +5832,14 @@ function toggleFileSelect(el, type) {
 }
 
 function getSelectedFileNames(type) {
-  const grid = document.getElementById(type + 'FileGrid');
+  // 检查是在主文件面板还是项目编辑页面
+  let grid = document.getElementById(type + 'FileGrid');
+  
+  // 如果在项目编辑页面
+  if (!grid) {
+    grid = document.getElementById('modal' + type.charAt(0).toUpperCase() + type.slice(1) + 'FileGrid');
+  }
+  
   if (!grid) return [];
   const selected = grid.querySelectorAll('.file-item-selected');
   if (selected.length) return Array.from(selected).map(el => el.dataset.filename);
@@ -4768,20 +5923,113 @@ async function readDocxText(file) {
 
 // 合同识别：交付内容 + 回款节点
 async function analyzeContracts() {
-  const btn = document.getElementById('contractAnalyzeBtn');
-  const projectId = btn.dataset.projectId;
+  console.log('开始识别合同');
+  // 检查是在主文件面板还是项目编辑页面
+  let btn = document.getElementById('contractAnalyzeBtn');
+  let analysisDiv = document.getElementById('contractAnalysis');
+  
+  // 如果在项目编辑页面
+  if (!btn) {
+    console.log('在项目编辑页面');
+    btn = document.getElementById('modalContractAnalyzeBtn');
+    analysisDiv = document.getElementById('modalContractAnalysis');
+  }
+  
+  console.log('btn:', btn);
+  console.log('analysisDiv:', analysisDiv);
+  
+  if (!btn) {
+    console.log('未找到按钮');
+    return;
+  }
+  
+  // 禁用按钮
+  btn.disabled = true;
+  btn.style.opacity = '0.5';
+  
+  // 获取项目ID - 优先使用currentEditProjectId（项目编辑页面），否则使用按钮的data-projectId（主文件面板）
+  let projectId = currentEditProjectId || btn.dataset.projectId;
+  console.log('projectId:', projectId);
+  
+  if (!projectId) {
+    console.log('未找到项目ID');
+    showToast('未找到项目ID');
+    // 启用按钮
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    return;
+  }
+  
   const p = projects.find(x => x.id === projectId);
-  if (!p) return;
+  console.log('项目:', p);
+  
+  if (!p) {
+    console.log('未找到项目');
+    showToast('未找到项目');
+    return;
+  }
+  
   const dir = await getProjectDir(p.name);
-  if (!dir) return;
+  console.log('项目目录:', dir);
+  
+  if (!dir) {
+    console.log('未找到项目目录');
+    showToast('未找到项目目录');
+    return;
+  }
+  console.log('获取项目目录成功');
+
 
   // 使用选中文件（默认第一个已选中）
-  const fileNames = getSelectedFileNames('contract');
-  if (!fileNames.length) { showToast('没有合同文件可识别'); return; }
+  let fileNames = getSelectedFileNames('contract');
+  console.log('选中的文件:', fileNames);
+  
+  if (!fileNames.length) { 
+    console.log('没有选中文件，按文件类型分组选择最新文件');
+    // 如果没有选中文件，按文件类型分组，选择每种类型中最新的文件
+    const files = [];
+    for await (const [name, handle] of dir.entries()) {
+      if (handle.kind === 'file' && name !== '备注.txt' && !name.startsWith('.')) {
+        try {
+          const file = await handle.getFile();
+          files.push({ name, lastModified: file.lastModified });
+        } catch(e) {
+          files.push({ name, lastModified: 0 });
+        }
+      }
+    }
+    
+    console.log('所有文件:', files);
+    
+    const contractFiles = files.filter(f => f.name.includes('合同') || f.name.includes('采购') || f.name.includes('销售'));
+    console.log('合同文件:', contractFiles);
+    
+    if (!contractFiles.length) {
+      console.log('没有合同文件可识别');
+      showToast('没有合同文件可识别'); 
+      return;
+    }
+    
+    // 按文件类型分组，选择每种类型中最新的文件
+    const contractFilesByType = {};
+    contractFiles.forEach(file => {
+      const ext = file.name.split('.').pop().toLowerCase();
+      if (!contractFilesByType[ext] || file.lastModified > contractFilesByType[ext].lastModified) {
+        contractFilesByType[ext] = file;
+      }
+    });
+    
+    fileNames = Object.values(contractFilesByType).map(f => f.name);
+    console.log('最终选择的文件:', fileNames);
+  }
+  
+  console.log('准备读取文件内容');
 
-  const analysisDiv = document.getElementById('contractAnalysis');
-  analysisDiv.style.display = 'block';
-  analysisDiv.innerHTML = `<div class="contract-analysis"><div class="ca-loading"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div>&nbsp;正在读取合同文件…</div></div>`;
+
+  if (analysisDiv) {
+    analysisDiv.style.display = 'block';
+    analysisDiv.innerHTML = `<div class="contract-analysis"><div class="ca-loading"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div>&nbsp;正在读取合同文件…</div></div>`;
+  }
   btn.disabled = true;
 
   try {
@@ -4812,29 +6060,88 @@ async function analyzeContracts() {
     }
 
     if (!combinedText.trim() || combinedText.includes('格式不支持')) {
-      analysisDiv.innerHTML = `<div class="contract-analysis" style="color:#e65100;font-size:.75rem">⚠️ 无法读取合同内容，请确认文件为 PDF、docx 或 txt 格式</div>`;
+      if (analysisDiv) {
+        analysisDiv.innerHTML = `<div class="contract-analysis" style="color:#e65100;font-size:.75rem">⚠️ 无法读取合同内容，请确认文件为 PDF、docx 或 txt 格式</div>`;
+      } else {
+        showToast('无法读取合同内容，请确认文件为 PDF、docx 或 txt 格式');
+      }
       return;
     }
     await analyzeContractText(combinedText, analysisDiv);
   } catch(e) {
-    analysisDiv.innerHTML = `<div class="contract-analysis" style="color:#e53935;font-size:.75rem">❌ 识别失败：${e.message}</div>`;
+    if (analysisDiv) {
+      analysisDiv.innerHTML = `<div class="contract-analysis" style="color:#e53935;font-size:.75rem">❌ 识别失败：${e.message}</div>`;
+    } else {
+      showToast('识别失败：' + e.message);
+    }
   } finally { btn.disabled = false; }
 }
 
 async function analyzeAgreements() {
-  const btn = document.getElementById('agreementAnalyzeBtn');
-  const projectId = btn.dataset.projectId;
+  // 检查是在主文件面板还是项目编辑页面
+  let btn = document.getElementById('agreementAnalyzeBtn');
+  let analysisDiv = document.getElementById('agreementAnalysis');
+  
+  // 如果在项目编辑页面
+  if (!btn) {
+    btn = document.getElementById('modalAgreementAnalyzeBtn');
+    analysisDiv = document.getElementById('modalAgreementAnalysis');
+  }
+  
+  if (!btn) return;
+  
+  // 禁用按钮
+  btn.disabled = true;
+  btn.style.opacity = '0.5';
+  
+  const projectId = currentEditProjectId || btn.dataset.projectId;
   const p = projects.find(x => x.id === projectId);
-  if (!p) return;
+  if (!p) {
+    // 启用按钮
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    return;
+  }
   const dir = await getProjectDir(p.name);
   if (!dir) return;
 
-  const fileNames = getSelectedFileNames('agreement');
-  if (!fileNames.length) { showToast('没有技术协议文件可识别'); return; }
+  let fileNames = getSelectedFileNames('agreement');
+  if (!fileNames.length) { 
+    // 如果没有选中文件，按文件类型分组，选择每种类型中最新的文件
+    const files = [];
+    for await (const [name, handle] of dir.entries()) {
+      if (handle.kind === 'file' && name !== '备注.txt' && !name.startsWith('.')) {
+        try {
+          const file = await handle.getFile();
+          files.push({ name, lastModified: file.lastModified });
+        } catch(e) {
+          files.push({ name, lastModified: 0 });
+        }
+      }
+    }
+    
+    const agreementFiles = files.filter(f => f.name.includes('技术协议') || f.name.includes('技术方案') || f.name.includes('需求文档'));
+    if (!agreementFiles.length) {
+      showToast('没有技术协议文件可识别'); 
+      return;
+    }
+    
+    // 按文件类型分组，选择每种类型中最新的文件
+    const agreementFilesByType = {};
+    agreementFiles.forEach(file => {
+      const ext = file.name.split('.').pop().toLowerCase();
+      if (!agreementFilesByType[ext] || file.lastModified > agreementFilesByType[ext].lastModified) {
+        agreementFilesByType[ext] = file;
+      }
+    });
+    
+    fileNames = Object.values(agreementFilesByType).map(f => f.name);
+  }
 
-  const analysisDiv = document.getElementById('agreementAnalysis');
-  analysisDiv.style.display = 'block';
-  analysisDiv.innerHTML = `<div class="contract-analysis"><div class="ca-loading"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div>&nbsp;正在读取技术协议…</div></div>`;
+  if (analysisDiv) {
+    analysisDiv.style.display = 'block';
+    analysisDiv.innerHTML = `<div class="contract-analysis"><div class="ca-loading"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div>&nbsp;正在读取技术协议…</div></div>`;
+  }
   btn.disabled = true;
 
   try {
@@ -4872,11 +6179,27 @@ async function analyzeAgreements() {
 // 识别方案报价（报价金额）
 async function analyzeQuotes() {
   const btn = document.getElementById('quoteAnalyzeBtn');
-  const projectId = btn.dataset.projectId;
+  if (!btn) return;
+  
+  // 禁用按钮
+  btn.disabled = true;
+  btn.style.opacity = '0.5';
+  
+  const projectId = currentEditProjectId || btn.dataset.projectId;
   const p = projects.find(x => x.id === projectId);
-  if (!p) return;
+  if (!p) {
+    // 启用按钮
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    return;
+  }
   const dir = await getProjectDir(p.name);
-  if (!dir) return;
+  if (!dir) {
+    // 启用按钮
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    return;
+  }
 
   const fileNames = getSelectedFileNames('quote');
   if (!fileNames.length) { showToast('没有方案报价文件可识别'); return; }
@@ -4917,7 +6240,10 @@ async function analyzeQuotes() {
     await analyzeQuoteText(combinedText, projectId, analysisDiv);
   } catch(e) {
     analysisDiv.innerHTML = `<div class="contract-analysis" style="color:#e53935;font-size:.75rem">❌ 识别失败：${e.message}</div>`;
-  } finally { btn.disabled = false; }
+  } finally { 
+    btn.disabled = false;
+    btn.style.opacity = '1';
+  }
 }
 
 const AGREEMENT_ANALYZE_PROMPT = `你是技术协议分析助手。请阅读这份技术协议，提取交付内容并按以下格式返回JSON，不加任何说明文字：
@@ -5028,42 +6354,10 @@ function renderAgreementAnalysis(data, analysisDiv, projectId) {
     );
     const text = rawText.replace(/```json|```/g,'').trim();
 
-    // 诊断：无论成功失败都把原始响应打印到页面底部（调试用）
-    const debugHtml = `<details style="margin-top:8px;font-size:.62rem"><summary style="color:#aaa;cursor:pointer">🔍 诊断信息</summary>
-      <div style="white-space:pre-wrap;color:#888;font-family:monospace;max-height:200px;overflow-y:auto;background:rgba(0,0,0,.05);padding:6px;border-radius:4px;margin-top:4px">
-_parsed.error: ${data._parsed?.error || '无'}
-_parsed.text长度: ${data._parsed?.text?.length ?? 'undefined'}
-原始text(前500字): ${rawText.slice(0,500) || '（空）'}
-      </div></details>`;
-
     if (!text) throw new Error(`AI 返回空响应${data._parsed?.error ? '，错误：' + data._parsed.error : ''}`);
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) throw new Error('未找到JSON，原始响应：\n' + text.slice(0,300));
     const result = JSON.parse(match[0]);
-
-    // 写回项目
-    if (projectId) {
-      const idx = projects.findIndex(p => p.id === projectId);
-      if (idx !== -1) {
-        projects[idx].deliveryTags = {
-          wireless_hardware: !!result.wireless_hardware,
-          wired_hardware:    !!result.wired_hardware,
-          software:          !!result.software,
-          other:             result.other || '',
-          _fromAi: true
-        };
-        if (result.brief) {
-          projects[idx].deliveryBrief = result.brief;
-          // 同步两个Tab的brief字段（如果Modal当前打开的是这个项目）
-          const briefEl = document.getElementById('f-delivery-brief');
-          if (briefEl && editingId === projectId) briefEl.value = result.brief;
-        }
-        // 同步两个Tab的交付标签
-        setDtags(projects[idx].deliveryTags);
-        save();
-        showToast('✅ 技术协议识别完成，交付内容已写入项目');
-      }
-    }
 
     const chips = [
       result.wireless_hardware && `<span class="ca-chip wireless">📡 无线硬件</span>`,
@@ -5072,12 +6366,26 @@ _parsed.text长度: ${data._parsed?.text?.length ?? 'undefined'}
       result.other             && `<span class="ca-chip other-dev">📎 ${result.other}</span>`,
     ].filter(Boolean);
 
-    analysisDiv.innerHTML = `
-      <div class="contract-analysis">
-        <div style="font-size:.65rem;color:#7eccd8;margin-bottom:8px">✅ 识别完成 · 数据已写入项目「交付情况」</div>
-        ${result.brief ? `<div style="font-size:.76rem;color:var(--ink);font-weight:600;margin-bottom:8px;padding:6px 10px;background:rgba(21,101,192,.05);border-radius:6px;border-left:2px solid var(--s1)">${result.brief}</div>` : ''}
-        <div class="ca-chips">${chips.length ? chips.join('') : '<span class="ca-chip none">未识别到具体类型</span>'}</div>
-      </div>`;
+    if (analysisDiv) {
+      // 存储识别结果到全局变量，供确认按钮使用
+      window.aiAgreementAnalysisResult = {
+        result: result,
+        projectId: projectId
+      };
+      
+      analysisDiv.innerHTML = `
+        <div class="contract-analysis">
+          <div style="font-size:.65rem;color:#7eccd8;margin-bottom:8px;display:flex;align-items:center;gap:5px">
+            <span>✅ 识别完成</span><span style="color:#ddd">·</span><span style="color:#aaa">请确认识别结果后再写入项目</span>
+          </div>
+          ${result.brief ? `<div style="font-size:.76rem;color:var(--ink);font-weight:600;margin-bottom:8px;padding:6px 10px;background:rgba(21,101,192,.05);border-radius:6px;border-left:2px solid var(--s1)">${result.brief}</div>` : ''}
+          <div class="ca-chips">${chips.length ? chips.join('') : '<span class="ca-chip none">未识别到具体类型</span>'}</div>
+          <div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end">
+            <button class="btn-cancel" style="padding:6px 16px;font-size:.75rem" onclick="cancelAgreementAIAnalysis()">取消</button>
+            <button class="btn-save" style="padding:6px 16px;font-size:.75rem" onclick="confirmAgreementAIAnalysis()">确认写入项目</button>
+          </div>
+        </div>`;
+    }
   } catch(e) {
     const rawText = data._parsed?.text || data.choices?.[0]?.message?.content || data.content?.filter(b=>b.type==='text').map(b=>b.text).join('') || '';
     analysisDiv.innerHTML = `<div class="contract-analysis" style="color:#e53935;font-size:.75rem">❌ 解析失败：${e.message}
@@ -5089,6 +6397,54 @@ _parsed.text长度: ${data._parsed?.text?.length ?? 'undefined'}
 ${rawText.slice(0,500) || '（空）'}
       </div></details>
     </div>`;
+  }
+}
+
+// 确认技术协议AI分析结果并写入项目
+function confirmAgreementAIAnalysis() {
+  if (!window.aiAgreementAnalysisResult) return;
+  
+  const { result, projectId } = window.aiAgreementAnalysisResult;
+  
+  if (projectId) {
+    const idx = projects.findIndex(p => p.id === projectId);
+    if (idx !== -1) {
+      projects[idx].deliveryTags = {
+        wireless_hardware: !!result.wireless_hardware,
+        wired_hardware:    !!result.wired_hardware,
+        software:          !!result.software,
+        other:             result.other || '',
+        _fromAi: true
+      };
+      if (result.brief) {
+        projects[idx].deliveryBrief = result.brief;
+        // 同步两个Tab的brief字段（如果Modal当前打开的是这个项目）
+        const briefEl = document.getElementById('f-delivery-brief');
+        if (briefEl && editingId === projectId) briefEl.value = result.brief;
+      }
+      // 同步两个Tab的交付标签
+      setDtags(projects[idx].deliveryTags);
+      save();
+      showToast('✅ 技术协议识别完成，交付内容已写入项目');
+    }
+  }
+  
+  // 清除全局变量
+  delete window.aiAgreementAnalysisResult;
+}
+
+// 取消技术协议AI分析结果
+function cancelAgreementAIAnalysis() {
+  delete window.aiAgreementAnalysisResult;
+  // 隐藏分析结果
+  const analysisDiv = document.getElementById('agreementAnalysis') || document.getElementById('modalAgreementAnalysis');
+  if (analysisDiv) {
+    analysisDiv.style.display = 'none';
+  }
+  // 重新启用分析按钮
+  const btn = document.getElementById('agreementAnalyzeBtn') || document.getElementById('modalAgreementAnalyzeBtn');
+  if (btn) {
+    btn.disabled = false;
   }
 }
 
@@ -5179,16 +6535,26 @@ async function analyzeContractFile(name, b64, type, analysisDiv, btn) {
 }
 
 async function analyzeContractText(text, analysisDiv) {
-  analysisDiv.innerHTML = `<div class="contract-analysis"><div class="ca-loading"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div>&nbsp;AI 正在分析合同内容…</div></div>`;
+  if (analysisDiv) {
+    analysisDiv.innerHTML = `<div class="contract-analysis"><div class="ca-loading"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div>&nbsp;AI 正在分析合同内容…</div></div>`;
+  }
   try {
     const data = await claudeCall({
       task: '合同文本解析',
       max_tokens: 4000,
       messages: [{ role: 'user', content: CONTRACT_ANALYZE_PROMPT + '\n\n合同内容如下：\n' + text.slice(0, 12000) }]
     });
-    renderContractAnalysis(data, analysisDiv);
+    if (analysisDiv) {
+      renderContractAnalysis(data, analysisDiv);
+    } else {
+      renderContractAnalysis(data, null);
+    }
   } catch(e) {
-    analysisDiv.innerHTML = `<div class="contract-analysis" style="color:#e53935;font-size:.75rem">❌ 解析失败：${e.message}</div>`;
+    if (analysisDiv) {
+      analysisDiv.innerHTML = `<div class="contract-analysis" style="color:#e53935;font-size:.75rem">❌ 解析失败：${e.message}</div>`;
+    } else {
+      showToast('合同解析失败：' + e.message);
+    }
   }
 }
 
@@ -5238,7 +6604,8 @@ function getProjectFields() {
   return {
     basic: [
       { field: 'name', label: '项目名称' },
-      { field: 'source', label: '项目来源/客户' },
+      { field: 'channel', label: '项目来源/渠道来源' },
+      { field: 'source', label: '客户名称' },
       { field: 'owner', label: '负责人/销售' },
       { field: 'product', label: '产品选型/方案' },
       { field: 'desc', label: '项目简介/描述' },
@@ -5307,7 +6674,7 @@ function generateTablePrompt(headers, sampleRows) {
   
   // 添加示例输出格式
   prompt += '\n示例输出格式：\n';
-  prompt += '{"项目名称": "name", "客户": "source", "负责人": "owner", "产品": "product", "描述": "desc", "状态": "stageLabel", "报价": "quote", "合同金额": "contract", "成本": "cost", "已回款": "collected", "交付内容": "deliveryBrief", "合同日期": "contractDate"}';
+  prompt += '{"项目名称": "name", "项目来源": "channel", "客户名称": "source", "负责人": "owner", "产品": "product", "描述": "desc", "状态": "stageLabel", "报价": "quote", "合同金额": "contract", "成本": "cost", "已回款": "collected", "交付内容": "deliveryBrief", "合同日期": "contractDate"}';
   
   return prompt;
 }
@@ -5986,51 +7353,6 @@ function renderContractAnalysis(data, analysisDiv) {
     const contractAmountYuan = (result.contractAmount != null) ? Number(result.contractAmount) : null;
     const contractAmountWan  = contractAmountYuan != null ? +(contractAmountYuan / 10000).toFixed(4).replace(/\.?0+$/, '') : null;
 
-    // ── 自动写回当前项目 ──
-    let contractUpdated = false;
-    if (fsCurrentProjectId) {
-      const idx = projects.findIndex(p => p.id === fsCurrentProjectId);
-      if (idx !== -1) {
-        // 回款节点：标记为AI来源，保留原有actualAmount/done
-        const existing = projects[idx].paymentNodes || [];
-        const newNodes = payments.map((row, i) => {
-          const old = existing[i] || {};
-          return {
-            condition:          row.condition || '',
-            ratio:              row.ratio     || '',
-            amount:             row.amount    || '',
-            contractAmountYuan: parseContractAmt(row.amount) || '',
-            actualAmount:       old.actualAmount || '',
-            done:               old.done || false,
-            _fromAi:            true
-          };
-        });
-        projects[idx].paymentNodes = newNodes;
-        // 交付标签
-        projects[idx].deliveryTags = { ...d, _fromAi: true };
-        // 合同金额：AI识别结果与已有记录不一致时自动更新
-        if (contractAmountWan != null) {
-          const existingContract = parseFloat(projects[idx].contract) || 0;
-          const diff = Math.abs(existingContract - contractAmountWan);
-          if (diff > 0.001) {
-            projects[idx].contract = String(contractAmountWan);
-            contractUpdated = true;
-          }
-        }
-        // 已回款：从节点汇总
-        projects[idx].collected = calcCollectedFromNodes(newNodes, projects[idx].contract);
-        // 重算回款进度
-        const c = parseFloat(projects[idx].contract) || 0;
-        const r = parseFloat(projects[idx].collected) || 0;
-        projects[idx].paymentPct = c > 0 ? Math.min(100, Math.round(r / c * 100)) : 0;
-        save();
-        const toastMsg = contractUpdated
-          ? `✅ 合同识别完成，合同金额已更新为 ${contractAmountWan}万元`
-          : '✅ 合同识别完成，数据已写入项目';
-        showToast(toastMsg);
-      }
-    }
-
     // 交付内容chips
     const deliveryChips = [
       d.wireless_hardware ? `<span class="ca-chip wireless">📡 无线硬件</span>` : '',
@@ -6057,29 +7379,149 @@ function renderContractAnalysis(data, analysisDiv) {
         <div style="font-size:.76rem;color:var(--ink);font-weight:600">
           ¥${fmtYuan(contractAmountYuan)} 元
           <span style="font-size:.65rem;color:#888;font-weight:400">（${contractAmountWan} 万元）</span>
-          ${contractUpdated ? `<span style="font-size:.63rem;color:var(--sc);margin-left:6px">⚡ 已自动更新项目合同金额</span>` : `<span style="font-size:.63rem;color:#aaa;margin-left:6px">与项目记录一致</span>`}
         </div>
       </div>` : '';
 
-    analysisDiv.innerHTML = `
-      <div class="contract-analysis">
-        <div style="font-size:.65rem;color:#7eccd8;margin-bottom:8px;display:flex;align-items:center;gap:5px">
-          <span>✅ 识别完成</span><span style="color:#ddd">·</span><span style="color:#aaa">数据已自动写入项目「金额与回款」和「交付情况」Tab</span>
-        </div>
-        ${contractHtml}
-        <div class="ca-section">
-          <div class="ca-title">📦 交付内容</div>
-          <div class="ca-chips">
-            ${noDelivery ? '<span class="ca-chip none">未识别到明确交付内容</span>' : deliveryChips.join('')}
+    if (analysisDiv) {
+      // 存储识别结果到全局变量，供确认按钮使用
+      window.aiAnalysisResult = {
+        result: result,
+        projectId: currentEditProjectId || fsCurrentProjectId
+      };
+      
+      analysisDiv.innerHTML = `
+        <div class="contract-analysis">
+          <div style="font-size:.65rem;color:#7eccd8;margin-bottom:8px;display:flex;align-items:center;gap:5px">
+            <span>✅ 识别完成</span><span style="color:#ddd">·</span><span style="color:#aaa">请确认识别结果后再写入项目</span>
           </div>
-        </div>
-        <div class="ca-section">
-          <div class="ca-title">💰 回款节点（共 ${payments.length} 个）</div>
-          ${payments.length ? paymentRows : '<div style="color:#ccc;font-size:.75rem">未识别到回款节点</div>'}
-        </div>
-      </div>`;
+          ${contractHtml}
+          <div class="ca-section">
+            <div class="ca-title">📦 交付内容</div>
+            <div class="ca-chips">
+              ${noDelivery ? '<span class="ca-chip none">未识别到明确交付内容</span>' : deliveryChips.join('')}
+            </div>
+          </div>
+          <div class="ca-section">
+            <div class="ca-title">💰 回款节点（共 ${payments.length} 个）</div>
+            ${payments.length ? paymentRows : '<div style="color:#ccc;font-size:.75rem">未识别到回款节点</div>'}
+          </div>
+          <div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end">
+            <button class="btn-cancel" style="padding:6px 16px;font-size:.75rem" onclick="cancelAIAnalysis()">取消</button>
+            <button class="btn-save" style="padding:6px 16px;font-size:.75rem" onclick="confirmAIAnalysis()">确认写入项目</button>
+          </div>
+        </div>`;
+    }
   } catch(e) {
-    analysisDiv.innerHTML = `<div class="contract-analysis" style="color:#e53935;font-size:.75rem">❌ 解析结果失败：${e.message}</div>`;
+    if (analysisDiv) {
+      analysisDiv.innerHTML = `<div class="contract-analysis" style="color:#e53935;font-size:.75rem">❌ 解析结果失败：${e.message}</div>`;
+    } else {
+      showToast('合同解析失败：' + e.message);
+    }
+  }
+}
+
+// 确认AI分析结果并写入项目
+function confirmAIAnalysis() {
+  if (!window.aiAnalysisResult) return;
+  
+  const { result, projectId } = window.aiAnalysisResult;
+  const d = result.delivery || {};
+  const payments = result.payment || [];
+  const contractAmountYuan = (result.contractAmount != null) ? Number(result.contractAmount) : null;
+  const contractAmountWan  = contractAmountYuan != null ? +(contractAmountYuan / 10000).toFixed(4).replace(/\.?0+$/, '') : null;
+  
+  if (projectId) {
+    const idx = projects.findIndex(p => p.id === projectId);
+    if (idx !== -1) {
+      // 回款节点：标记为AI来源，保留原有actualAmount/done
+      const existing = projects[idx].paymentNodes || [];
+      const newNodes = payments.map((row, i) => {
+        const old = existing[i] || {};
+        let ratio = row.ratio || '';
+        let amount = row.amount || '';
+        
+        // 根据合同总金额和百分比自动计算金额，或根据金额自动计算百分比
+        if (contractAmountYuan != null) {
+          if (ratio && !amount) {
+            // 有百分比无金额，自动计算金额
+            const ratioValue = parseFloat(ratio.replace('%', '')) / 100;
+            amount = (contractAmountYuan * ratioValue / 10000).toFixed(2);
+          } else if (amount && !ratio) {
+            // 有金额无百分比，自动计算百分比
+            const amountValue = parseFloat(amount) * 10000;
+            const ratioValue = (amountValue / contractAmountYuan) * 100;
+            ratio = ratioValue.toFixed(0) + '%';
+          }
+        }
+        
+        return {
+          condition:          row.condition || '',
+          ratio:              ratio,
+          amount:             amount,
+          contractAmountYuan: parseContractAmt(amount) || '',
+          actualAmount:       old.actualAmount || '',
+          done:               old.done || false,
+          _fromAi:            true
+        };
+      });
+      projects[idx].paymentNodes = newNodes;
+      // 交付标签
+      projects[idx].deliveryTags = { ...d, _fromAi: true };
+      // 合同金额：AI识别结果与已有记录不一致时自动更新
+      let contractUpdated = false;
+      if (contractAmountWan != null) {
+        const existingContract = parseFloat(projects[idx].contract) || 0;
+        const diff = Math.abs(existingContract - contractAmountWan);
+        if (diff > 0.001) {
+          projects[idx].contract = String(contractAmountWan);
+          contractUpdated = true;
+        }
+      }
+      // 已回款：从节点汇总
+      projects[idx].collected = calcCollectedFromNodes(newNodes, projects[idx].contract);
+      // 重算回款进度
+      const c = parseFloat(projects[idx].contract) || 0;
+      const r = parseFloat(projects[idx].collected) || 0;
+      projects[idx].paymentPct = c > 0 ? Math.min(100, Math.round(r / c * 100)) : 0;
+      save();
+      
+      // 重新渲染相关UI
+      if (currentEditProjectId) {
+        const p = projects.find(x => x.id === currentEditProjectId);
+        if (p) {
+          renderPaymentNodes(p);
+          // 刷新交付标签
+          setDtags(p.deliveryTags || {});
+          // 刷新合同金额
+          if (document.getElementById('f-contract')) {
+            document.getElementById('f-contract').value = p.contract || '';
+          }
+        }
+      }
+      
+      const toastMsg = contractUpdated
+        ? `✅ 合同识别完成，合同金额已更新为 ${contractAmountWan}万元`
+        : '✅ 合同识别完成，数据已写入项目';
+      showToast(toastMsg);
+    }
+  }
+  
+  // 清除全局变量
+  delete window.aiAnalysisResult;
+}
+
+// 取消AI分析结果
+function cancelAIAnalysis() {
+  delete window.aiAnalysisResult;
+  // 隐藏分析结果
+  const analysisDiv = document.getElementById('contractAnalysis') || document.getElementById('modalContractAnalysis');
+  if (analysisDiv) {
+    analysisDiv.style.display = 'none';
+  }
+  // 重新启用分析按钮
+  const btn = document.getElementById('contractAnalyzeBtn') || document.getElementById('modalContractAnalyzeBtn');
+  if (btn) {
+    btn.disabled = false;
   }
 }
 
