@@ -3363,205 +3363,276 @@ let originalProjectData = null;
 function editProject(id) {
   const p = projects.find(x=>String(x.id)===String(id));
   if (!p) return;
-  editingId = id;
-  _pendingLogs = [];
-  // 保存原始项目数据，用于比较是否有更新
-  originalProjectData = JSON.parse(JSON.stringify(p));
-  document.getElementById('modal-title').textContent = p.name;
-  document.getElementById('f-name').value      = p.name||'';
-  document.getElementById('f-channel').value   = p.channel||'';
-  document.getElementById('f-source').value    = p.source||'';
-  document.getElementById('f-owner').value     = p.owner||'';
-  document.getElementById('f-product').value   = p.product||'';
-  document.getElementById('f-desc').value      = p.desc||'';
-  document.getElementById('f-stage').value     = p.stage;
-  document.getElementById('f-active').value    = p.active||'active';
-  document.getElementById('f-quote').value     = p.quote||'';
-  document.getElementById('f-contract').value  = p.contract||'';
-  document.getElementById('f-cost').value      = p.cost||'';
-  document.getElementById('f-collected').value = p.collected||'';
-  // 调用onStageChange来更新UI元素的显示状态
-  onStageChange();
-  // 同步基本信息Tab的镜像字段
-  const cm = document.getElementById('f-contract-mirror');
-  const rm = document.getElementById('f-collected-mirror');
-  if (cm) cm.value = p.contract||'';
-  if (rm) rm.value = p.collected||'';
-  document.getElementById('f-delivery-note').value = p.deliveryNote||'';
-  const briefElements = document.querySelectorAll('#f-delivery-brief');
-  briefElements.forEach(el => {
-    if (el) el.value = p.deliveryBrief||'';
-  });
-  document.getElementById('f-termination-reason').value = p.terminationReason||'';
-  document.getElementById('f-update-log').value = '';
-  // 合同签署日期 & 项目编号
-  const cdEl = document.getElementById('f-contract-date');
-  if (cdEl) cdEl.value = p.contractDate || '';
-  const codeEl = document.getElementById('f-code-display');
-  if (codeEl) codeEl.value = p.projectCode || '';
-  // 合同签署日期字段显隐
-  const cdGroup = document.getElementById('f-contract-date-group');
-  if (cdGroup) cdGroup.style.display = (p.stage === STAGE.DELIVERING || p.stage === STAGE.COMPLETED) ? 'block' : 'none';
-  // 洽谈状态字段显隐
-  const dsGroup = document.getElementById('f-discuss-status-group');
-  const dsEl = document.getElementById('f-discuss-status');
-  if (dsGroup) dsGroup.style.display = (p.stage === STAGE.NEGOTIATING) ? 'block' : 'none';
-  if (dsEl) dsEl.value = p.洽谈状态 || '需求沟通';
-  // 回款节点
-  const pnList = document.getElementById('f-pn-list');
-  pnList.innerHTML = '';
-  const nodes = p.paymentNodes || [];
-  if (nodes.length > 0) {
-    const pnFragment = document.createDocumentFragment();
-    nodes.forEach((n, index) => {
-      const row = document.createElement('div');
-      row.className = 'pn-row' + (n.done ? ' done-row' : '');
-      const idx = index + 1;
-      const amtDisplay = n.amount || '';
-      row.innerHTML = `
-        <!-- 顶部工具栏：序号 / AI标签 / 删除 -->
-        <div class="pn-toolbar">
-          <span class="pn-idx">${idx}</span>
-          ${!!n._fromAi ? `<span class="pn-ai-badge">AI</span>` : ''}
-          <button type="button" class="pn-rm" onclick="removePaymentNode(this)" title="删除">×</button>
-        </div>
-        <!-- 交付任务目标区：标题描述 + 紧跟的完成勾选 -->
-        <div class="pn-task-area">
-          <div class="pn-task-label">📋 交付任务目标</div>
-          <div class="pn-task-row" style="display:flex;align-items:center;gap:10px;">
-            <input class="pn-condition" type="text" style="flex:1;" 
-              placeholder="描述需完成的交付任务，如：合同签订后收到保函及发票"
-              value="${(n.condition||'').replace(/"/g,'&quot;')}">
-            <div class="pn-deliver-toggle" onclick="onPnDeliverToggle(this)" style="flex-shrink:0;">
-              <input type="checkbox" class="pn-deliver-chk" ${n.deliverDone?'checked':''}>
-              <div class="pn-status-btn ${n.deliverDone?'active-deliver':''}">
-                ${n.deliverDone?'✅ 交付完成':'○ 交付完成'}
-              </div>
-            </div>
-          </div>
-        </div>
-        <!-- 主体：左=回款目标  右=回款落实 -->
-        <div class="pn-body">
-          <div class="pn-col">
-            <div class="pn-col-title">🎯 回款目标</div>
-            <div class="pn-field">
-              <label>回款比例</label>
-              <input class="pn-ratio" type="text" placeholder="如 30%"
-                value="${n.ratio||''}" oninput="onPnRatioInput(this)">
-            </div>
-            <div class="pn-field">
-              <label>金额（万元）</label>
-              <input class="pn-amount" type="text" placeholder="0" 
-                value="${amtDisplay}" onchange="updatePaymentNode(${idx-1}, 'amount', this.value)">
-            </div>
-          </div>
-          <div class="pn-col">
-            <div class="pn-col-title">💰 回款落实</div>
-            <div class="pn-field">
-              <label>实际到账（万元）</label>
-              <input class="pn-actual" type="text" placeholder="0" 
-                  value="${n.actualAmount||''}" oninput="onPnActualInput(this)">
-            </div>
-            <div class="pn-done-toggle" onclick="onPnDoneToggle(this)">
-              <input type="checkbox" ${n.done?'checked':''}>
-              <div class="pn-status-btn ${n.done?'active-done':''}">
-                ${n.done?'✅ 回款已到账':'○ 回款已到账'}
-              </div>
-            </div>
-          </div>
-        </div>`;
-      row.dataset.contractAmountYuan = n.contractAmountYuan || '';
-      pnFragment.appendChild(row);
-      
-      // 如果有比例但没有金额，根据合同金额自动计算
-      const amtInput = row.querySelector('.pn-amount');
-      if (!amtInput.value && n.ratio) {
-        const ratioInput = row.querySelector('.pn-ratio');
-        const contract = parseFloat(document.getElementById('f-contract').value) || 0;
-        if (contract > 0) {
-          const ratio = parsePnRatio(n.ratio);
-          if (ratio) {
-            const amount = (contract * ratio).toFixed(4).replace(/\.?0+$/, '');
-            amtInput.value = amount;
-          }
-        }
-      }
-    });
-    pnList.appendChild(pnFragment);
-  }
-  document.getElementById('f-pn-empty').style.display = nodes.length ? 'none' : 'block';
-  document.getElementById('pn-ai-hint').textContent = nodes.some(n=>n._fromAi) ? '（含AI识别数据）' : '';
-  // 交付标签
-  setDtags(p.deliveryTags || {});
-  // 催款任务
-  const collectList = document.getElementById('f-collect-list');
-  collectList.innerHTML = '';
-  const collectTasks = p.collectTasks||[];
-  if (collectTasks.length > 0) {
-    // 添加标注行
-    const labelRow = document.createElement('div');
-    labelRow.style.display = 'flex';
-    labelRow.style.gap = '6px';
-    labelRow.style.padding = '6px 10px';
-    labelRow.style.background = 'var(--paper2)';
-    labelRow.style.borderRadius = '6px';
-    labelRow.style.marginBottom = '6px';
-    labelRow.innerHTML = `
-      <div style="width: 14px;"></div>
-      <div style="width: 130px; font-size: 0.68rem; color: #888;">日期</div>
-      <div style="width: 120px; font-size: 0.68rem; color: #888;">金额</div>
-      <div style="width: 80px; font-size: 0.68rem; color: #888;">负责人</div>
-      <div style="flex: 1; font-size: 0.68rem; color: #888;">备注</div>
-      <div style="width: 20px;"></div>
-    `;
-    collectList.appendChild(labelRow);
+  
+  // 使用requestAnimationFrame优化渲染时机
+  requestAnimationFrame(() => {
+    editingId = id;
+    _pendingLogs = [];
+    // 保存原始项目数据，用于比较是否有更新
+    originalProjectData = JSON.parse(JSON.stringify(p));
     
-    const collectFragment = document.createDocumentFragment();
-    collectTasks.forEach(t => {
-      const row = document.createElement('div');
-      row.className = 'collect-row';
-      row.innerHTML = `
-        <input type="checkbox" class="ct-done" ${t.done?'checked':''} onchange="onCollectDoneChange(this)">
-        <input type="date" class="ct-date" value="${t.date||''}">
-        <div style="display: flex; align-items: center; gap: 4px; width: 120px;">
-          <input type="number" class="ct-amount" placeholder="金额" value="${t.amount||''}" step="0.01" min="0" style="width: 80px;">
-          <span style="font-size: 0.72rem; color: #888;">万元</span>
-        </div>
-        <input type="text" class="ct-owner" placeholder="负责人" value="${t.owner||''}" style="width: 80px;">
-        <input type="text" class="ct-note"  placeholder="备注（可选）" value="${esc(t.note||'')}" style="flex: 1;">
-        <button type="button" class="btn-rm-row" onclick="this.parentElement.remove()">×</button>`;
-      collectFragment.appendChild(row);
+    // 1. 缓存DOM元素引用，减少重复查找
+    const elements = {
+      modalTitle: document.getElementById('modal-title'),
+      fName: document.getElementById('f-name'),
+      fChannel: document.getElementById('f-channel'),
+      fSource: document.getElementById('f-source'),
+      fOwner: document.getElementById('f-owner'),
+      fProduct: document.getElementById('f-product'),
+      fDesc: document.getElementById('f-desc'),
+      fStage: document.getElementById('f-stage'),
+      fActive: document.getElementById('f-active'),
+      fQuote: document.getElementById('f-quote'),
+      fContract: document.getElementById('f-contract'),
+      fCost: document.getElementById('f-cost'),
+      fCollected: document.getElementById('f-collected'),
+      fContractMirror: document.getElementById('f-contract-mirror'),
+      fCollectedMirror: document.getElementById('f-collected-mirror'),
+      fDeliveryNote: document.getElementById('f-delivery-note'),
+      fTerminationReason: document.getElementById('f-termination-reason'),
+      fUpdateLog: document.getElementById('f-update-log'),
+      fContractDate: document.getElementById('f-contract-date'),
+      fCodeDisplay: document.getElementById('f-code-display'),
+      fContractDateGroup: document.getElementById('f-contract-date-group'),
+      fDiscussStatusGroup: document.getElementById('f-discuss-status-group'),
+      fDiscussStatus: document.getElementById('f-discuss-status'),
+      fPnList: document.getElementById('f-pn-list'),
+      fPnEmpty: document.getElementById('f-pn-empty'),
+      pnAiHint: document.getElementById('pn-ai-hint'),
+      fCollectList: document.getElementById('f-collect-list'),
+      todosList: document.getElementById('todos-list'),
+      fLogHistory: document.getElementById('f-log-history'),
+      overlay: document.getElementById('overlay')
+    };
+    
+    // 2. 批量更新表单字段
+    if (elements.modalTitle) elements.modalTitle.textContent = p.name;
+    if (elements.fName) elements.fName.value = p.name||'';
+    if (elements.fChannel) elements.fChannel.value = p.channel||'';
+    if (elements.fSource) elements.fSource.value = p.source||'';
+    if (elements.fOwner) elements.fOwner.value = p.owner||'';
+    if (elements.fProduct) elements.fProduct.value = p.product||'';
+    if (elements.fDesc) elements.fDesc.value = p.desc||'';
+    if (elements.fStage) elements.fStage.value = p.stage;
+    if (elements.fActive) elements.fActive.value = p.active||'active';
+    if (elements.fQuote) elements.fQuote.value = p.quote||'';
+    if (elements.fContract) elements.fContract.value = p.contract||'';
+    if (elements.fCost) elements.fCost.value = p.cost||'';
+    if (elements.fCollected) elements.fCollected.value = p.collected||'';
+    
+    // 3. 调用onStageChange来更新UI元素的显示状态
+    onStageChange();
+    
+    // 4. 同步基本信息Tab的镜像字段
+    if (elements.fContractMirror) elements.fContractMirror.value = p.contract||'';
+    if (elements.fCollectedMirror) elements.fCollectedMirror.value = p.collected||'';
+    if (elements.fDeliveryNote) elements.fDeliveryNote.value = p.deliveryNote||'';
+    
+    // 5. 更新交付说明字段
+    const briefElements = document.querySelectorAll('#f-delivery-brief');
+    briefElements.forEach(el => {
+      if (el) el.value = p.deliveryBrief||'';
     });
-    collectList.appendChild(collectFragment);
-  }
-  updatePaymentPct();
-  // 待办
-  const todosList = document.getElementById('todos-list');
-  todosList.innerHTML='';
-  const todos = p.todos||[];
-  if (todos.length > 0) {
-    const todosFragment = document.createDocumentFragment();
-    todos.forEach(t => {
-      const row = document.createElement('div');
-      row.className='todo-row';
-      row.innerHTML = `
-        <input type="checkbox" ${t.done?'checked':''}>
-        <input type="text" placeholder="待办内容…" value="${esc(t.text)}">
-        <button class="btn-remove-todo" onclick="this.parentElement.remove()">×</button>`;
-      todosFragment.appendChild(row);
-    });
-    todosList.appendChild(todosFragment);
-  } else {
-    addTodoRow();
-  }
-  renderLogHistory(p.logs||[]);
-  document.querySelectorAll('.m-tab').forEach((t,i)=>t.classList.toggle('active',i===0));
-  document.querySelectorAll('.m-tab-body').forEach((b,i)=>b.classList.toggle('active',i===0));
-  document.getElementById('overlay').classList.add('show');
-  updateTabAiBtns();
-  // 设置当前编辑项目ID并更新本地文件目录显示
-  currentEditProjectId = id;
-  updateRootBar(getProjectDirName(p));
+    
+    if (elements.fTerminationReason) elements.fTerminationReason.value = p.terminationReason||'';
+    if (elements.fUpdateLog) elements.fUpdateLog.value = '';
+    
+    // 6. 合同签署日期 & 项目编号
+    if (elements.fContractDate) elements.fContractDate.value = p.contractDate || '';
+    if (elements.fCodeDisplay) elements.fCodeDisplay.value = p.projectCode || '';
+    
+    // 7. 合同签署日期字段显隐
+    if (elements.fContractDateGroup) {
+      elements.fContractDateGroup.style.display = (p.stage === STAGE.DELIVERING || p.stage === STAGE.COMPLETED) ? 'block' : 'none';
+    }
+    
+    // 8. 洽谈状态字段显隐
+    if (elements.fDiscussStatusGroup) {
+      elements.fDiscussStatusGroup.style.display = (p.stage === STAGE.NEGOTIATING) ? 'block' : 'none';
+    }
+    if (elements.fDiscussStatus) {
+      elements.fDiscussStatus.value = p.洽谈状态 || '需求沟通';
+    }
+    
+    // 9. 回款节点
+    if (elements.fPnList) {
+      elements.fPnList.innerHTML = '';
+      const nodes = p.paymentNodes || [];
+      if (nodes.length > 0) {
+        const pnFragment = document.createDocumentFragment();
+        nodes.forEach((n, index) => {
+          const row = document.createElement('div');
+          row.className = 'pn-row' + (n.done ? ' done-row' : '');
+          const idx = index + 1;
+          const amtDisplay = n.amount || '';
+          row.innerHTML = `
+            <!-- 顶部工具栏：序号 / AI标签 / 删除 -->
+            <div class="pn-toolbar">
+              <span class="pn-idx">${idx}</span>
+              ${!!n._fromAi ? `<span class="pn-ai-badge">AI</span>` : ''}
+              <button type="button" class="pn-rm" onclick="removePaymentNode(this)" title="删除">×</button>
+            </div>
+            <!-- 交付任务目标区：标题描述 + 紧跟的完成勾选 -->
+            <div class="pn-task-area">
+              <div class="pn-task-label">📋 交付任务目标</div>
+              <div class="pn-task-row" style="display:flex;align-items:center;gap:10px;">
+                <input class="pn-condition" type="text" style="flex:1;" 
+                  placeholder="描述需完成的交付任务，如：合同签订后收到保函及发票"
+                  value="${(n.condition||'').replace(/"/g,'&quot;')}">
+                <div class="pn-deliver-toggle" onclick="onPnDeliverToggle(this)" style="flex-shrink:0;">
+                  <input type="checkbox" class="pn-deliver-chk" ${n.deliverDone?'checked':''}>
+                  <div class="pn-status-btn ${n.deliverDone?'active-deliver':''}">
+                    ${n.deliverDone?'✅ 交付完成':'○ 交付完成'}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- 主体：左=回款目标  右=回款落实 -->
+            <div class="pn-body">
+              <div class="pn-col">
+                <div class="pn-col-title">🎯 回款目标</div>
+                <div class="pn-field">
+                  <label>回款比例</label>
+                  <input class="pn-ratio" type="text" placeholder="如 30%"
+                    value="${n.ratio||''}" oninput="onPnRatioInput(this)">
+                </div>
+                <div class="pn-field">
+                  <label>金额（万元）</label>
+                  <input class="pn-amount" type="text" placeholder="0" 
+                    value="${amtDisplay}" onchange="updatePaymentNode(${idx-1}, 'amount', this.value)">
+                </div>
+              </div>
+              <div class="pn-col">
+                <div class="pn-col-title">💰 回款落实</div>
+                <div class="pn-field">
+                  <label>实际到账（万元）</label>
+                  <input class="pn-actual" type="text" placeholder="0" 
+                      value="${n.actualAmount||''}" oninput="onPnActualInput(this)">
+                </div>
+                <div class="pn-done-toggle" onclick="onPnDoneToggle(this)">
+                  <input type="checkbox" ${n.done?'checked':''}>
+                  <div class="pn-status-btn ${n.done?'active-done':''}">
+                    ${n.done?'✅ 回款已到账':'○ 回款已到账'}
+                  </div>
+                </div>
+              </div>
+            </div>`;
+          row.dataset.contractAmountYuan = n.contractAmountYuan || '';
+          pnFragment.appendChild(row);
+          
+          // 如果有比例但没有金额，根据合同金额自动计算
+          const amtInput = row.querySelector('.pn-amount');
+          if (!amtInput.value && n.ratio && elements.fContract) {
+            const ratioInput = row.querySelector('.pn-ratio');
+            const contract = parseFloat(elements.fContract.value) || 0;
+            if (contract > 0) {
+              const ratio = parsePnRatio(n.ratio);
+              if (ratio) {
+                const amount = (contract * ratio).toFixed(4).replace(/\.?0+$/, '');
+                amtInput.value = amount;
+              }
+            }
+          }
+        });
+        elements.fPnList.appendChild(pnFragment);
+      }
+      if (elements.fPnEmpty) {
+        elements.fPnEmpty.style.display = nodes.length ? 'none' : 'block';
+      }
+      if (elements.pnAiHint) {
+        elements.pnAiHint.textContent = nodes.some(n=>n._fromAi) ? '（含AI识别数据）' : '';
+      }
+    }
+    
+    // 10. 交付标签
+    setDtags(p.deliveryTags || {});
+    
+    // 11. 催款任务
+    if (elements.fCollectList) {
+      elements.fCollectList.innerHTML = '';
+      const collectTasks = p.collectTasks||[];
+      if (collectTasks.length > 0) {
+        // 添加标注行
+        const labelRow = document.createElement('div');
+        labelRow.style.display = 'flex';
+        labelRow.style.gap = '6px';
+        labelRow.style.padding = '6px 10px';
+        labelRow.style.background = 'var(--paper2)';
+        labelRow.style.borderRadius = '6px';
+        labelRow.style.marginBottom = '6px';
+        labelRow.innerHTML = `
+          <div style="width: 14px;"></div>
+          <div style="width: 130px; font-size: 0.68rem; color: #888;">日期</div>
+          <div style="width: 120px; font-size: 0.68rem; color: #888;">金额</div>
+          <div style="width: 80px; font-size: 0.68rem; color: #888;">负责人</div>
+          <div style="flex: 1; font-size: 0.68rem; color: #888;">备注</div>
+          <div style="width: 20px;"></div>
+        `;
+        elements.fCollectList.appendChild(labelRow);
+        
+        const collectFragment = document.createDocumentFragment();
+        collectTasks.forEach(t => {
+          const row = document.createElement('div');
+          row.className = 'collect-row';
+          row.innerHTML = `
+            <input type="checkbox" class="ct-done" ${t.done?'checked':''} onchange="onCollectDoneChange(this)">
+            <input type="date" class="ct-date" value="${t.date||''}">
+            <div style="display: flex; align-items: center; gap: 4px; width: 120px;">
+              <input type="number" class="ct-amount" placeholder="金额" value="${t.amount||''}" step="0.01" min="0" style="width: 80px;">
+              <span style="font-size: 0.72rem; color: #888;">万元</span>
+            </div>
+            <input type="text" class="ct-owner" placeholder="负责人" value="${t.owner||''}" style="width: 80px;">
+            <input type="text" class="ct-note"  placeholder="备注（可选）" value="${esc(t.note||'')}" style="flex: 1;">
+            <button type="button" class="btn-rm-row" onclick="this.parentElement.remove()">×</button>`;
+          collectFragment.appendChild(row);
+        });
+        elements.fCollectList.appendChild(collectFragment);
+      }
+    }
+    
+    // 12. 更新回款百分比
+    updatePaymentPct();
+    
+    // 13. 待办
+    if (elements.todosList) {
+      elements.todosList.innerHTML='';
+      const todos = p.todos||[];
+      if (todos.length > 0) {
+        const todosFragment = document.createDocumentFragment();
+        todos.forEach(t => {
+          const row = document.createElement('div');
+          row.className='todo-row';
+          row.innerHTML = `
+            <input type="checkbox" ${t.done?'checked':''}>
+            <input type="text" placeholder="待办内容…" value="${esc(t.text)}">
+            <button class="btn-remove-todo" onclick="this.parentElement.remove()">×</button>`;
+          todosFragment.appendChild(row);
+        });
+        elements.todosList.appendChild(todosFragment);
+      } else {
+        addTodoRow();
+      }
+    }
+    
+    // 14. 渲染日志历史
+    renderLogHistory(p.logs||[]);
+    
+    // 15. 切换到第一个标签页
+    document.querySelectorAll('.m-tab').forEach((t,i)=>t.classList.toggle('active',i===0));
+    document.querySelectorAll('.m-tab-body').forEach((b,i)=>b.classList.toggle('active',i===0));
+    
+    // 16. 显示模态框
+    if (elements.overlay) {
+      elements.overlay.classList.add('show');
+    }
+    
+    // 17. 更新AI按钮状态
+    updateTabAiBtns();
+    
+    // 18. 设置当前编辑项目ID并更新本地文件目录显示
+    currentEditProjectId = id;
+    updateRootBar(getProjectDirName(p));
+  });
 }
 
 function closeModal() { 
