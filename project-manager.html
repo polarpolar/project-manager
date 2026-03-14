@@ -6021,29 +6021,36 @@ async function loadModalFilePanel(projectId) {
 
   if (!fsRootHandle) {
     // 根目录未配置，清空所有文件网格
-    ['modalContractFileGrid', 'modalAgreementFileGrid', 'modalTechPlanFileGrid', 'modalQuoteFileGrid'].forEach(id =>
-      document.getElementById(id).innerHTML = '');
+    ['modalContractFileGrid', 'modalAgreementFileGrid', 'modalTechPlanFileGrid', 'modalQuoteFileGrid', 'modalOtherFileGrid'].forEach(id => {
+      const grid = document.getElementById(id);
+      if (grid) grid.innerHTML = '';
+    });
     return;
   }
 
   const dir = await getProjectDir(p.name);
   if (!dir) {
     // 项目文件夹不存在，清空所有文件网格
-    ['modalContractFileGrid', 'modalAgreementFileGrid', 'modalTechPlanFileGrid', 'modalQuoteFileGrid'].forEach(id =>
-      document.getElementById(id).innerHTML = '');
+    ['modalContractFileGrid', 'modalAgreementFileGrid', 'modalTechPlanFileGrid', 'modalQuoteFileGrid', 'modalOtherFileGrid'].forEach(id => {
+      const grid = document.getElementById(id);
+      if (grid) grid.innerHTML = '';
+    });
     return;
   }
 
-  // 读取文件列表
+  // 读取文件和文件夹列表
   const files = [];
   for await (const [name, handle] of dir.entries()) {
     if (handle.kind === 'file') {
       try {
         const file = await handle.getFile();
-        files.push({ name, handle, lastModified: file.lastModified });
+        files.push({ name, handle, lastModified: file.lastModified, isDirectory: false });
       } catch(e) {
-        files.push({ name, handle, lastModified: 0 });
+        files.push({ name, handle, lastModified: 0, isDirectory: false });
       }
+    } else if (handle.kind === 'directory') {
+      // 识别文件夹
+      files.push({ name, handle, lastModified: 0, isDirectory: true });
     }
   }
 
@@ -6054,17 +6061,23 @@ async function loadModalFilePanel(projectId) {
   const tagMap = displayFiles.length ? await classifyFileNames(displayFiles.map(f => f.name)) : {};
 
   // 按分类分组
-  const contractFiles  = displayFiles.filter(f => tagMap[f.name]?.cat === '合同').sort((a, b) => b.lastModified - a.lastModified);
-  const agreementFiles = displayFiles.filter(f => tagMap[f.name]?.cat === '技术协议' || tagMap[f.name]?.cat === '技术方案').sort((a, b) => b.lastModified - a.lastModified);
-  const techPlanFiles  = displayFiles.filter(f => tagMap[f.name]?.cat === '技术方案').sort((a, b) => b.lastModified - a.lastModified);
-  const quoteFiles     = displayFiles.filter(f => tagMap[f.name]?.cat === '报价单' || tagMap[f.name]?.cat === '方案报价').sort((a, b) => b.lastModified - a.lastModified);
-  const otherFiles     = displayFiles.filter(f => !['合同','技术协议','技术方案','报价单','方案报价'].includes(tagMap[f.name]?.cat)).sort((a, b) => b.lastModified - a.lastModified);
+  const contractFiles  = displayFiles.filter(f => !f.isDirectory && (tagMap[f.name]?.cat === '合同')).sort((a, b) => b.lastModified - a.lastModified);
+  const agreementFiles = displayFiles.filter(f => !f.isDirectory && (tagMap[f.name]?.cat === '技术协议' || tagMap[f.name]?.cat === '技术方案')).sort((a, b) => b.lastModified - a.lastModified);
+  const techPlanFiles  = displayFiles.filter(f => !f.isDirectory && (tagMap[f.name]?.cat === '技术方案')).sort((a, b) => b.lastModified - a.lastModified);
+  const quoteFiles     = displayFiles.filter(f => !f.isDirectory && (tagMap[f.name]?.cat === '报价单' || tagMap[f.name]?.cat === '方案报价')).sort((a, b) => b.lastModified - a.lastModified);
+  const otherFiles     = displayFiles.filter(f => !['合同','技术协议','技术方案','报价单','方案报价'].includes(tagMap[f.name]?.cat)).sort((a, b) => {
+    // 文件夹排在前面，然后按名称排序
+    if (a.isDirectory && !b.isDirectory) return -1;
+    if (!a.isDirectory && b.isDirectory) return 1;
+    return b.lastModified - a.lastModified;
+  });
 
   // 渲染文件网格
   renderModalFileSection('contract', contractFiles, p.id, tagMap);
   renderModalFileSection('agreement', agreementFiles, p.id, tagMap);
   renderModalFileSection('techPlan', techPlanFiles, p.id, tagMap);
   renderModalFileSection('quote', quoteFiles, p.id, tagMap);
+  renderModalFileSection('other', otherFiles, p.id, tagMap);
   
   // 显示AI识别按钮
   const modalContractAnalyzeBtn = document.getElementById('modalContractAnalyzeBtn');
@@ -6097,10 +6110,17 @@ async function loadModalFilePanel(projectId) {
 function renderModalFileSection(type, files, projectId, tagMap) {
   const gridId = `modal${type.charAt(0).toUpperCase() + type.slice(1)}FileGrid`;
   const emptyId = `modal${type.charAt(0).toUpperCase() + type.slice(1)}Empty`;
+  const countId = `modal${type.charAt(0).toUpperCase() + type.slice(1)}Count`;
   const grid = document.getElementById(gridId);
   const empty = document.getElementById(emptyId);
+  const countEl = document.getElementById(countId);
   
   if (!grid || !empty) return;
+  
+  // 更新文件计数
+  if (countEl) {
+    countEl.textContent = `${files.length} 个文件`;
+  }
   
   if (files.length === 0) {
     grid.innerHTML = '';
@@ -6108,7 +6128,7 @@ function renderModalFileSection(type, files, projectId, tagMap) {
   } else {
     grid.innerHTML = files.map(f => `
       <div class="file-item file-item-selected" data-filename="${f.name}" data-lastmodified="${f.lastModified}">
-        <div class="file-item-icon">📄</div>
+        <div class="file-item-icon">${f.isDirectory ? '📁' : '📄'}</div>
         <div class="file-item-name">${f.name}</div>
         <div class="file-item-check">✓</div>
       </div>
