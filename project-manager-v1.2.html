@@ -991,7 +991,10 @@
       <!-- 内容简介 -->
       <div class="form-group" id="f-delivery-brief-group">
         <label>内容简介（合同约定的交付物概述）</label>
-        <textarea id="f-delivery-brief" placeholder="简要描述合同约定的交付内容，如：无线传感器×20套、数据平台软件一套…" style="min-height:64px"></textarea>
+        <div style="position: relative;">
+          <textarea id="f-delivery-brief" placeholder="简要描述合同约定的交付内容，如：无线传感器×20套、数据平台软件一套…" style="min-height:64px; pointer-events: none; background: #f8f8f8;" readonly></textarea>
+          <button type="button" onclick="switchToDeliveryTab()" style="position: absolute; top: 8px; right: 8px; padding: 4px 8px; background: var(--s1); color: white; border: none; border-radius: 4px; font-size: 0.7rem; cursor: pointer;">在交付情况页修改</button>
+        </div>
       </div>
       
       <!-- 终止原因 -->
@@ -2092,7 +2095,7 @@ function cardHTML(p, colKey) {
       ${p.stage===0&&p.洽谈状态 ? `<span class="card-tag">💬 ${p.洽谈状态}</span>` : ''}
     </div>` : '';
 
-  const amtHtml = (p.quote||p.contract||p.cost) ? `
+  const amtHtml = (p.quote||p.contract||p.cost) && p.stage === 0 ? `
     <div class="card-amounts">
       ${p.quote    ? `<div class="amount-item"><div class="alabel">报价</div><div class="aval">¥${fmtWanShort(p.quote)}万</div></div>` : ''}
       ${p.contract ? `<div class="amount-item"><div class="alabel">合同</div><div class="aval contract">¥${fmtWanShort(p.contract)}万</div></div>` : ''}
@@ -2146,10 +2149,10 @@ function cardHTML(p, colKey) {
     </div>`;
   }
 
-  // 催款任务预览（colKey=c 显示未完成的，最多3条）
+  // 催款任务预览（colKey=c 且阶段为0时显示未完成的，最多3条）
   let collectHtml = '';
   const tasks = (p.collectTasks||[]);
-  if (colKey === 'c' && tasks.length) {
+  if (colKey === 'c' && tasks.length && p.stage === 0) {
     const shown = tasks.filter(t=>!t.done).slice(0,3);
     collectHtml = `<div class="card-collect-preview">` +
       shown.map(t => `
@@ -2165,8 +2168,8 @@ function cardHTML(p, colKey) {
 
   const descHtml = p.desc ? `<div class="card-desc">${p.desc}</div>` : '';
   const updatedHtml = p.updatedAt ? `<div class="card-updated">🕐 ${p.updatedAt}</div>` : '';
-  const lastLog = (p.logs||[]).slice(-1)[0];
-  const logHtml = lastLog ? `<div class="card-last-log">💬 ${lastLog.text}</div>` : '';
+  // 不显示更新日志
+  const logHtml = '';
 
   const todosShown = (p.todos||[]).slice(0,3);
   const todoHtml = todosShown.length ? `
@@ -2991,6 +2994,15 @@ function saveProject() {
     }
   });
   
+  // 获取交付内容简要，优先使用交付情况页面的值
+  let deliveryBrief = '';
+  const briefElements = document.querySelectorAll('#f-delivery-brief');
+  briefElements.forEach(el => {
+    if (el && el.value.trim()) {
+      deliveryBrief = el.value.trim();
+    }
+  });
+
   const data = {
     name, stage,
     channel:      document.getElementById('f-channel').value.trim(),
@@ -3004,7 +3016,7 @@ function saveProject() {
     cost:         document.getElementById('f-cost').value,
     collected:    document.getElementById('f-collected').value,
     deliveryNote: document.getElementById('f-delivery-note').value.trim(),
-    deliveryBrief: document.getElementById('f-delivery-brief').value.trim(),
+    deliveryBrief: deliveryBrief,
     terminationReason: document.getElementById('f-termination-reason')?.value.trim() || '',
     paymentPct, paymentNodes, deliveryTags,
     collectTasks: collectTasks,
@@ -6454,8 +6466,12 @@ function confirmAgreementAIAnalysis() {
       if (result.brief) {
         projects[idx].deliveryBrief = result.brief;
         // 同步两个Tab的brief字段（如果Modal当前打开的是这个项目）
-        const briefEl = document.getElementById('f-delivery-brief');
-        if (briefEl && editingId === projectId) briefEl.value = result.brief;
+        const briefElements = document.querySelectorAll('#f-delivery-brief');
+        briefElements.forEach(el => {
+          if (el && editingId === projectId) {
+            el.value = result.brief;
+          }
+        });
       }
       // 同步两个Tab的交付标签
       setDtags(projects[idx].deliveryTags);
@@ -6490,6 +6506,15 @@ function cancelAgreementAIAnalysis() {
   const btn = document.getElementById('agreementAnalyzeBtn') || document.getElementById('modalAgreementAnalyzeBtn');
   if (btn) {
     btn.disabled = false;
+  }
+}
+
+// 切换到交付情况标签页
+function switchToDeliveryTab() {
+  // 找到交付情况标签页并点击
+  const deliveryTab = document.querySelector('.m-tab:nth-child(3)');
+  if (deliveryTab) {
+    deliveryTab.click();
   }
 }
 
