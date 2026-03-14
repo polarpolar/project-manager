@@ -1095,7 +1095,7 @@
       <!-- 催款任务 -->
       <div style="display:flex;align-items:center;justify-content:space-between;margin:16px 0 8px">
         <span style="font-size:.72rem;font-weight:600;color:var(--sc)">🔔 催款任务</span>
-        <button type="button" class="btn-add-row" onclick="addCollectRow()">＋ 新增催款任务</button>
+        <button type="button" class="btn-add-row" onclick="addCollectRow({}, true)">＋ 新增催款任务</button>
       </div>
       <div id="f-collect-list"></div>
     </div>
@@ -1679,6 +1679,49 @@ document.getElementById('confirmOverlay').addEventListener('click',e=>{if(e.targ
 </script>
 
 <script>
+// ╔══════════════════════════════════════════╗
+// ║  MODULE: constants                       ║
+// ╚══════════════════════════════════════════╝
+const DEBUG = false;
+
+// 项目阶段
+const STAGE = { NEGOTIATING: 0, DELIVERING: 1, COMPLETED: 2, TERMINATED: 3 };
+const STAGE_LABEL  = ['洽谈中', '已签单·执行中', '已完结', '已终止'];
+const STAGE_SHORT  = ['洽谈', '交付中', '已完结', '已终止'];
+const STAGE_COLOR  = ['var(--s0)', 'var(--s1)', 'var(--s2)', 'var(--s0)'];
+const STAGE_S_ATTR = ['0', '1', '2', '3'];
+
+// 存储键
+const STORAGE_KEY = {
+  PROJECTS: 'pm_projects_v3',
+  RECYCLE: 'pm_recycle_bin_v1',
+  AI_PROVIDER: 'ai_provider',
+  AI_MODEL: 'ai_model',
+  AI_KEY: 'ai_key',
+  AI_PROXY: 'ai_proxy',
+  AI_LOGS: 'ai_logs',
+  AI_MODEL_POLICY: 'ai_model_policy',
+  AI_MAX_TOKENS: 'ai_max_tokens',
+  YUQUE_PROXY: 'yuque_proxy',
+  YUQUE_TOKEN: 'yuque_token',
+  YUQUE_URL: 'yuque_url',
+  PARSE_MODE: 'parse_mode',
+  SB_COLLAPSED: 'sb_collapsed'
+};
+
+// 存储限制
+const MAX_STORAGE_BYTES = 5 * 1024 * 1024; // 5MB
+
+// XSS 转义函数
+function esc(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 // 全局变量
 let projects = [];
 let recycleBin = [];
@@ -1692,17 +1735,17 @@ async function loadDatabase() {
   try {
     const module = await import('./db.js');
     db = module.default;
-    console.log('数据库模块加载成功');
+    if (DEBUG) console.log('数据库模块加载成功');
     return true;
   } catch (error) {
-    console.error('数据库模块加载失败:', error);
+    if (DEBUG) console.error('数据库模块加载失败:', error);
     return false;
   }
 }
 
-// ═══════════════════════════════════════════════════
-// 数据
-// ═══════════════════════════════════════════════════
+// ╔══════════════════════════════════════════╗
+// ║  MODULE: store（数据层，无 DOM 依赖）     ║
+// ╚══════════════════════════════════════════╝
 
 // 初始化数据库并加载数据
 async function initDatabase() {
@@ -1710,30 +1753,30 @@ async function initDatabase() {
     // 先加载数据库模块
     const loadSuccess = await loadDatabase();
     if (!loadSuccess) {
-      console.error('数据库模块加载失败，使用localStorage作为备用存储');
+      if (DEBUG) console.error('数据库模块加载失败，使用localStorage作为备用存储');
       loadFromLocalStorage();
       return;
     }
     
     const success = await db.init();
     if (success) {
-      console.log('数据库初始化成功');
+      if (DEBUG) console.log('数据库初始化成功');
       // 加载项目数据
       projects = await db.getProjects();
-      console.log('项目数据加载成功，数量：', projects.length);
+      if (DEBUG) console.log('项目数据加载成功，数量：', projects.length);
       
       // 加载回收站数据
       recycleBin = await db.getRecycleBin();
-      console.log('回收站数据加载成功，数量：', recycleBin.length);
+      if (DEBUG) console.log('回收站数据加载成功，数量：', recycleBin.length);
       
       // 渲染页面
       render();
     } else {
-      console.error('数据库初始化失败，使用localStorage作为备用存储');
+      if (DEBUG) console.error('数据库初始化失败，使用localStorage作为备用存储');
       loadFromLocalStorage();
     }
   } catch (error) {
-    console.error('初始化数据库失败：', error);
+    if (DEBUG) console.error('初始化数据库失败：', error);
     loadFromLocalStorage();
   }
 }
@@ -1741,31 +1784,31 @@ async function initDatabase() {
 // 从localStorage加载数据作为备用
 function loadFromLocalStorage() {
   try {
-    const raw = localStorage.getItem('pm_projects_v3');
+    const raw = localStorage.getItem(STORAGE_KEY.PROJECTS);
     if (raw) {
       try {
         projects = JSON.parse(raw);
-        console.log('从localStorage加载项目数据，数量：', projects.length);
+        if (DEBUG) console.log('从localStorage加载项目数据，数量：', projects.length);
       } catch (parseError) {
-        console.error('解析项目数据失败：', parseError);
+        if (DEBUG) console.error('解析项目数据失败：', parseError);
         projects = [];
       }
     }
     
-    const recycleRaw = localStorage.getItem('pm_recycle_bin_v1');
+    const recycleRaw = localStorage.getItem(STORAGE_KEY.RECYCLE);
     if (recycleRaw) {
       try {
         recycleBin = JSON.parse(recycleRaw);
-        console.log('从localStorage加载回收站数据，数量：', recycleBin.length);
+        if (DEBUG) console.log('从localStorage加载回收站数据，数量：', recycleBin.length);
       } catch (recycleParseError) {
-        console.error('解析回收站数据失败：', recycleParseError);
+        if (DEBUG) console.error('解析回收站数据失败：', recycleParseError);
         recycleBin = [];
       }
     }
     
     render();
   } catch (error) {
-    console.error('加载localStorage数据失败：', error);
+    if (DEBUG) console.error('加载localStorage数据失败：', error);
   }
 }
 
@@ -1793,7 +1836,7 @@ function exportData() {
     
     showToast('数据导出成功');
   } catch (error) {
-    console.error('导出数据失败：', error);
+    if (DEBUG) console.error('导出数据失败：', error);
     showToast('导出失败：' + error.message);
   }
 }
@@ -1855,13 +1898,13 @@ function importData() {
             }
           });
         } catch (parseError) {
-          console.error('解析导入数据失败：', parseError);
+          if (DEBUG) console.error('解析导入数据失败：', parseError);
           showToast('导入失败：数据格式错误');
         }
       };
       reader.readAsText(file);
     } catch (error) {
-      console.error('导入数据失败：', error);
+      if (DEBUG) console.error('导入数据失败：', error);
       showToast('导入失败：' + error.message);
     }
   };
@@ -1892,13 +1935,13 @@ async function importFromLocalStorage() {
       okText: '导入',
       onOk: async () => {
         // 从localStorage读取数据
-        const raw = localStorage.getItem('pm_projects_v3');
-        const recycleRaw = localStorage.getItem('pm_recycle_bin_v1');
+        const raw = localStorage.getItem(STORAGE_KEY.PROJECTS);
+        const recycleRaw = localStorage.getItem(STORAGE_KEY.RECYCLE);
         
         if (raw) {
           try {
             const localStorageProjects = JSON.parse(raw);
-            console.log('从localStorage导入项目数据，数量：', localStorageProjects.length);
+            if (DEBUG) console.log('从localStorage导入项目数据，数量：', localStorageProjects.length);
             
             // 清空当前数据库
             const allProjects = await db.getProjects();
@@ -1916,13 +1959,13 @@ async function importFromLocalStorage() {
             if (recycleRaw) {
               try {
                 const localStorageRecycleBin = JSON.parse(recycleRaw);
-                console.log('从localStorage导入回收站数据，数量：', localStorageRecycleBin.length);
+                if (DEBUG) console.log('从localStorage导入回收站数据，数量：', localStorageRecycleBin.length);
                 for (const item of localStorageRecycleBin) {
                   await db.saveToRecycleBin(item);
                 }
                 recycleBin = localStorageRecycleBin;
               } catch (recycleParseError) {
-                console.error('解析回收站数据失败：', recycleParseError);
+                if (DEBUG) console.error('解析回收站数据失败：', recycleParseError);
               }
             }
             
@@ -1933,7 +1976,7 @@ async function importFromLocalStorage() {
             render();
             showToast('数据导入成功');
           } catch (parseError) {
-            console.error('解析项目数据失败：', parseError);
+            if (DEBUG) console.error('解析项目数据失败：', parseError);
             showToast('导入失败：数据格式错误');
           }
         } else {
@@ -1942,26 +1985,37 @@ async function importFromLocalStorage() {
       }
     });
   } catch (error) {
-    console.error('导入数据失败：', error);
+    if (DEBUG) console.error('导入数据失败：', error);
     showToast('导入失败：' + error.message);
   }
 }
 
 function save() {
   try {
-    // 保存每个项目到数据库
-    for (const project of projects) {
-      db.saveProject(project);
+    if (db) {
+      // 保存每个项目到数据库
+      for (const project of projects) {
+        db.saveProject(project);
+      }
+      
+      // 保存回收站数据
+      for (const item of recycleBin) {
+        db.saveToRecycleBin(item);
+      }
+      
+      if (DEBUG) console.log('数据保存到数据库成功');
+    } else {
+      // 数据库不可用时，保存到 localStorage
+      try {
+        localStorage.setItem(STORAGE_KEY.PROJECTS, JSON.stringify(projects));
+        localStorage.setItem(STORAGE_KEY.RECYCLE, JSON.stringify(recycleBin));
+        if (DEBUG) console.log('数据保存到 localStorage 成功');
+      } catch (localStorageError) {
+        if (DEBUG) console.error('保存到 localStorage 失败：', localStorageError);
+      }
     }
-    
-    // 保存回收站数据
-    for (const item of recycleBin) {
-      db.saveToRecycleBin(item);
-    }
-    
-    console.log('数据保存成功');
   } catch(e) {
-    console.error('保存数据失败：', e);
+    if (DEBUG) console.error('保存数据失败：', e);
   }
   render();
   if (document.getElementById('todosPanel').classList.contains('open')) renderTodosPanel();
@@ -2010,6 +2064,7 @@ async function restoreFromRecycleBin(id) {
   
   save();
   showToast('项目已从回收站恢复');
+  renderRecycleBin();
 }
 
 // 从回收站删除项目（彻底删除）
@@ -2024,6 +2079,7 @@ async function deleteFromRecycleBin(id) {
   
   save();
   showToast('项目已彻底删除');
+  renderRecycleBin();
 }
 
 // 清空回收站
@@ -2036,6 +2092,30 @@ async function emptyRecycleBin() {
     
     save();
     showToast('回收站已清空');
+    renderRecycleBin();
+  }
+}
+
+// 渲染回收站面板内容
+function renderRecycleBin() {
+  const recycleBinList = document.getElementById('recycleBinList');
+  if (recycleBinList) {
+    recycleBinList.innerHTML = recycleBin.length ? recycleBin.map(p => `
+      <div style="background:#fff;border-radius:8px;box-shadow:0 1px 4px var(--shadow);padding:12px 14px;margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
+          <h4 style="font-weight:700;color:var(--ink);font-size:.8rem">${esc(p.name)}</h4>
+          <span style="font-size:.6rem;color:#bbb">${new Date(p.deletedAt).toLocaleString()}</span>
+        </div>
+        <div style="font-size:.65rem;color:#888;margin-bottom:8px">
+          ${p.projectCode ? `编号: ${p.projectCode}<br>` : ''}
+          ${p.owner ? `负责人: ${p.owner}<br>` : ''}
+          ${p.stage !== undefined ? `阶段: ${STAGE_LABEL[p.stage]}<br>` : ''}
+        </div>
+        <div style="display:flex;gap:6px;justify-content:flex-end">
+          <button class="btn-sm" style="background:rgba(77,182,172,.1);color:#4db6ac;border-color:rgba(77,182,172,.2)" onclick="restoreFromRecycleBin('${p.id}')">恢复</button>
+          <button class="btn-sm btn-del" onclick="deleteFromRecycleBin('${p.id}')">彻底删除</button>
+        </div>
+      </div>`).join('') : '<div style="text-align:center;color:#999;padding:40px 0">回收站为空</div>';
   }
 }
 
@@ -2058,7 +2138,7 @@ function openRecycleBin() {
         ${recycleBin.length ? recycleBin.map(p => `
           <div style="background:#fff;border-radius:8px;box-shadow:0 1px 4px var(--shadow);padding:12px 14px;margin-bottom:8px">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
-              <h4 style="font-weight:700;color:var(--ink);font-size:.8rem">${p.name}</h4>
+              <h4 style="font-weight:700;color:var(--ink);font-size:.8rem">${esc(p.name)}</h4>
               <span style="font-size:.6rem;color:#bbb">${new Date(p.deletedAt).toLocaleString()}</span>
             </div>
             <div style="font-size:.65rem;color:#888;margin-bottom:8px">
@@ -2095,77 +2175,7 @@ function closeRecycleBin() {
   if (backdrop) backdrop.remove();
 }
 
-// 项目状态转换时的文件整理
-async function organizeFilesForProjectStart(projectId) {
-  const p = projects.find(x => x.id === projectId);
-  if (!p) return;
-  
-  try {
-    const dir = await getProjectDir(p.name);
-    if (!dir) return;
-    
-    // 创建立项材料子文件夹
-    let立项材料Dir;
-    try {
-      立项材料Dir = await dir.getDirectoryHandle('立项材料', { create: true });
-    } catch(e) {
-      console.error('创建立项材料文件夹失败:', e);
-      return;
-    }
-    
-    // 读取所有文件
-    const files = [];
-    for await (const [name, handle] of dir.entries()) {
-      if (handle.kind === 'file' && name !== '备注.txt') {
-        try {
-          const file = await handle.getFile();
-          files.push({ name, handle, lastModified: file.lastModified });
-        } catch(e) {
-          files.push({ name, handle, lastModified: 0 });
-        }
-      }
-    }
-    
-    // 分类文件
-    const technicalFiles = files.filter(f => f.name.includes('技术') || f.name.includes('方案'));
-    const quoteFiles = files.filter(f => f.name.includes('报价') || f.name.includes('预算'));
-    const otherFiles = files.filter(f => !technicalFiles.includes(f) && !quoteFiles.includes(f));
-    
-    // 按修改时间排序，获取最新的技术方案和报价单
-    technicalFiles.sort((a, b) => b.lastModified - a.lastModified);
-    quoteFiles.sort((a, b) => b.lastModified - a.lastModified);
-    
-    const latestTechnicalFile = technicalFiles[0];
-    const latestQuoteFile = quoteFiles[0];
-    
-    // 移动文件到立项材料文件夹
-    for (const file of files) {
-      // 保留最新的技术方案和报价单
-      if (file === latestTechnicalFile || file === latestQuoteFile) {
-        continue;
-      }
-      
-      try {
-        // 复制文件到新位置
-        const newHandle = await 立项材料Dir.getFileHandle(file.name, { create: true });
-        const writable = await newHandle.createWritable();
-        const fileContent = await (await file.handle.getFile()).text();
-        await writable.write(fileContent);
-        await writable.close();
-        
-        // 删除原文件
-        await dir.removeEntry(file.name);
-      } catch(e) {
-        console.error(`移动文件 ${file.name} 失败:`, e);
-      }
-    }
-    
-    showToast('✅ 项目文件已整理到「立项材料」文件夹');
-  } catch(e) {
-    console.error('整理项目文件失败:', e);
-    showToast('⚠️ 整理项目文件失败');
-  }
-}
+
 
 // ═══════════════════════════════════════════════════
 // 阶段逻辑
@@ -2173,20 +2183,15 @@ async function organizeFilesForProjectStart(projectId) {
 // stage: 0=洽谈中, 1=已签单·执行中, 2=已完结, 3=已终止
 // "催款中" 不是独立 stage，而是 stage===1 且有未完成催款任务的展示列
 
-const STAGE_LABEL  = ['洽谈中', '已签单·执行中', '已完结', '已终止'];
-const STAGE_SHORT  = ['洽谈', '交付中', '已完结', '已终止'];
-const STAGE_COLOR  = ['var(--s0)', 'var(--s1)', 'var(--s2)', 'var(--s0)'];
-const STAGE_S_ATTR = ['0', '1', '2', '3'];
-
 function hasOpenCollect(p) {
-  return p.stage === 1 && (p.collectTasks||[]).some(t => !t.done);
+  return p.stage === STAGE.DELIVERING && (p.collectTasks||[]).some(t => !t.done);
 }
 
 // 看板列：0=洽谈, 1=交付中(含催款中), 2=完结, 3=已终止
 function getBoardColumn(p) {
-  if (p.stage === 0) return '0';
-  if (p.stage === 2) return '2';
-  if (p.stage === 3) return '3';
+  if (p.stage === STAGE.NEGOTIATING) return '0';
+  if (p.stage === STAGE.COMPLETED) return '2';
+  if (p.stage === STAGE.TERMINATED) return '3';
   return '1';
 }
 
@@ -2223,12 +2228,12 @@ function toggleSidebar() {
   const collapsed = sb.classList.contains('collapsed');
   btn.textContent = collapsed ? '▶' : '◀';
   // 收起时保存状态
-  try { localStorage.setItem('sb_collapsed', collapsed ? '1' : '0'); } catch(e){}
+  try { localStorage.setItem(STORAGE_KEY.SB_COLLAPSED, collapsed ? '1' : '0'); } catch(e){}
 }
 // 初始化侧边栏状态
 (function initSidebar() {
   try {
-    if (localStorage.getItem('sb_collapsed') === '1') {
+    if (localStorage.getItem(STORAGE_KEY.SB_COLLAPSED) === '1') {
       const sb = document.getElementById('sidebar');
       if (sb) {
         sb.classList.add('collapsed');
@@ -2238,6 +2243,10 @@ function toggleSidebar() {
     }
   } catch(e){}
 })();
+
+// ╔══════════════════════════════════════════╗
+// ║  MODULE: render-board（看板视图层）       ║
+// ╚══════════════════════════════════════════╝
 
 function render() {
   // 初始化筛选按钮样式
@@ -2285,7 +2294,7 @@ function render() {
     // 全部项目：包含洽谈中的项目和本年签单的项目
     projects.filter(p => {
       // 洽谈中的项目
-      if (p.stage === 0) return true;
+      if (p.stage === STAGE.NEGOTIATING) return true;
       // 本年签单的项目
       if (p.contractDate) {
         const y = new Date(p.contractDate).getFullYear();
@@ -2297,7 +2306,7 @@ function render() {
   // 全部项目数量：始终显示所有项目的数量
   const totalCount = projects.length;
   // 报价总额：只包含所有洽谈中的项目，不受时间影响
-  const quoteSum = projects.filter(p => p.stage === 0).reduce((a,p)=>a+(parseFloat(p.quote)||0),0);
+  const quoteSum = projects.filter(p => p.stage === STAGE.NEGOTIATING).reduce((a,p)=>a+(parseFloat(p.quote)||0),0);
   const contractSum = filteredProjects.reduce((a,p)=>a+(parseFloat(p.contract)||0),0);
   const todoCount = filteredProjects.reduce((a,p)=>a+(p.todos||[]).filter(t=>!t.done).length,0);
   
@@ -2310,16 +2319,16 @@ function render() {
 function cardHTML(p, colKey) {
   const sAttr = colKey === 'c' ? 'c' : STAGE_S_ATTR[p.stage];
 
-  const metaHtml = (p.channel||p.source||p.owner||p.product||(p.stage===0&&p.洽谈状态)) ? `
+  const metaHtml = (p.channel||p.source||p.owner||p.product||(p.stage===STAGE.NEGOTIATING&&p.洽谈状态)) ? `
     <div class="card-meta">
-      ${p.channel ? `<span class="card-tag">🌐 ${p.channel}</span>` : ''}
-      ${p.source  ? `<span class="card-tag">📌 ${p.source}</span>` : ''}
-      ${p.owner   ? `<span class="card-tag">👤 ${p.owner}</span>`   : ''}
-      ${p.product ? `<span class="card-tag">📦 ${p.product}</span>` : ''}
-      ${p.stage===0&&p.洽谈状态 ? `<span class="card-tag">💬 ${p.洽谈状态}</span>` : ''}
+      ${p.channel ? `<span class="card-tag">🌐 ${esc(p.channel)}</span>` : ''}
+      ${p.source  ? `<span class="card-tag">📌 ${esc(p.source)}</span>` : ''}
+      ${p.owner   ? `<span class="card-tag">👤 ${esc(p.owner)}</span>`   : ''}
+      ${p.product ? `<span class="card-tag">📦 ${esc(p.product)}</span>` : ''}
+      ${p.stage===STAGE.NEGOTIATING&&p.洽谈状态 ? `<span class="card-tag">💬 ${esc(p.洽谈状态)}</span>` : ''}
     </div>` : '';
 
-  const amtHtml = (p.quote||p.contract||p.cost) && p.stage === 0 ? `
+  const amtHtml = (p.quote||p.contract||p.cost) && p.stage === STAGE.NEGOTIATING ? `
     <div class="card-amounts">
       ${p.quote    ? `<div class="amount-item"><div class="alabel">报价</div><div class="aval">¥${fmtWanShort(p.quote)}万</div></div>` : ''}
       ${p.contract ? `<div class="amount-item"><div class="alabel">合同</div><div class="aval contract">¥${fmtWanShort(p.contract)}万</div></div>` : ''}
@@ -2335,7 +2344,7 @@ function cardHTML(p, colKey) {
     tags.other             && `<span style="font-size:.62rem;padding:2px 8px;border-radius:10px;background:rgba(230,81,0,.1);color:#e65100;font-weight:600">📎 其他</span>`,
   ].filter(Boolean);
   const hasDelivery = tagItems.length || p.deliveryBrief || p.deliveryNote;
-  const deliveryHtml = (p.stage===1||p.stage===2) ? `
+  const deliveryHtml = (p.stage===STAGE.DELIVERING||p.stage===STAGE.COMPLETED) ? `
     <div style="margin:5px 0;padding:7px 10px;background:rgba(21,101,192,.04);border-radius:6px;border-left:2px solid var(--s1)">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:${hasDelivery?'5px':'0'}">
         <span style="font-size:.6rem;color:var(--s1);font-weight:600">📦 交付内容</span>
@@ -2346,7 +2355,7 @@ function cardHTML(p, colKey) {
 
   // 回款进度 + 节点摘要（阶段1/2显示）
   let paymentHtml = '';
-  if ((p.stage === 1 || p.stage === 2) && p.contract) {
+  if ((p.stage === STAGE.DELIVERING || p.stage === STAGE.COMPLETED) && p.contract) {
     const pct = p.paymentPct || 0;
     const nodes = p.paymentNodes || [];
     const doneCount = nodes.filter(n=>n.done).length;
@@ -2355,7 +2364,7 @@ function cardHTML(p, colKey) {
         <span style="width:12px;height:12px;border-radius:50%;border:1.5px solid ${n.done?'var(--sc)':'#ddd'};background:${n.done?'var(--sc)':'transparent'};flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-top:2px">
           ${n.done ? '<span style="color:#fff;font-size:8px">✓</span>' : ''}
         </span>
-        <span style="font-size:.65rem;color:#666;flex:1;min-width:0;word-wrap:break-word">${n.condition||'付款节点'}</span>
+        <span style="font-size:.65rem;color:#666;flex:1;min-width:0;word-wrap:break-word">${esc(n.condition||'付款节点')}</span>
         ${n.ratio ? `<span style="font-size:.63rem;color:var(--sc);font-weight:700;flex-shrink:0;margin-top:2px">${n.ratio}</span>` : ''}
         ${n.contractAmountYuan ? `<span style="font-size:.62rem;color:#888;flex-shrink:0;margin-top:2px">${fmtYuan(n.contractAmountYuan)} 元</span>` : n.amount ? `<span style="font-size:.62rem;color:#888;flex-shrink:0;margin-top:2px">${n.amount}</span>` : ''}
       </div>`).join('');
@@ -2376,7 +2385,7 @@ function cardHTML(p, colKey) {
   // 催款任务预览（colKey=c 且阶段为0时显示未完成的，最多3条）
   let collectHtml = '';
   const tasks = (p.collectTasks||[]);
-  if (colKey === 'c' && tasks.length && p.stage === 0) {
+  if (colKey === 'c' && tasks.length && p.stage === STAGE.NEGOTIATING) {
     const shown = tasks.filter(t=>!t.done).slice(0,3);
     collectHtml = `<div class="card-collect-preview">` +
       shown.map(t => `
@@ -2390,7 +2399,7 @@ function cardHTML(p, colKey) {
       `</div>`;
   }
 
-  const descHtml = p.desc ? `<div class="card-desc">${p.desc}</div>` : '';
+  const descHtml = p.desc ? `<div class="card-desc">${esc(p.desc)}</div>` : '';
   const updatedHtml = p.updatedAt ? `<div class="card-updated">🕐 ${p.updatedAt}</div>` : '';
   // 不显示更新日志
   const logHtml = '';
@@ -2401,22 +2410,22 @@ function cardHTML(p, colKey) {
       ${todosShown.map(t=>`
         <div class="todo-item-mini ${t.done?'done':''}">
           <div class="chk-mini ${t.done?'checked':''}"></div>
-          <span>${t.text}</span>
+          <span>${esc(t.text)}</span>
         </div>`).join('')}
       ${(p.todos||[]).length>3?`<div style="font-size:.6rem;color:#bbb">…还有${p.todos.length-3}项</div>`:''}
     </div>` : '';
 
   // 操作按钮
   let actionBtns = '';
-  if (p.stage === 0) actionBtns += `<button class="btn-sm btn-next" onclick="moveStage('${p.id}',1)">→ 已签单执行中</button>`;
-  if (p.stage === 1) actionBtns += `<button class="btn-sm btn-done" onclick="moveStage('${p.id}',2)">→ 已完结</button>`;
+  if (p.stage === STAGE.NEGOTIATING) actionBtns += `<button class="btn-sm btn-next" onclick="moveStage('${p.id}',${STAGE.DELIVERING})">→ 已签单执行中</button>`;
+  if (p.stage === STAGE.DELIVERING) actionBtns += `<button class="btn-sm btn-done" onclick="moveStage('${p.id}',${STAGE.COMPLETED})">→ 已完结</button>`;
 
   actionBtns += `<button class="btn-sm btn-del" onclick="deleteProject('${p.id}')">✕</button>`;
 
   return `
   <div class="card" data-s="${sAttr}">
     <div class="card-top">
-      <div class="card-name" onclick="editProject('${p.id}')">${p.name}</div>
+      <div class="card-name" onclick="editProject('${p.id}')">${esc(p.name)}</div>
       <span class="card-active ${p.active==='inactive'?'off':'on'}">${p.active==='inactive'?'🔴 不活跃':'🟢 活跃'}</span>
     </div>
     ${updatedHtml}${logHtml}${metaHtml}${amtHtml}${deliveryHtml}${paymentHtml}${descHtml}${todoHtml}
@@ -2431,7 +2440,7 @@ function cardHTML(p, colKey) {
 // 阶段切换时：控制合同签署日期字段和洽谈状态字段显隐
 function onStageChange() {
   const stage = parseInt(document.getElementById('f-stage').value);
-  console.log('项目阶段变更为:', stage);
+  if (DEBUG) console.log('项目阶段变更为:', stage);
   
   const cdGroup = document.getElementById('f-contract-date-group');
   const dsGroup = document.getElementById('f-discuss-status-group');
@@ -2445,52 +2454,52 @@ function onStageChange() {
   
   // 显示/隐藏合同签署日期字段
   if (cdGroup) {
-    cdGroup.style.display = (stage === 1 || stage === 2) ? 'block' : 'none';
-    console.log('合同签署日期字段显示状态:', (stage === 1 || stage === 2) ? 'block' : 'none');
+    cdGroup.style.display = (stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'block' : 'none';
+    if (DEBUG) console.log('合同签署日期字段显示状态:', (stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'block' : 'none');
   }
   
   // 显示/隐藏洽谈状态字段
   if (dsGroup) {
-    dsGroup.style.display = (stage === 0) ? 'block' : 'none';
-    console.log('洽谈状态字段显示状态:', (stage === 0) ? 'block' : 'none');
+    dsGroup.style.display = (stage === STAGE.NEGOTIATING) ? 'block' : 'none';
+    if (DEBUG) console.log('洽谈状态字段显示状态:', (stage === STAGE.NEGOTIATING) ? 'block' : 'none');
   }
   
   // 显示/隐藏活跃度字段（已终止项目不显示）
   if (activeGroup) {
-    activeGroup.style.display = (stage !== 3) ? 'block' : 'none';
-    console.log('活跃度字段显示状态:', (stage !== 3) ? 'block' : 'none');
+    activeGroup.style.display = (stage !== STAGE.TERMINATED) ? 'block' : 'none';
+    if (DEBUG) console.log('活跃度字段显示状态:', (stage !== STAGE.TERMINATED) ? 'block' : 'none');
   }
   
   // 显示/隐藏终止原因字段（仅已终止项目显示）
   if (terminationReasonGroup) {
-    terminationReasonGroup.style.display = (stage === 3) ? 'block' : 'none';
-    console.log('终止原因字段显示状态:', (stage === 3) ? 'block' : 'none');
+    terminationReasonGroup.style.display = (stage === STAGE.TERMINATED) ? 'block' : 'none';
+    if (DEBUG) console.log('终止原因字段显示状态:', (stage === STAGE.TERMINATED) ? 'block' : 'none');
   }
   
   // 显示/隐藏合同金额和回款金额字段（洽谈中和已终止项目不显示）
   if (contractAmountGroup) {
-    contractAmountGroup.style.display = (stage === 1 || stage === 2) ? 'block' : 'none';
-    console.log('合同金额字段显示状态:', (stage === 1 || stage === 2) ? 'block' : 'none');
+    contractAmountGroup.style.display = (stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'block' : 'none';
+    if (DEBUG) console.log('合同金额字段显示状态:', (stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'block' : 'none');
   }
   if (collectedAmountGroup) {
-    collectedAmountGroup.style.display = (stage === 1 || stage === 2) ? 'block' : 'none';
-    console.log('回款金额字段显示状态:', (stage === 1 || stage === 2) ? 'block' : 'none');
+    collectedAmountGroup.style.display = (stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'block' : 'none';
+    if (DEBUG) console.log('回款金额字段显示状态:', (stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'block' : 'none');
   }
   
   // 显示/隐藏报价/预算金额字段（洽谈中和已终止项目显示）
   if (quoteAmountGroup) {
-    quoteAmountGroup.style.display = (stage === 0 || stage === 3) ? 'block' : 'none';
-    console.log('报价/预算金额字段显示状态:', (stage === 0 || stage === 3) ? 'block' : 'none');
+    quoteAmountGroup.style.display = (stage === STAGE.NEGOTIATING || stage === STAGE.TERMINATED) ? 'block' : 'none';
+    if (DEBUG) console.log('报价/预算金额字段显示状态:', (stage === STAGE.NEGOTIATING || stage === STAGE.TERMINATED) ? 'block' : 'none');
   }
   
   // 显示/隐藏交付内容和内容简介字段（洽谈中和已终止项目不显示）
   if (deliveryContentGroup) {
-    deliveryContentGroup.style.display = (stage === 1 || stage === 2) ? 'block' : 'none';
-    console.log('交付内容字段显示状态:', (stage === 1 || stage === 2) ? 'block' : 'none');
+    deliveryContentGroup.style.display = (stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'block' : 'none';
+    if (DEBUG) console.log('交付内容字段显示状态:', (stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'block' : 'none');
   }
   if (deliveryBriefGroup) {
-    deliveryBriefGroup.style.display = (stage === 1 || stage === 2) ? 'block' : 'none';
-    console.log('内容简介字段显示状态:', (stage === 1 || stage === 2) ? 'block' : 'none');
+    deliveryBriefGroup.style.display = (stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'block' : 'none';
+    if (DEBUG) console.log('内容简介字段显示状态:', (stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'block' : 'none');
   }
   
   // 显示/隐藏金额与回款、交付情况tab页（洽谈中和已终止项目不显示）
@@ -2498,12 +2507,12 @@ function onStageChange() {
   const deliveryTab = document.querySelector('.m-tab[onclick="switchModalTab(\'delivery\',this)"]');
   
   if (paymentTab) {
-    paymentTab.style.display = (stage === 1 || stage === 2) ? 'flex' : 'none';
-    console.log('金额与回款tab显示状态:', (stage === 1 || stage === 2) ? 'flex' : 'none');
+    paymentTab.style.display = (stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'flex' : 'none';
+    if (DEBUG) console.log('金额与回款tab显示状态:', (stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'flex' : 'none');
   }
   if (deliveryTab) {
-    deliveryTab.style.display = (stage === 1 || stage === 2) ? 'flex' : 'none';
-    console.log('交付情况tab显示状态:', (stage === 1 || stage === 2) ? 'flex' : 'none');
+    deliveryTab.style.display = (stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'flex' : 'none';
+    if (DEBUG) console.log('交付情况tab显示状态:', (stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'flex' : 'none');
   }
 }
 
@@ -2515,7 +2524,7 @@ function onContractDateChange() {
   const stage = parseInt(document.getElementById('f-stage').value);
   const contractDate = cdEl.value;
 
-  // 更新编号预览（编辑模式下同步写回项目并重命名目录）
+  // 更新编号预览（编辑模式下更新项目数据但不保存）
   if (editingId) {
     const idx = projects.findIndex(p => p.id === editingId);
     if (idx !== -1) {
@@ -2525,26 +2534,21 @@ function onContractDateChange() {
       const newCode = oldCode
         ? updateCodePrefix(oldCode, stage, contractDate)
         : genProjectCode(stage, contractDate);
-      const now2 = new Date();
-      const ts2 = now2.getFullYear()+'-'+String(now2.getMonth()+1).padStart(2,'0')+'-'+String(now2.getDate()).padStart(2,'0')+' '+String(now2.getHours()).padStart(2,'0')+':'+String(now2.getMinutes()).padStart(2,'0');
+      
       if (newCode !== oldCode || p.contractDate !== contractDate) {
         p.projectCode  = newCode;
         p.contractDate = contractDate;
-        // 写入更新记录
-        if (contractDate) {
-          const logEntry = {time: ts2, text: `📝 合同签署日期更新为 ${contractDate}，编号更新为 ${newCode}`};
-          p.logs = [...(p.logs||[]), logEntry];
-          // 同步日志UI（如果日志Tab已渲染）
-          renderLogHistory(p.logs);
-        }
-        save();
+        
+        // 仅更新UI，不保存和写日志
+        if (codeEl) codeEl.value = newCode || '';
+        
+        // 重命名目录（如果需要）
         const newDirName = getProjectDirName(p);
         if (oldDirName !== newDirName) renameProjectDir(oldDirName, newDirName);
       } else {
         p.contractDate = contractDate;
-        save();
+        if (codeEl) codeEl.value = newCode || '';
       }
-      if (codeEl) codeEl.value = newCode || '';
     }
   } else if (codeEl && codeEl.value) {
     // 新建模式：仅预览
@@ -2586,13 +2590,13 @@ function switchModalTab(tab, el) {
       const techPlanSection = document.getElementById('modalTechPlanSection');
       const quoteSection = document.getElementById('modalQuoteSection');
       
-      if (p.stage === 0 || p.stage === 3) {
+      if (p.stage === STAGE.NEGOTIATING || p.stage === STAGE.TERMINATED) {
         // 洽谈中项目和已终止项目：显示技术方案、方案报价和其他文件模块
         if (contractSection) contractSection.style.display = 'none';
         if (agreementSection) agreementSection.style.display = 'none';
         if (techPlanSection) techPlanSection.style.display = 'block';
         if (quoteSection) quoteSection.style.display = 'block';
-      } else if (p.stage === 1 || p.stage === 2) {
+      } else if (p.stage === STAGE.DELIVERING || p.stage === STAGE.COMPLETED) {
         // 执行中项目和已完结项目：显示合同、技术协议和其他文件模块
         if (contractSection) contractSection.style.display = 'block';
         if (agreementSection) agreementSection.style.display = 'block';
@@ -2647,7 +2651,9 @@ function updatePaymentPct() {
   syncMirrorFields();
 }
 
-// ── 回款节点 ──
+// ╔══════════════════════════════════════════╗
+// ║  MODULE: payment（回款节点子模块）       ║
+// ╚══════════════════════════════════════════╝
 function addPaymentNode(node={}, fromAi=false) {
   const list = document.getElementById('f-pn-list');
   document.getElementById('f-pn-empty').style.display = 'none';
@@ -2911,14 +2917,14 @@ function getPaymentNodes() {
     const deliverToggle = r.querySelector('.pn-deliver-chk');
     
     return {
-      condition:          r.querySelector('.pn-condition')?.value?.trim() || '',
-      ratio:              ratioInput?.value?.trim() || '',
-      amount:             amountInput?.value?.trim() || '',
-      actualAmount:       actualInput?.value?.trim() || '',
-      done:               doneToggle?.checked || false,
-      deliverDone:        deliverToggle?.checked || false,
-      _fromAi:            true
-    };
+    condition:          r.querySelector('.pn-condition')?.value?.trim() || '',
+    ratio:              ratioInput?.value?.trim() || '',
+    amount:             amountInput?.value?.trim() || '',
+    actualAmount:       actualInput?.value?.trim() || '',
+    done:               doneToggle?.checked || false,
+    deliverDone:        deliverToggle?.checked || false,
+    _fromAi:            r.dataset.fromAi === '1'
+  };
   }).filter(n => n.condition || n.ratio || n.amount);
 }
 
@@ -2962,7 +2968,7 @@ function getDtags() {
   return result;
 }
 
-function addCollectRow(task={}) {
+function addCollectRow(task={}, isNew=false) {
   const list = document.getElementById('f-collect-list');
   const row = document.createElement('div');
   row.className = 'collect-row';
@@ -2974,12 +2980,12 @@ function addCollectRow(task={}) {
       <span style="font-size: 0.72rem; color: #888;">万元</span>
     </div>
     <input type="text" class="ct-owner" placeholder="负责人" value="${task.owner||''}" style="width: 80px;">
-    <input type="text" class="ct-note"  placeholder="备注（可选）" value="${task.note||''}" style="flex: 1;">
+    <input type="text" class="ct-note"  placeholder="备注（可选）" value="${esc(task.note||'')}" style="flex: 1;">
     <button type="button" class="btn-rm-row" onclick="this.parentElement.remove()">×</button>`;
   list.appendChild(row);
   // 新增催款任务时添加系统提示
-  if (!task.done) {
-    _appendPendingLog(`🔔 新增催款任务${task.amount?' · '+task.amount+'万':''}${task.note?' · '+task.note:''}`);
+  if (isNew && !task.done) {
+    _appendPendingLog(`🔔 新增催款任务${task.amount?' · '+task.amount+'万':''}${task.note?' · '+esc(task.note):''}`);
     showToast('✅ 催款任务已新增');
   }
 }
@@ -2999,7 +3005,7 @@ function addTodoRow(text='', done=false) {
   const row = document.createElement('div'); row.className='todo-row';
   row.innerHTML = `
     <input type="checkbox" ${done?'checked':''}>
-    <input type="text" placeholder="待办内容…" value="${text.replace(/"/g,'&quot;')}">
+    <input type="text" placeholder="待办内容…" value="${esc(text)}">
     <button class="btn-remove-todo" onclick="this.parentElement.remove()">×</button>`;
   list.appendChild(row);
 }
@@ -3022,6 +3028,10 @@ function renderLogHistory(logs) {
       <div class="log-text">${l.text}</div>
     </div>`).join('');
 }
+
+// ╔══════════════════════════════════════════╗
+// ║  MODULE: modal-form（Modal 表单控制器）  ║
+// ╚══════════════════════════════════════════╝
 
 function openModal() {
   editingId = null;
@@ -3095,11 +3105,11 @@ function editProject(id) {
   if (codeEl) codeEl.value = p.projectCode || '';
   // 合同签署日期字段显隐
   const cdGroup = document.getElementById('f-contract-date-group');
-  if (cdGroup) cdGroup.style.display = (p.stage === 1 || p.stage === 2) ? 'block' : 'none';
+  if (cdGroup) cdGroup.style.display = (p.stage === STAGE.DELIVERING || p.stage === STAGE.COMPLETED) ? 'block' : 'none';
   // 洽谈状态字段显隐
   const dsGroup = document.getElementById('f-discuss-status-group');
   const dsEl = document.getElementById('f-discuss-status');
-  if (dsGroup) dsGroup.style.display = (p.stage === 0) ? 'block' : 'none';
+  if (dsGroup) dsGroup.style.display = (p.stage === STAGE.NEGOTIATING) ? 'block' : 'none';
   if (dsEl) dsEl.value = p.洽谈状态 || '需求沟通';
   // 回款节点
   document.getElementById('f-pn-list').innerHTML = '';
@@ -3131,7 +3141,7 @@ function editProject(id) {
     `;
     document.getElementById('f-collect-list').appendChild(labelRow);
   }
-  collectTasks.forEach(t=>addCollectRow(t));
+  collectTasks.forEach(t=>addCollectRow(t, false));
   updatePaymentPct();
   // 待办
   document.getElementById('todos-list').innerHTML='';
@@ -3253,11 +3263,13 @@ function saveProject() {
   if (editingId) {
     const idx = projects.findIndex(p=>p.id===editingId);
     const old = projects[idx];
-    // 自动日志：合同签署日期首次填写
+    // 自动日志：合同签署日期首次填写或变更
     const autoLogs = [];
     const newContractDate = document.getElementById('f-contract-date')?.value || '';
     if (newContractDate && !old.contractDate) {
       autoLogs.push(`📝 签订合同，签署日期 ${newContractDate}`);
+    } else if (newContractDate && newContractDate !== old.contractDate) {
+      autoLogs.push(`📝 合同签署日期更新为 ${newContractDate}`);
     }
     // 合并手动日志 + 交互触发的pending日志 + 自动日志
     const allLogTexts = [
@@ -3309,7 +3321,7 @@ function genIdCode() {
 function genProjectCode(stage, contractDate) {
   const now = new Date();
   let ym;
-  if (stage === 0) {
+  if (stage === STAGE.NEGOTIATING) {
     ym = String(now.getFullYear()).slice(2) + String(now.getMonth()+1).padStart(2,'0');
   } else {
     if (contractDate) {
@@ -3319,7 +3331,7 @@ function genProjectCode(stage, contractDate) {
       ym = String(now.getFullYear()).slice(2) + String(now.getMonth()+1).padStart(2,'0');
     }
   }
-  const prefix = stage === 0 ? 'C' : 'P';
+  const prefix = stage === STAGE.NEGOTIATING ? 'C' : 'P';
   const existingCodes = new Set(projects.map(p => p.projectCode).filter(Boolean));
   let code, attempt = 0;
   do {
@@ -3336,12 +3348,12 @@ function updateCodePrefix(code, newStage, contractDate) {
   const isProject = code.startsWith('P');
   if (!isClue && !isProject) return code;
 
-  const newPrefix = newStage === 0 ? 'C' : 'P';
+  const newPrefix = newStage === STAGE.NEGOTIATING ? 'C' : 'P';
   const body = code.slice(5); // 4位随机码保持不变
 
   // 计算新年月：执行中/完结且有合同日期则用合同年月，否则保留原年月
   let ym = code.slice(1, 5);
-  if (newStage !== 0 && contractDate) {
+  if (newStage !== STAGE.NEGOTIATING && contractDate) {
     const d = new Date(contractDate);
     ym = String(d.getFullYear()).slice(2) + String(d.getMonth()+1).padStart(2,'0');
   }
@@ -3380,7 +3392,7 @@ async function renameProjectDir(oldDirName, newDirName) {
     // 检查新目录是否已存在
     const newDirExists = await fsRootHandle.getDirectoryHandle(newDirName, { create: false }).catch(() => null);
     if (newDirExists) {
-      console.warn('新目录已存在:', newDirName);
+      if (DEBUG) console.warn('新目录已存在:', newDirName);
       showToast(`⚠️  新目录已存在，无法重命名`);
       return;
     }
@@ -3392,7 +3404,7 @@ async function renameProjectDir(oldDirName, newDirName) {
         showToast(`📁 目录已更名为「${newDirName}」`);
         return;
       } catch(e) {
-        console.warn('直接重命名失败，使用复制方式:', e.message);
+        if (DEBUG) console.warn('直接重命名失败，使用复制方式:', e.message);
       }
     }
     
@@ -3422,11 +3434,11 @@ async function renameProjectDir(oldDirName, newDirName) {
       await fsRootHandle.removeEntry(oldDirName);
       showToast(`📁 目录已更名为「${newDirName}」`);
     } catch(e) {
-      console.warn('删除旧目录失败:', e.message);
+      if (DEBUG) console.warn('删除旧目录失败:', e.message);
       showToast(`📁 目录文件已迁移至「${newDirName}」`);
     }
   } catch(e) {
-    console.warn('目录重命名失败:', e.message);
+    if (DEBUG) console.warn('目录重命名失败:', e.message);
     showToast('⚠️  目录重命名失败，请检查权限');
   }
 }
@@ -3449,12 +3461,12 @@ function moveStage(id, newStage) {
     }
   }
   // 当项目从洽谈中转换为执行中时，整理文件
-  if (oldStage === 0 && newStage === 1) {
+  if (oldStage === STAGE.NEGOTIATING && newStage === STAGE.DELIVERING) {
     organizeFilesForProjectStart(p.id);
   }
   save();
   // 若项目进入执行中/完结但无合同签署日期，提示填写
-  if (newStage !== 0 && !p.contractDate) {
+  if (newStage !== STAGE.NEGOTIATING && !p.contractDate) {
     showToast('⚠️ 请补填合同签署日期（点击卡片→基本信息Tab）');
   }
 }
@@ -3505,6 +3517,10 @@ const COL_MAP = {
   '待办事项':     'todosRaw','待办事项(用|分隔)':'todosRaw'};
 const YUAN_COLS = new Set(['quote_yuan','contract_yuan','cost_yuan']);
 
+// ╔══════════════════════════════════════════╗
+// ║  MODULE: import（数据导入）              ║
+// ╚══════════════════════════════════════════╝
+
 let pendingImport = [];
 function openImport()  { document.getElementById('importOverlay').classList.add('show'); }
 function closeImport() { document.getElementById('importOverlay').classList.remove('show'); pendingImport=[]; }
@@ -3530,7 +3546,7 @@ async function parseExcel(buf, filename) {
     if (rows.length < 2) { showImportError('文件为空'); return; }
     const headers = rows[0].map(h=>String(h).trim());
 
-    console.log('Excel解析开始:', { filename, rows: rows.length, headers });
+    if (DEBUG) console.log('Excel解析开始:', { filename, rows: rows.length, headers });
 
     // 根据读取方式决定列名映射
     let colIdx = {};
@@ -3549,7 +3565,7 @@ async function parseExcel(buf, filename) {
         
         // 改进解析逻辑
         const text = data._parsed?.text || data.content?.[0]?.text || '';
-        console.log('AI响应:', text);
+        if (DEBUG) console.log('AI响应:', text);
         
         // 尝试提取JSON：首先查找第一个 { 和最后一个 } 之间的内容
         const firstBrace = text.indexOf('{');
@@ -3557,7 +3573,7 @@ async function parseExcel(buf, filename) {
         
         if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
           const jsonStr = text.substring(firstBrace, lastBrace + 1);
-          console.log('提取的JSON:', jsonStr);
+          if (DEBUG) console.log('提取的JSON:', jsonStr);
           const mapping = JSON.parse(jsonStr);
           headers.forEach((h, i) => { if (mapping[h]) colIdx[mapping[h]] = i; });
         } else {
@@ -3565,13 +3581,13 @@ async function parseExcel(buf, filename) {
           const codeBlockMatch = text.match(/```json[\s\S]*?```/);
           if (codeBlockMatch) {
             const jsonStr = codeBlockMatch[0].replace(/```json|```/g, '').trim();
-            console.log('提取的代码块JSON:', jsonStr);
+            if (DEBUG) console.log('提取的代码块JSON:', jsonStr);
             const mapping = JSON.parse(jsonStr);
             headers.forEach((h, i) => { if (mapping[h]) colIdx[mapping[h]] = i; });
           }
         }
       } catch(e) {
-        console.log('AI识别失败，回退到固定映射:', e.message);
+        if (DEBUG) console.log('AI识别失败，回退到固定映射:', e.message);
         // 失败时回退到固定映射
         headers.forEach((h,i)=>{ if(COL_MAP[h]) colIdx[COL_MAP[h]] = i; });
         
@@ -3580,7 +3596,7 @@ async function parseExcel(buf, filename) {
           for (let i = 0; i < headers.length; i++) {
             if (headers[i].includes('名称')) {
               colIdx.name = i;
-              console.log('找到包含"名称"的列:', headers[i], i);
+              if (DEBUG) console.log('找到包含"名称"的列:', headers[i], i);
               break;
             }
           }
@@ -3595,14 +3611,14 @@ async function parseExcel(buf, filename) {
         for (let i = 0; i < headers.length; i++) {
           if (headers[i].includes('名称')) {
             colIdx.name = i;
-            console.log('找到包含"名称"的列:', headers[i], i);
+            if (DEBUG) console.log('找到包含"名称"的列:', headers[i], i);
             break;
           }
         }
       }
     }
 
-    console.log('列映射结果:', colIdx);
+    if (DEBUG) console.log('列映射结果:', colIdx);
 
     // 如果仍然没有找到项目名称列，尝试使用第一列作为项目名称
     if (!colIdx.name && headers.length > 0) {
@@ -3610,11 +3626,11 @@ async function parseExcel(buf, filename) {
       let found = false;
       for (let i = 0; i < headers.length; i++) {
         if (headers[i].includes('项目') && headers[i].includes('名称')) {
-          colIdx.name = i;
-          console.log('找到包含"项目"和"名称"的列:', headers[i], i);
-          found = true;
-          break;
-        }
+            colIdx.name = i;
+            if (DEBUG) console.log('找到包含"项目"和"名称"的列:', headers[i], i);
+            found = true;
+            break;
+          }
       }
       
       // 如果没有找到，尝试找到包含"项目"的列
@@ -3622,7 +3638,7 @@ async function parseExcel(buf, filename) {
         for (let i = 0; i < headers.length; i++) {
           if (headers[i].includes('项目')) {
             colIdx.name = i;
-            console.log('找到包含"项目"的列:', headers[i], i);
+            if (DEBUG) console.log('找到包含"项目"的列:', headers[i], i);
             found = true;
             break;
           }
@@ -3634,7 +3650,7 @@ async function parseExcel(buf, filename) {
         for (let i = 0; i < headers.length; i++) {
           if (headers[i].includes('名称')) {
             colIdx.name = i;
-            console.log('找到包含"名称"的列:', headers[i], i);
+            if (DEBUG) console.log('找到包含"名称"的列:', headers[i], i);
             found = true;
             break;
           }
@@ -3644,12 +3660,12 @@ async function parseExcel(buf, filename) {
       // 如果仍然没有找到，使用第一列
       if (!found) {
         colIdx.name = 0;
-        console.log('使用第一列作为项目名称:', headers[0]);
+        if (DEBUG) console.log('使用第一列作为项目名称:', headers[0]);
       }
     }
 
     const filteredRows = rows.slice(1).filter(r=>r.some(c=>c!==''));
-    console.log('过滤后的行数:', filteredRows.length);
+    if (DEBUG) console.log('过滤后的行数:', filteredRows.length);
 
     pendingImport = filteredRows.map(r=>{
       const obj = {};
@@ -3676,10 +3692,10 @@ async function parseExcel(buf, filename) {
       
       const numPrefix = slRaw.match(/^(\d+)/)?.[1];
       const sl = slRaw.replace(/^\d+/,'').replace(/\s/g,'');
-      if (numPrefix === '1') obj.stage = 0;       // 1x = 洽谈中
-      else if (numPrefix === '2') obj.stage = 1;  // 2x = 已签单·执行中
-      else if (numPrefix === '3') obj.stage = 2;  // 3x = 已完结
-      else obj.stage = STAGE_MAP_IMPORT[sl] ?? 0;
+      if (numPrefix === '1') obj.stage = STAGE.NEGOTIATING;       // 1x = 洽谈中
+      else if (numPrefix === '2') obj.stage = STAGE.DELIVERING;  // 2x = 已签单·执行中
+      else if (numPrefix === '3') obj.stage = STAGE.COMPLETED;  // 3x = 已完结
+      else obj.stage = STAGE_MAP_IMPORT[sl] ?? STAGE.NEGOTIATING;
       
       // 处理待办事项
       if (obj.todos) {
@@ -3725,7 +3741,7 @@ async function parseExcel(buf, filename) {
       return obj;
     }).filter(p=>p.name);
 
-    console.log('最终解析结果:', pendingImport.length, pendingImport);
+    if (DEBUG) console.log('最终解析结果:', pendingImport.length, pendingImport);
 
     // 预览
     const preview = document.getElementById('importPreview');
@@ -3807,7 +3823,7 @@ async function parseExcel(buf, filename) {
     preview.classList.add('show');
     document.getElementById('btnConfirmImport').style.display = pendingImport.length?'inline-block':'none';
   } catch(err) {
-    console.error('解析失败:', err);
+    if (DEBUG) console.error('解析失败:', err);
     showImportError('解析失败：'+err.message);
   }
 }
@@ -3861,29 +3877,29 @@ function getParseMode() {
   return document.querySelector('input[name="parse-mode"]:checked')?.value || 'ai';
 }
 function saveParseMode() {
-  try { localStorage.setItem('parse_mode', getParseMode()); } catch(e) {}
+  try { localStorage.setItem(STORAGE_KEY.PARSE_MODE, getParseMode()); } catch(e) {}
 }
 function loadParseMode() {
   try {
-    const m = localStorage.getItem('parse_mode');
+    const m = localStorage.getItem(STORAGE_KEY.PARSE_MODE);
     if (m) { const el = document.getElementById('mode-' + m); if (el) el.checked = true; }
   } catch(e) {}
 }
 
 function saveYuqueProxy() {
-  try { localStorage.setItem('yuque_proxy', document.getElementById('yuque-proxy').value.trim()); } catch(e) {}
+  try { localStorage.setItem(STORAGE_KEY.YUQUE_PROXY, document.getElementById('yuque-proxy').value.trim()); } catch(e) {}
 }
 function saveYuqueToken() {
-  try { localStorage.setItem('yuque_token', document.getElementById('yuque-token').value.trim()); } catch(e) {}
+  try { localStorage.setItem(STORAGE_KEY.YUQUE_TOKEN, document.getElementById('yuque-token').value.trim()); } catch(e) {}
 }
 function saveYuqueUrl() {
-  try { localStorage.setItem('yuque_url', document.getElementById('yuque-url').value.trim()); } catch(e) {}
+  try { localStorage.setItem(STORAGE_KEY.YUQUE_URL, document.getElementById('yuque-url').value.trim()); } catch(e) {}
 }
 function loadYuqueSettings() {
   try {
-    const proxy = localStorage.getItem('yuque_proxy');
-    const token = localStorage.getItem('yuque_token');
-    const url   = localStorage.getItem('yuque_url');
+    const proxy = localStorage.getItem(STORAGE_KEY.YUQUE_PROXY);
+    const token = localStorage.getItem(STORAGE_KEY.YUQUE_TOKEN);
+    const url   = localStorage.getItem(STORAGE_KEY.YUQUE_URL);
     if (proxy) document.getElementById('yuque-proxy').value = proxy;
     if (token) document.getElementById('yuque-token').value = token;
     if (url)   document.getElementById('yuque-url').value   = url;
@@ -4108,7 +4124,7 @@ async function parseTableWithClaude(table, docTitle) {
   const headers = table[0];
   const sampleRows = table.slice(1, 4); // 取前3行作为样本
 
-  console.log('语雀表格解析开始:', { headers, rows: table.length });
+  if (DEBUG) console.log('语雀表格解析开始:', { headers, rows: table.length });
 
   // 生成更明确的提示词
   let prompt = `以下是项目管理表格的列名：\n${JSON.stringify(headers)}\n\n样本数据：\n${JSON.stringify(sampleRows)}\n\n请将列名映射到字段（不匹配跳过）：\n\n基本信息：\n- name: 项目名称\n- source: 项目来源/客户\n- owner: 负责人/销售\n- product: 产品选型/方案\n- desc: 项目简介/描述\n- stageLabel: 项目阶段/状态\n- active: 项目状态（active或inactive）\n- projectCode: 项目编号\n- contractDate: 合同签署日期\n\n财务信息：\n- quote: 报价金额（万元）\n- quote_yuan: 报价金额（元）\n- contract: 合同金额（万元）\n- contract_yuan: 合同金额（元）\n- cost: 成本评估（万元）\n- collected: 已回款（万元）\n\n交付信息：\n- deliveryBrief: 交付内容简要\n- deliveryNote: 交付内容详细记录\n\n其他信息：\n- todos: 待办事项（用|分隔多个）\n- collectTasks: 催款任务\n- logs: 更新日志\n\n重要要求：\n1. 只返回JSON对象，不要添加任何额外说明\n2. JSON的key是列名，value是字段名\n3. 确保返回的是有效的JSON格式\n4. 不要包含任何JSON之外的内容\n5. 如果没有匹配的列名，返回空对象{}即可\n6. 示例输出格式：\n{"项目名称": "name", "客户": "source", "负责人": "owner", "产品": "product", "描述": "desc", "状态": "stageLabel", "报价": "quote", "合同金额": "contract", "成本": "cost", "已回款": "collected", "交付内容": "deliveryBrief", "合同日期": "contractDate"}`;
@@ -4123,7 +4139,7 @@ async function parseTableWithClaude(table, docTitle) {
     });
     
     const text = data._parsed?.text || data.content?.[0]?.text || '';
-    console.log('AI响应:', text);
+    if (DEBUG) console.log('AI响应:', text);
     
     // 改进解析逻辑
     // 尝试提取JSON：首先查找第一个 { 和最后一个 } 之间的内容
@@ -4133,7 +4149,7 @@ async function parseTableWithClaude(table, docTitle) {
     if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
       try {
         const jsonStr = text.substring(firstBrace, lastBrace + 1);
-        console.log('提取的JSON:', jsonStr);
+        if (DEBUG) console.log('提取的JSON:', jsonStr);
         mapping = JSON.parse(jsonStr);
       } catch (e) {
         // 尝试查找包含 JSON 的代码块
@@ -4141,7 +4157,7 @@ async function parseTableWithClaude(table, docTitle) {
         if (codeBlockMatch) {
           try {
             const jsonStr = codeBlockMatch[0].replace(/```json|```/g, '').trim();
-            console.log('提取的代码块JSON:', jsonStr);
+            if (DEBUG) console.log('提取的代码块JSON:', jsonStr);
             mapping = JSON.parse(jsonStr);
           } catch (e2) {
             // 尝试查找任何包含 {} 的内容
@@ -4150,18 +4166,18 @@ async function parseTableWithClaude(table, docTitle) {
               try {
                 mapping = JSON.parse(anyBraceMatch[0]);
               } catch (e3) {
-                console.error('JSON解析失败:', e3);
+                if (DEBUG) console.error('JSON解析失败:', e3);
                 // 回退到固定映射
                 mapping = {};
               }
             } else {
-              console.error('未找到JSON内容');
+              if (DEBUG) console.error('未找到JSON内容');
               // 回退到固定映射
               mapping = {};
             }
           }
         } else {
-          console.error('未找到JSON内容');
+          if (DEBUG) console.error('未找到JSON内容');
           // 回退到固定映射
           mapping = {};
         }
@@ -4172,10 +4188,10 @@ async function parseTableWithClaude(table, docTitle) {
       if (codeBlockMatch) {
         try {
           const jsonStr = codeBlockMatch[0].replace(/```json|```/g, '').trim();
-          console.log('提取的代码块JSON:', jsonStr);
+          if (DEBUG) console.log('提取的代码块JSON:', jsonStr);
           mapping = JSON.parse(jsonStr);
         } catch (e) {
-          console.error('JSON解析失败:', e);
+          if (DEBUG) console.error('JSON解析失败:', e);
           // 回退到固定映射
           mapping = {};
         }
@@ -4186,28 +4202,28 @@ async function parseTableWithClaude(table, docTitle) {
           try {
             mapping = JSON.parse(anyBraceMatch[0]);
           } catch (e) {
-            console.error('JSON解析失败:', e);
+            if (DEBUG) console.error('JSON解析失败:', e);
             // 回退到固定映射
             mapping = {};
           }
         } else {
-          console.error('未找到JSON内容');
+          if (DEBUG) console.error('未找到JSON内容');
           // 回退到固定映射
           mapping = {};
         }
       }
     }
   } catch (e) {
-    console.error('AI调用失败:', e);
+    if (DEBUG) console.error('AI调用失败:', e);
     // 回退到固定映射
     mapping = {};
   }
 
-  console.log('AI映射结果:', mapping);
+  if (DEBUG) console.log('AI映射结果:', mapping);
 
   // 如果AI未能识别映射，使用固定映射
   if (Object.keys(mapping).length === 0) {
-    console.log('使用固定映射');
+    if (DEBUG) console.log('使用固定映射');
     headers.forEach((h, i) => {
       const key = COL_MAP[h?.trim()];
       if (key) mapping[h] = key;
@@ -4218,7 +4234,7 @@ async function parseTableWithClaude(table, docTitle) {
       for (let i = 0; i < headers.length; i++) {
         if (headers[i]?.includes('名称')) {
           mapping[headers[i]] = 'name';
-          console.log('找到包含"名称"的列:', headers[i], i);
+          if (DEBUG) console.log('找到包含"名称"的列:', headers[i], i);
           break;
         }
       }
@@ -4231,7 +4247,7 @@ async function parseTableWithClaude(table, docTitle) {
       for (let i = 0; i < headers.length; i++) {
         if (headers[i]?.includes('项目') && headers[i]?.includes('名称')) {
           mapping[headers[i]] = 'name';
-          console.log('找到包含"项目"和"名称"的列:', headers[i], i);
+          if (DEBUG) console.log('找到包含"项目"和"名称"的列:', headers[i], i);
           found = true;
           break;
         }
@@ -4242,7 +4258,7 @@ async function parseTableWithClaude(table, docTitle) {
         for (let i = 0; i < headers.length; i++) {
           if (headers[i]?.includes('项目')) {
             mapping[headers[i]] = 'name';
-            console.log('找到包含"项目"的列:', headers[i], i);
+            if (DEBUG) console.log('找到包含"项目"的列:', headers[i], i);
             found = true;
             break;
           }
@@ -4254,7 +4270,7 @@ async function parseTableWithClaude(table, docTitle) {
         for (let i = 0; i < headers.length; i++) {
           if (headers[i]?.includes('名称')) {
             mapping[headers[i]] = 'name';
-            console.log('找到包含"名称"的列:', headers[i], i);
+            if (DEBUG) console.log('找到包含"名称"的列:', headers[i], i);
             found = true;
             break;
           }
@@ -4264,12 +4280,12 @@ async function parseTableWithClaude(table, docTitle) {
       // 如果仍然没有找到，使用第一列
       if (!found) {
         mapping[headers[0]] = 'name';
-        console.log('使用第一列作为项目名称:', headers[0]);
+        if (DEBUG) console.log('使用第一列作为项目名称:', headers[0]);
       }
     }
   }
 
-  console.log('最终映射结果:', mapping);
+  if (DEBUG) console.log('最终映射结果:', mapping);
 
   const result = table.slice(1).map(row => {
     const obj = {};
@@ -4301,10 +4317,10 @@ async function parseTableWithClaude(table, docTitle) {
     
     const numPrefix = slRaw.match(/^(\d+)/)?.[1];
     const sl = slRaw.replace(/^\d+/, '').replace(/\s/g, '');
-    if (numPrefix === '1') obj.stage = 0;       // 1x = 洽谈中
-    else if (numPrefix === '2') obj.stage = 1;  // 2x = 已签单·执行中
-    else if (numPrefix === '3') obj.stage = 2;  // 3x = 已完结
-    else obj.stage = STAGE_MAP_YUQUE[sl] ?? 0;
+    if (numPrefix === '1') obj.stage = STAGE.NEGOTIATING;       // 1x = 洽谈中
+    else if (numPrefix === '2') obj.stage = STAGE.DELIVERING;  // 2x = 已签单·执行中
+    else if (numPrefix === '3') obj.stage = STAGE.COMPLETED;  // 3x = 已完结
+    else obj.stage = STAGE_MAP_YUQUE[sl] ?? STAGE.NEGOTIATING;
     
     // 处理待办事项
     if (obj.todos) {
@@ -4345,7 +4361,7 @@ async function parseTableWithClaude(table, docTitle) {
     return obj;
   }).filter(p => p.name);
 
-  console.log('语雀表格解析结果:', result.length, result);
+  if (DEBUG) console.log('语雀表格解析结果:', result.length, result);
   
   if (result.length === 0) {
     throw new Error('未能从表格中识别到项目数据，请确保表格包含项目名称列');
@@ -4551,9 +4567,9 @@ document.getElementById('overlay').addEventListener('click',e=>{ if(e.target===e
 loadYuqueSettings();
 loadParseMode();
 
-// ═══════════════════════════════════════════════════
-// 待办分析侧边栏
-// ═══════════════════════════════════════════════════
+// ╔══════════════════════════════════════════════════╗
+// ║  MODULE: todos-panel（待办分析面板）            ║
+// ╚══════════════════════════════════════════════════╝
 const TODO_TYPES = [
   { key:'contract', label:'推进合同', icon:'📝', color:'#1565c0', keywords:['合同','签约','签订','盖章','协议','签署','报价','报批'] },
   { key:'payment',  label:'催收回款', icon:'💰', color:'#e65100', keywords:['回款','收款','打款','汇款','付款','催款','发票','开票','尾款','首款','定金'] },
@@ -4574,7 +4590,7 @@ function todoRowHTML(t) {
   <div class="tp-todo-row" data-s="${sKey}">
     <div class="tp-chk ${t.done?'done':''}" onclick="toggleTodo('${t.projectId}',${t.todoIdx})"></div>
     <div>
-      <div class="tp-todo-text ${t.done?'done':''}">${t.text}</div>
+      <div class="tp-todo-text ${t.done?'done':''}">${esc(t.text)}</div>
       <div class="tp-todo-meta">
         <span class="tp-chip" style="background:${STAGE_COLOR[t.stage]}">${STAGE_SHORT[t.stage]}</span>
         ${t.projectName}${t.owner?' · 👤'+t.owner:''}
@@ -4698,15 +4714,20 @@ function ledgerQF(btn, type) {
   document.querySelectorAll('.qf-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active');
   renderLedger();
 }
+
+// ╔══════════════════════════════════════════╗
+// ║  MODULE: ledger（台账）                  ║
+// ╚══════════════════════════════════════════╝
+
 function getLedgerRows() {
   let rows=[...projects];
   if (ledgerFilter.aiMatchIds) { rows=rows.filter(p=>ledgerFilter.aiMatchIds.includes(p.id)); }
   else if (ledgerFilter.type!=='all') {
     const t=ledgerFilter.type;
-    if      (t===0)         rows=rows.filter(p=>p.stage===0);
-    else if (t===1)         rows=rows.filter(p=>p.stage===1&&!hasOpenCollect(p));
+    if      (t===0)         rows=rows.filter(p=>p.stage===STAGE.NEGOTIATING);
+    else if (t===1)         rows=rows.filter(p=>p.stage===STAGE.DELIVERING&&!hasOpenCollect(p));
     else if (t==='collect') rows=rows.filter(p=>hasOpenCollect(p));
-    else if (t===2)         rows=rows.filter(p=>p.stage===2);
+    else if (t===2)         rows=rows.filter(p=>p.stage===STAGE.COMPLETED);
     else if (t==='todo')    rows=rows.filter(p=>(p.todos||[]).some(t=>!t.done));
   }
   const s=document.getElementById('ledgerSort')?.value||'default';
@@ -4734,11 +4755,11 @@ function renderLedger() {
     const pct=profit!==null?Math.round(profit/contract*100):null;
     const profitHtml=profit!==null?`<span class="l-profit ${profit>=0?'pos':'neg'}">${profit>=0?'+':''}${profit.toFixed(2)}万 <span style="font-size:.6rem;font-weight:400">(${pct}%)</span></span>`:'<span class="l-profit na">—</span>';
     const payPct=p.paymentPct||0;
-    const payHtml=p.stage===1?`<span style="color:var(--sc);font-weight:600">${payPct}%</span>`:'-';
+    const payHtml=p.stage===STAGE.DELIVERING?`<span style="color:var(--sc);font-weight:600">${payPct}%</span>`:'-';
     const collectedHtml=p.collected?`${fmtWanShort(p.collected)} 万`:'-';
     const todoHtml=allT?`<span class="l-todo ${pending?'pending':''}">${pending?'⏳'+pending+'项':'✅全完成'}</span>`:'<span class="l-todo">—</span>';
     return `<tr class="${isAi?'ai-match':''}">
-      <td class="l-name"><div class="l-name-inner" title="${p.name}" onclick="editProject('${p.id}');closeLedger()">${p.name}</div></td>
+      <td class="l-name"><div class="l-name-inner" title="${esc(p.name)}" onclick="editProject('${p.id}');closeLedger()">${esc(p.name)}</div></td>
       <td>${stageLabel}</td>
       <td style="color:#888;font-size:.7rem">${p.channel||'—'}</td>
       <td style="color:#888;font-size:.7rem">${p.source||'—'}</td>
@@ -4754,8 +4775,11 @@ function renderLedger() {
   }).join('');
 }
 async function ledgerAiSearch() {
+  if (ledgerAiPending) return;
+  
   const query=document.getElementById('ledgerAiInput').value.trim(); if(!query) return;
   const btn=document.getElementById('ledgerAiBtn'); 
+  ledgerAiPending = true;
   btn.disabled=true;
   btn.style.opacity='0.5';
   const bar=document.getElementById('ledgerFilterBar');
@@ -4776,12 +4800,16 @@ async function ledgerAiSearch() {
   } finally { 
     btn.disabled=false;
     btn.style.opacity='1';
+    ledgerAiPending = false;
   }
 }
 function clearAiFilter() {
   ledgerFilter={type:'all',aiMatchIds:null}; document.getElementById('ledgerAiInput').value=''; document.getElementById('ledgerFilterBar').innerHTML='';
   document.querySelectorAll('.qf-btn').forEach((b,i)=>b.classList.toggle('active',i===0)); renderLedger();
 }
+
+// 台账 AI 搜索并发保护
+let ledgerAiPending = false;
 
 // ═══════════════════════════════════════════════════
 // AI 配置 & 多服务商支持
@@ -4883,20 +4911,20 @@ const TASK_MODEL_OVERRIDE = {
 function getAiConfig() {
   try {
     return {
-      provider:    localStorage.getItem('ai_provider')     || 'claude',
-      model:       localStorage.getItem('ai_model')        || 'claude-haiku-4-5-20251001',
-      proxy:       (localStorage.getItem('ai_proxy')       || '').replace(/\/+$/, ''),
-      key:         localStorage.getItem('ai_key')          || '',
-      modelPolicy: localStorage.getItem('ai_model_policy') || 'auto',
-      maxTokens:   parseInt(localStorage.getItem('ai_max_tokens')) || 2000};
+      provider:    localStorage.getItem(STORAGE_KEY.AI_PROVIDER)     || 'claude',
+      model:       localStorage.getItem(STORAGE_KEY.AI_MODEL)        || 'claude-haiku-4-5-20251001',
+      proxy:       (localStorage.getItem(STORAGE_KEY.AI_PROXY)       || '').replace(/\/+$/, ''),
+      key:         localStorage.getItem(STORAGE_KEY.AI_KEY)          || '',
+      modelPolicy: localStorage.getItem(STORAGE_KEY.AI_MODEL_POLICY) || 'auto',
+      maxTokens:   parseInt(localStorage.getItem(STORAGE_KEY.AI_MAX_TOKENS)) || 2000};
   } catch(e) { return { provider:'claude', model:'claude-haiku-4-5-20251001', proxy:'', key:'', modelPolicy:'auto', maxTokens: 2000 }; }
 }
-function saveAiProxy(v)       { try { localStorage.setItem('ai_proxy', v.trim()); } catch(e) {} }
-function saveAiKey(v)         { try { localStorage.setItem('ai_key', v.trim()); } catch(e) {} }
-function saveAiModel(v)       { try { localStorage.setItem('ai_model', v); } catch(e) {} }
-function saveAiProvider(v)    { try { localStorage.setItem('ai_provider', v); } catch(e) {} }
-function saveModelPolicy(v)   { try { localStorage.setItem('ai_model_policy', v); } catch(e) {} }
-function saveAiMaxTokens(v)   { try { localStorage.setItem('ai_max_tokens', parseInt(v) || 2000); } catch(e) {} }
+function saveAiProxy(v)       { try { localStorage.setItem(STORAGE_KEY.AI_PROXY, v.trim()); } catch(e) {} }
+function saveAiKey(v)         { try { localStorage.setItem(STORAGE_KEY.AI_KEY, v.trim()); } catch(e) {} }
+function saveAiModel(v)       { try { localStorage.setItem(STORAGE_KEY.AI_MODEL, v); } catch(e) {} }
+function saveAiProvider(v)    { try { localStorage.setItem(STORAGE_KEY.AI_PROVIDER, v); } catch(e) {} }
+function saveModelPolicy(v)   { try { localStorage.setItem(STORAGE_KEY.AI_MODEL_POLICY, v); } catch(e) {} }
+function saveAiMaxTokens(v)   { try { localStorage.setItem(STORAGE_KEY.AI_MAX_TOKENS, parseInt(v) || 2000); } catch(e) {} }
 
 // 自定义服务商的路由前缀（通过 Worker 转发）
 const CUSTOM_ROUTE = '/custom';
@@ -5035,11 +5063,11 @@ async function testAiConnection() {
   }
 }
 
-// ═══════════════════════════════════════════════════
-// AI 调用统一封装 & 监控日志
-// ═══════════════════════════════════════════════════
+// ╔══════════════════════════════════════════╗
+// ║  MODULE: ai-service（AI 调用层）          ║
+// ╚══════════════════════════════════════════╝
 let aiLogs = [];
-try { aiLogs = JSON.parse(localStorage.getItem('ai_logs') || '[]'); } catch(e) { aiLogs = []; }
+try { aiLogs = JSON.parse(localStorage.getItem(STORAGE_KEY.AI_LOGS) || '[]'); } catch(e) { aiLogs = []; }
 
 async function claudeCall({ task, model, max_tokens, messages }) {
   const t0 = Date.now();
@@ -5079,14 +5107,14 @@ async function claudeCall({ task, model, max_tokens, messages }) {
     if (!resp.ok || parsed.error) { log.status = 'err'; log.error = parsed.error || `HTTP ${resp.status}`; }
     aiLogs.unshift(log);
     if (aiLogs.length > 200) aiLogs = aiLogs.slice(0, 200);
-    try { localStorage.setItem('ai_logs', JSON.stringify(aiLogs)); } catch(e) {}
+    try { localStorage.setItem(STORAGE_KEY.AI_LOGS, JSON.stringify(aiLogs)); } catch(e) {}
     // 统一返回格式（兼容原有调用方）
     return { ...data, _parsed: parsed };
   } catch(e) {
     log.dur = ((Date.now() - t0) / 1000).toFixed(2);
     log.status = 'err'; log.error = e.message;
     aiLogs.unshift(log);
-    try { localStorage.setItem('ai_logs', JSON.stringify(aiLogs)); } catch(e2) {}
+    try { localStorage.setItem(STORAGE_KEY.AI_LOGS, JSON.stringify(aiLogs)); } catch(e2) {}
     throw e;
   }
 }
@@ -5103,7 +5131,7 @@ function openMonitor() {
 function closeMonitor() { document.getElementById('monitorPanel').classList.remove('open'); }
 function clearAiLogs() {
   if (!confirm('确定清空所有 AI 调用记录？')) return;
-  aiLogs = []; localStorage.removeItem('ai_logs');
+  aiLogs = []; localStorage.removeItem(STORAGE_KEY.AI_LOGS);
   renderMonitor(); showToast('已清空记录');
 }
 function renderMonitor() {
@@ -5132,6 +5160,10 @@ function renderMonitor() {
 }
 document.getElementById('monitorPanel').addEventListener('click', e => { if (e.target === e.currentTarget) closeMonitor(); });
 
+
+// ╔══════════════════════════════════════════╗
+// ║  MODULE: file-system（文件系统层）        ║
+// ╚══════════════════════════════════════════╝
 
 let fsRootHandle = null;   // 根目录句柄
 let fsCurrentProjectId = null; // 当前打开的项目ID
@@ -5367,7 +5399,7 @@ function renderPaymentNodes(p) {
     empty.style.display = 'block';
   } else {
     list.innerHTML = p.paymentNodes.map((node, i) => `
-      <div class="pn-row ${node.done ? 'done-row' : ''}">
+      <div class="pn-row ${node.done ? 'done-row' : ''}" data-from-ai="${node._fromAi ? '1' : '0'}">
         <div class="pn-toolbar">
           <div class="pn-idx">${i+1}</div>
           <button class="pn-rm" onclick="removePaymentNode(${i})">×</button>
@@ -5619,7 +5651,7 @@ async function analyzeContractsForPayment() {
           return;
         }
       } catch(e) {
-        console.error('读取文件失败:', e);
+        if (DEBUG) console.error('读取文件失败:', e);
       }
     }
     
@@ -5637,7 +5669,7 @@ async function analyzeContractsForPayment() {
     }
     
   } catch(e) {
-    console.error('合同识别失败:', e);
+    if (DEBUG) console.error('合同识别失败:', e);
     showToast('合同识别失败：' + e.message);
   } finally {
     if (pnAiHint) {
@@ -5751,7 +5783,7 @@ async function analyzeContractsForDelivery() {
           contractText += `\n\n【合同文件：${name}】\n` + text;
         }
       } catch(e) {
-        console.error('读取合同文件失败:', e);
+        if (DEBUG) console.error('读取合同文件失败:', e);
       }
     }
     
@@ -5769,7 +5801,7 @@ async function analyzeContractsForDelivery() {
           agreementText += `\n\n【技术协议文件：${name}】\n` + text;
         }
       } catch(e) {
-        console.error('读取技术协议文件失败:', e);
+        if (DEBUG) console.error('读取技术协议文件失败:', e);
       }
     }
     
@@ -5796,7 +5828,7 @@ async function analyzeContractsForDelivery() {
     }
     
   } catch(e) {
-    console.error('交付内容识别失败:', e);
+    if (DEBUG) console.error('交付内容识别失败:', e);
     showToast('交付内容识别失败：' + e.message);
     if (analysisDiv) {
       analysisDiv.innerHTML = '';
@@ -5927,13 +5959,13 @@ async function loadFilePanel(projectId) {
   const otherFiles     = displayFiles.filter(f => !['合同','技术协议','技术方案','报价单','方案报价'].includes(tagMap[f.name]?.cat)).sort((a, b) => b.lastModified - a.lastModified);
 
   // 渲染分区 - 不同阶段显示不同分块
-  const isNegotiationStage = p.stage === 0;
-  const isDeliveryStage = p.stage === 1;
-  console.log('项目阶段:', p.stage, '是否为洽谈中:', isNegotiationStage, '是否为交付中:', isDeliveryStage);
+  const isNegotiationStage = p.stage === STAGE.NEGOTIATING;
+  const isDeliveryStage = p.stage === STAGE.DELIVERING;
+  if (DEBUG) console.log('项目阶段:', p.stage, '是否为洽谈中:', isNegotiationStage, '是否为交付中:', isDeliveryStage);
   
   // 直接找到所有file-section并遍历找到各分块
   const fileSections = document.querySelectorAll('.file-section');
-  console.log('所有file-section:', fileSections.length);
+  if (DEBUG) console.log('所有file-section:', fileSections.length);
   
   let contractSection = null;
   let agreementSection = null;
@@ -5942,7 +5974,7 @@ async function loadFilePanel(projectId) {
   
   fileSections.forEach((section, index) => {
     const title = section.querySelector('.file-section-title');
-    console.log(`第${index+1}个file-section标题:`, title ? title.textContent : '无标题');
+    if (DEBUG) console.log(`第${index+1}个file-section标题:`, title ? title.textContent : '无标题');
     if (title) {
       if (title.textContent === '合同') contractSection = section;
       else if (title.textContent === '技术方案') agreementSection = section;
@@ -5951,11 +5983,11 @@ async function loadFilePanel(projectId) {
     }
   });
   
-  console.log('找到的分块:', { contractSection, agreementSection, quoteSection, otherSection });
+  if (DEBUG) console.log('找到的分块:', { contractSection, agreementSection, quoteSection, otherSection });
   
   if (isDeliveryStage) {
     // 交付中项目：只显示合同、技术协议、其他文件
-    console.log('交付中项目，只显示合同、技术协议、其他文件');
+    if (DEBUG) console.log('交付中项目，只显示合同、技术协议、其他文件');
     
     // 显示合同分块
     if (contractSection) contractSection.style.display = 'block';
@@ -5986,7 +6018,7 @@ async function loadFilePanel(projectId) {
     
   } else if (!isNegotiationStage) {
     // 非洽谈中、非交付中项目：显示所有分块
-    console.log('非洽谈中、非交付中项目，显示所有分块');
+    if (DEBUG) console.log('非洽谈中、非交付中项目，显示所有分块');
     
     if (contractSection) contractSection.style.display = 'block';
     renderFileSection('contract',  contractFiles,  p.id, tagMap);
@@ -6020,7 +6052,7 @@ async function loadFilePanel(projectId) {
     
   } else {
     // 洽谈中项目：隐藏合同分块，显示其他分块
-    console.log('洽谈中项目，隐藏合同分块');
+    if (DEBUG) console.log('洽谈中项目，隐藏合同分块');
     
     if (contractSection) contractSection.style.display = 'none';
     
@@ -6190,23 +6222,23 @@ async function readDocxText(file) {
 
 // 合同识别：交付内容 + 回款节点
 async function analyzeContracts() {
-  console.log('开始识别合同');
+  if (DEBUG) console.log('开始识别合同');
   // 检查是在主文件面板还是项目编辑页面
   let btn = document.getElementById('contractAnalyzeBtn');
   let analysisDiv = document.getElementById('contractAnalysis');
   
   // 如果在项目编辑页面
   if (!btn) {
-    console.log('在项目编辑页面');
+    if (DEBUG) console.log('在项目编辑页面');
     btn = document.getElementById('modalContractAnalyzeBtn');
     analysisDiv = document.getElementById('modalContractAnalysis');
   }
   
-  console.log('btn:', btn);
-  console.log('analysisDiv:', analysisDiv);
+  if (DEBUG) console.log('btn:', btn);
+  if (DEBUG) console.log('analysisDiv:', analysisDiv);
   
   if (!btn) {
-    console.log('未找到按钮');
+    if (DEBUG) console.log('未找到按钮');
     return;
   }
   
@@ -6216,10 +6248,10 @@ async function analyzeContracts() {
   
   // 获取项目ID - 优先使用currentEditProjectId（项目编辑页面），否则使用按钮的data-projectId（主文件面板）
   let projectId = currentEditProjectId || btn.dataset.projectId;
-  console.log('projectId:', projectId);
+  if (DEBUG) console.log('projectId:', projectId);
   
   if (!projectId) {
-    console.log('未找到项目ID');
+    if (DEBUG) console.log('未找到项目ID');
     showToast('未找到项目ID');
     // 启用按钮
     btn.disabled = false;
@@ -6228,31 +6260,31 @@ async function analyzeContracts() {
   }
   
   const p = projects.find(x => x.id === projectId);
-  console.log('项目:', p);
+  if (DEBUG) console.log('项目:', p);
   
   if (!p) {
-    console.log('未找到项目');
+    if (DEBUG) console.log('未找到项目');
     showToast('未找到项目');
     return;
   }
   
   const dir = await getProjectDir(p.name);
-  console.log('项目目录:', dir);
+  if (DEBUG) console.log('项目目录:', dir);
   
   if (!dir) {
-    console.log('未找到项目目录');
+    if (DEBUG) console.log('未找到项目目录');
     showToast('未找到项目目录');
     return;
   }
-  console.log('获取项目目录成功');
+  if (DEBUG) console.log('获取项目目录成功');
 
 
   // 使用选中文件（默认第一个已选中）
   let fileNames = getSelectedFileNames('contract');
-  console.log('选中的文件:', fileNames);
+  if (DEBUG) console.log('选中的文件:', fileNames);
   
   if (!fileNames.length) { 
-    console.log('没有选中文件，按文件类型分组选择最新文件');
+    if (DEBUG) console.log('没有选中文件，按文件类型分组选择最新文件');
     // 如果没有选中文件，按文件类型分组，选择每种类型中最新的文件
     const files = [];
     for await (const [name, handle] of dir.entries()) {
@@ -6266,13 +6298,13 @@ async function analyzeContracts() {
       }
     }
     
-    console.log('所有文件:', files);
+    if (DEBUG) console.log('所有文件:', files);
     
     const contractFiles = files.filter(f => f.name.includes('合同') || f.name.includes('采购') || f.name.includes('销售'));
-    console.log('合同文件:', contractFiles);
+    if (DEBUG) console.log('合同文件:', contractFiles);
     
     if (!contractFiles.length) {
-      console.log('没有合同文件可识别');
+      if (DEBUG) console.log('没有合同文件可识别');
       showToast('没有合同文件可识别'); 
       return;
     }
@@ -6287,10 +6319,10 @@ async function analyzeContracts() {
     });
     
     fileNames = Object.values(contractFilesByType).map(f => f.name);
-    console.log('最终选择的文件:', fileNames);
+    if (DEBUG) console.log('最终选择的文件:', fileNames);
   }
   
-  console.log('准备读取文件内容');
+  if (DEBUG) console.log('准备读取文件内容');
 
 
   if (analysisDiv) {
@@ -6582,7 +6614,7 @@ async function analyzeAgreementText(text, projectId, analysisDiv) {
       messages: [{ role: 'user', content: AGREEMENT_ANALYZE_PROMPT + '\n\n以下是技术协议内容：\n' + text.slice(0, 12000) }]
     });
     // 诊断日志
-    console.log('[技术协议] claudeCall返回:', JSON.stringify({
+    if (DEBUG) console.log('[技术协议] claudeCall返回:', JSON.stringify({
       has_parsed: !!data._parsed,
       parsed_text_len: data._parsed?.text?.length,
       parsed_text_preview: data._parsed?.text?.slice(0,200),
@@ -6592,7 +6624,7 @@ async function analyzeAgreementText(text, projectId, analysisDiv) {
     }));
     renderAgreementAnalysis(data, analysisDiv, projectId);
   } catch(e) {
-    console.error('[技术协议] claudeCall异常:', e);
+    if (DEBUG) console.error('[技术协议] claudeCall异常:', e);
     analysisDiv.innerHTML = `<div class="contract-analysis" style="color:#e53935;font-size:.75rem">❌ AI调用失败：${e.message}</div>`;
   }
 }
@@ -6607,7 +6639,7 @@ async function analyzeQuoteText(text, projectId, analysisDiv) {
     });
     renderQuoteAnalysis(data, analysisDiv, projectId);
   } catch(e) {
-    console.error('[方案报价] claudeCall异常:', e);
+    if (DEBUG) console.error('[方案报价] claudeCall异常:', e);
     analysisDiv.innerHTML = `<div class="contract-analysis" style="color:#e53935;font-size:.75rem">❌ AI调用失败：${e.message}</div>`;
   }
 }
@@ -6800,7 +6832,7 @@ async function readExcelText(file) {
     });
     return text;
   } catch(e) {
-    console.error('读取Excel失败:', e);
+    if (DEBUG) console.error('读取Excel失败:', e);
     return '【Excel读取失败】';
   }
 }
@@ -7758,10 +7790,25 @@ function confirmAIAnalysis() {
       // 清空DOM中的催款任务
       const collectList = document.getElementById('f-collect-list');
       if (collectList) {
-        collectList.innerHTML = '<button class="btn-add-row" onclick="addCollectRow()">+ 添加催款任务</button>';
+        collectList.innerHTML = '<button class="btn-add-row" onclick="addCollectRow({}, true)">+ 添加催款任务</button>';
       }
       // 交付标签
       projects[idx].deliveryTags = { ...d, _fromAi: true };
+      // 交付内容：AI识别结果更新到项目数据
+      const briefElements = document.querySelectorAll('#f-delivery-brief');
+      const noteElements = document.querySelectorAll('#f-delivery-note');
+      if (briefElements.length > 0) {
+        const briefValue = briefElements[0].value.trim();
+        if (briefValue) {
+          projects[idx].deliveryBrief = briefValue;
+        }
+      }
+      if (noteElements.length > 0) {
+        const noteValue = noteElements[0].value.trim();
+        if (noteValue) {
+          projects[idx].deliveryNote = noteValue;
+        }
+      }
       // 合同金额：AI识别结果与已有记录不一致时自动更新
       let contractUpdated = false;
       if (contractAmountWan != null) {
@@ -7787,6 +7834,13 @@ function confirmAIAnalysis() {
           renderPaymentNodes(p);
           // 刷新交付标签
           setDtags(p.deliveryTags || {});
+          // 刷新交付内容
+          briefElements.forEach(el => {
+            el.value = p.deliveryBrief || '';
+          });
+          noteElements.forEach(el => {
+            el.value = p.deliveryNote || '';
+          });
           // 刷新合同金额
           if (document.getElementById('f-contract')) {
             document.getElementById('f-contract').value = p.contract || '';
@@ -7815,9 +7869,9 @@ function confirmAIAnalysis() {
               `;
               collectList.appendChild(labelRow);
             }
-            collectTasks.forEach(t=>addCollectRow(t));
+            collectTasks.forEach(t=>addCollectRow(t, false));
             if (collectTasks.length === 0) {
-              collectList.innerHTML = '<button class="btn-add-row" onclick="addCollectRow()">+ 添加催款任务</button>';
+              collectList.innerHTML = '<button class="btn-add-row" onclick="addCollectRow({}, true)">+ 添加催款任务</button>';
             }
           }
         }
@@ -7953,6 +8007,78 @@ async function previewFile(projectId, fileName) {
 function closePreview() {
   document.getElementById('filePreview').classList.remove('open');
   document.getElementById('filePreviewContent').innerHTML = '';
+}
+
+// 项目状态转换时的文件整理
+async function organizeFilesForProjectStart(projectId) {
+  const p = projects.find(x => x.id === projectId);
+  if (!p) return;
+  
+  try {
+    const dir = await getProjectDir(p.name);
+    if (!dir) return;
+    
+    // 创建立项材料子文件夹
+    let projectMaterialsDir;
+    try {
+      projectMaterialsDir = await dir.getDirectoryHandle('立项材料', { create: true });
+    } catch(e) {
+      if (DEBUG) console.error('创建立项材料文件夹失败:', e);
+      return;
+    }
+    
+    // 读取所有文件
+    const files = [];
+    for await (const [name, handle] of dir.entries()) {
+      if (handle.kind === 'file' && name !== '备注.txt') {
+        try {
+          const file = await handle.getFile();
+          files.push({ name, handle, lastModified: file.lastModified });
+        } catch(e) {
+          files.push({ name, handle, lastModified: 0 });
+        }
+      }
+    }
+    
+    // 分类文件
+    const technicalFiles = files.filter(f => f.name.includes('技术') || f.name.includes('方案'));
+    const quoteFiles = files.filter(f => f.name.includes('报价') || f.name.includes('预算'));
+    const otherFiles = files.filter(f => !technicalFiles.includes(f) && !quoteFiles.includes(f));
+    
+    // 按修改时间排序，获取最新的技术方案和报价单
+    technicalFiles.sort((a, b) => b.lastModified - a.lastModified);
+    quoteFiles.sort((a, b) => b.lastModified - a.lastModified);
+    
+    const latestTechnicalFile = technicalFiles[0];
+    const latestQuoteFile = quoteFiles[0];
+    
+    // 移动文件到立项材料文件夹
+    for (const file of files) {
+      // 保留最新的技术方案和报价单
+      if (file === latestTechnicalFile || file === latestQuoteFile) {
+        continue;
+      }
+      
+      try {
+          // 复制文件到新位置
+          const newHandle = await projectMaterialsDir.getFileHandle(file.name, { create: true });
+          const writable = await newHandle.createWritable();
+          const fileContent = await (await file.handle.getFile()).arrayBuffer();
+          await writable.write(fileContent);
+          await writable.close();
+          
+          // 删除原文件
+          await dir.removeEntry(file.name);
+        } catch(e) {
+          if (DEBUG) console.error(`移动文件 ${file.name} 失败:`, e);
+        }
+    }
+    
+    showToast('✅ 项目文件已整理到「立项材料」文件夹');
+  } catch(e) {
+    if (DEBUG) console.error('整理项目文件失败:', e);
+    showToast('⚠️ 整理项目文件失败');
+  }
 }
 
 function closeFilePanel() {
