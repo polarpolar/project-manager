@@ -6383,6 +6383,11 @@ async function analyzeContractsForPayment() {
   let contractFiles = files.filter(f => f.name.includes('合同') || f.name.includes('采购') || f.name.includes('销售'));
   if (!contractFiles.length) {
     showToast('没有找到合同文件');
+    // 启用按钮
+    if (btn) {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+    }
     return;
   }
   
@@ -6434,6 +6439,11 @@ async function analyzeContractsForPayment() {
     
     if (!combinedText.trim()) {
       showToast('无法读取合同内容');
+      // 启用按钮
+      if (btn) {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+      }
       return;
     }
     
@@ -6463,21 +6473,40 @@ async function analyzeContractsForPayment() {
 
 // 交付情况页面的合同和技术协议识别
 async function analyzeContractsForDelivery() {
-  if (!currentEditProjectId) return;
-  
-  const p = projects.find(x => x.id === currentEditProjectId);
-  if (!p) return;
-  
-  if (!fsRootHandle) {
-    showToast('请先选择根目录');
-    return;
-  }
-  
   // 禁用按钮
   const btn = document.querySelector('[onclick="analyzeContractsForDelivery()"]');
   if (btn) {
     btn.disabled = true;
     btn.style.opacity = '0.5';
+  }
+  
+  if (!currentEditProjectId) {
+    // 启用按钮
+    if (btn) {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+    }
+    return;
+  }
+  
+  const p = projects.find(x => x.id === currentEditProjectId);
+  if (!p) {
+    // 启用按钮
+    if (btn) {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+    }
+    return;
+  }
+  
+  if (!fsRootHandle) {
+    showToast('请先选择根目录');
+    // 启用按钮
+    if (btn) {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+    }
+    return;
   }
   
   const dir = await getProjectDir(p.name);
@@ -6530,6 +6559,11 @@ async function analyzeContractsForDelivery() {
   
   if (!contractFiles.length && !agreementFiles.length) {
     showToast('没有找到合同或技术协议文件');
+    // 启用按钮
+    if (btn) {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+    }
     return;
   }
   
@@ -6583,11 +6617,16 @@ async function analyzeContractsForDelivery() {
     }
     
     // 合并文本
-    const combinedText = contractText + agreementText;
-    if (!combinedText.trim()) {
-      showToast('无法读取文件内容');
-      return;
+  const combinedText = contractText + agreementText;
+  if (!combinedText.trim()) {
+    showToast('无法读取文件内容');
+    // 启用按钮
+    if (btn) {
+      btn.disabled = false;
+      btn.style.opacity = '1';
     }
+    return;
+  }
     
     // 使用全局AI模型分析交付内容
     const data = await claudeCall({
@@ -7042,6 +7081,9 @@ async function analyzeContracts() {
   if (!p) {
     if (DEBUG) console.log('未找到项目');
     showToast('未找到项目');
+    // 启用按钮
+    btn.disabled = false;
+    btn.style.opacity = '1';
     return;
   }
   
@@ -7051,6 +7093,9 @@ async function analyzeContracts() {
   if (!dir) {
     if (DEBUG) console.log('未找到项目目录');
     showToast('未找到项目目录');
+    // 启用按钮
+    btn.disabled = false;
+    btn.style.opacity = '1';
     return;
   }
   if (DEBUG) console.log('获取项目目录成功');
@@ -7083,6 +7128,9 @@ async function analyzeContracts() {
     if (!contractFiles.length) {
       if (DEBUG) console.log('没有合同文件可识别');
       showToast('没有合同文件可识别'); 
+      // 启用按钮
+      btn.disabled = false;
+      btn.style.opacity = '1';
       return;
     }
     
@@ -7141,6 +7189,9 @@ async function analyzeContracts() {
       } else {
         showToast('无法读取合同内容，请确认文件为 PDF、docx 或 txt 格式');
       }
+      // 启用按钮
+      btn.disabled = false;
+      btn.style.opacity = '1';
       return;
     }
     await analyzeContractText(combinedText, analysisDiv);
@@ -7150,7 +7201,11 @@ async function analyzeContracts() {
     } else {
       showToast('识别失败：' + e.message);
     }
-  } finally { btn.disabled = false; }
+  } finally { 
+    // 启用按钮
+    btn.disabled = false;
+    btn.style.opacity = '1';
+  }
 }
 
 async function analyzeAgreements() {
@@ -7632,6 +7687,12 @@ async function analyzeContractFile(name, b64, type, analysisDiv, btn) {
     renderContractAnalysis(data, analysisDiv);
   } catch(e) {
     analysisDiv.innerHTML = `<div class="contract-analysis" style="color:#e53935;font-size:.75rem">❌ PDF解析失败：${e.message}</div>`;
+  } finally {
+    // 启用按钮
+    if (btn) {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+    }
   }
 }
 
