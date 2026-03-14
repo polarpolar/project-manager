@@ -999,11 +999,10 @@
       
       <!-- 内容简介 -->
       <div class="form-group" id="f-delivery-brief-group">
-        <label>内容简介（合同约定的交付物概述）</label>
-        <div style="position: relative;">
-          <textarea id="f-delivery-brief" placeholder="简要描述合同约定的交付内容，如：无线传感器×20套、数据平台软件一套…" style="min-height:64px; pointer-events: none; background: #f8f8f8;" readonly></textarea>
-          <button type="button" onclick="switchToDeliveryTab()" style="position: absolute; top: 8px; right: 8px; padding: 4px 8px; background: var(--s1); color: white; border: none; border-radius: 4px; font-size: 0.7rem; cursor: pointer;">在交付情况页修改</button>
-        </div>
+        <label style="display:flex;align-items:center;gap:5px">内容简介（合同约定的交付物概述）
+          <span style="font-size:.6rem;color:#bbb;font-weight:400">→ 在「交付情况」Tab编辑</span>
+        </label>
+        <textarea id="f-delivery-brief" placeholder="简要描述合同约定的交付内容，如：无线传感器×20套、数据平台软件一套…" style="min-height:64px; background:var(--paper);cursor:pointer;color:var(--ink)" onfocus="switchModalTabById('delivery')"></textarea>
       </div>
       
       <!-- 终止原因 -->
@@ -1120,7 +1119,7 @@
       <div id="f-delivery-analysis" style="margin-bottom:12px"></div>
       <div class="form-group">
         <label>交付内容描述（由AI自动更新）</label>
-        <textarea id="f-delivery-brief" placeholder="AI将根据合同和技术协议自动生成交付内容描述…" style="min-height:80px"></textarea>
+        <textarea id="f-delivery-brief" placeholder="AI将根据合同和技术协议自动生成交付内容描述…" style="min-height:80px" oninput="syncDeliveryBrief(this.value)"></textarea>
       </div>
       <div class="form-group">
         <label>补充说明（交付细节、安装调试情况、客户反馈等）</label>
@@ -2638,6 +2637,16 @@ function syncMirrorFields() {
   if (rm) rm.value = r;
 }
 
+// 同步交付内容描述字段（交付情况Tab ↔ 基本信息Tab）
+function syncDeliveryBrief(value) {
+  const briefElements = document.querySelectorAll('#f-delivery-brief');
+  briefElements.forEach(el => {
+    if (el.value !== value) {
+      el.value = value;
+    }
+  });
+}
+
 // 合同金额变化后重算所有节点比例→金额
 function syncPnFromContract() {
   document.querySelectorAll('#f-pn-list .pn-row').forEach(row => {
@@ -3103,7 +3112,10 @@ function editProject(id) {
   if (cm) cm.value = p.contract||'';
   if (rm) rm.value = p.collected||'';
   document.getElementById('f-delivery-note').value = p.deliveryNote||'';
-  document.getElementById('f-delivery-brief').value = p.deliveryBrief||'';
+  const briefElements = document.querySelectorAll('#f-delivery-brief');
+  briefElements.forEach(el => {
+    if (el) el.value = p.deliveryBrief||'';
+  });
   document.getElementById('f-termination-reason').value = p.terminationReason||'';
   document.getElementById('f-update-log').value = '';
   // 合同签署日期 & 项目编号
