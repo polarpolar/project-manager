@@ -952,66 +952,8 @@
       </div>
       <div class="form-group"><label>项目简介</label><textarea id="f-desc" placeholder="简要描述项目背景与需求…"></textarea></div>
 
-      <!-- 报价/预算金额（洽谈中和已终止项目显示） -->
-      <div class="form-row" id="f-quote-amount-group" style="margin-bottom:4px">
-        <div class="form-group" style="margin-bottom:0">
-          <label style="display:flex;align-items:center;gap:5px">报价/预算金额（万元）</label>
-          <input type="number" id="f-quote" placeholder="0.00" step="0.01" min="0">
-        </div>
-      </div>
-      
-      <!-- 合同金额 & 回款总金额（只读汇总，与金额Tab联动） -->
-      <div class="form-row" style="margin-bottom:4px" id="f-contract-amount-group">
-        <div class="form-group" style="margin-bottom:0">
-          <label style="display:flex;align-items:center;gap:5px">合同金额（万元）
-            <span style="font-size:.6rem;color:#bbb;font-weight:400">→ 在「金额与回款」Tab编辑</span>
-          </label>
-          <input type="number" id="f-contract-mirror" placeholder="0.00" step="0.01" min="0"
-            style="background:var(--paper);cursor:pointer;color:var(--ink)"
-            oninput="document.getElementById('f-contract').value=this.value;updatePaymentPct();syncPnFromContract()"
-            onfocus="switchModalTabById('payment')">
-        </div>
-        <div class="form-group" style="margin-bottom:0" id="f-collected-amount-group">
-          <label style="display:flex;align-items:center;gap:5px">回款总金额（万元）
-            <span style="font-size:.6rem;color:#bbb;font-weight:400">已回款</span>
-          </label>
-          <input type="number" id="f-collected-mirror" placeholder="0.00" step="0.01" min="0"
-            style="background:var(--paper);cursor:pointer;color:var(--ink)"
-            oninput="document.getElementById('f-collected').value=this.value;updatePaymentPct()"
-            onfocus="switchModalTabById('payment')">
-        </div>
-      </div>
-      
-      <!-- 交付内容 -->
-      <div class="form-group" style="margin-bottom:8px" id="f-delivery-content-group">
-        <label style="display:flex;align-items:center;gap:6px">
-          📦 交付内容
-          <span id="dt-ai-hint2" style="font-size:.62rem;color:#7eccd8;font-weight:400"></span>
-          <span style="font-size:.6rem;color:#bbb;font-weight:400;margin-left:auto">点击标签切换 · 与「交付情况」Tab同步</span>
-        </label>
-        <div class="dtag-wrap" style="margin:6px 0 0">
-          <div class="dtag dtag-wl off" id="dtag2-wl" onclick="toggleDtag2('wl')">📡 无线硬件</div>
-          <div class="dtag dtag-wd off" id="dtag2-wd" onclick="toggleDtag2('wd')">🔌 有线硬件</div>
-          <div class="dtag dtag-sw off" id="dtag2-sw" onclick="toggleDtag2('sw')">💻 软件定制</div>
-          <div class="dtag dtag-ot off" id="dtag2-ot" onclick="toggleDtag2('ot')">📎 其他</div>
-        </div>
-      </div>
-      
-      <!-- 内容简介 -->
-      <div class="form-group" id="f-delivery-brief-group">
-        <label style="display:flex;align-items:center;gap:5px">内容简介（合同约定的交付物概述）
-          <span style="font-size:.6rem;color:#bbb;font-weight:400">→ 在「交付情况」Tab编辑</span>
-        </label>
-        <textarea id="f-delivery-brief" placeholder="简要描述合同约定的交付内容，如：无线传感器×20套、数据平台软件一套…" style="min-height:64px; background:var(--paper);cursor:pointer;color:var(--ink)" onfocus="switchModalTabById('delivery')"></textarea>
-      </div>
-      
-      <!-- 终止原因 -->
-      <div class="form-group" id="f-termination-reason-group" style="display:none">
-        <label>终止原因</label>
-        <textarea id="f-termination-reason" placeholder="简要描述项目终止的原因…" style="min-height:64px"></textarea>
-      </div>
-      
-      <div class="form-row">
+      <!-- 项目阶段 -->
+      <div class="form-row" style="margin-bottom:16px">
         <div class="form-group">
           <label>项目阶段</label>
           <select id="f-stage" onchange="onStageChange()">
@@ -1041,6 +983,66 @@
           <input type="date" id="f-contract-date" onchange="onContractDateChange()">
         </div>
       </div>
+
+      <!-- 报价/预算金额（洽谈中和已终止项目显示） -->
+      <div class="form-row" id="f-quote-amount-group" style="margin-bottom:12px">
+        <div class="form-group" style="margin-bottom:0">
+          <label style="display:flex;align-items:center;gap:5px">报价/预算金额（万元）</label>
+          <input type="number" id="f-quote" placeholder="0.00" step="0.01" min="0">
+        </div>
+      </div>
+      
+      <!-- 合同金额 & 回款总金额（只读汇总，与金额Tab联动） -->
+      <div class="form-row" style="margin-bottom:16px" id="f-contract-amount-group">
+        <div class="form-group" style="margin-bottom:0">
+          <label style="display:flex;align-items:center;gap:5px">合同金额（万元）
+            <span style="font-size:.6rem;color:#bbb;font-weight:400">→ 在「金额与回款」Tab编辑</span>
+          </label>
+          <input type="number" id="f-contract-mirror" placeholder="0.00" step="0.01" min="0"
+            style="background:var(--paper);cursor:pointer;color:var(--ink)"
+            oninput="document.getElementById('f-contract').value=this.value;updatePaymentPct();syncPnFromContract()"
+            onfocus="switchModalTabById('payment')">
+        </div>
+        <div class="form-group" style="margin-bottom:0" id="f-collected-amount-group">
+          <label style="display:flex;align-items:center;gap:5px">回款总金额（万元）
+            <span style="font-size:.6rem;color:#bbb;font-weight:400">已回款</span>
+          </label>
+          <input type="number" id="f-collected-mirror" placeholder="0.00" step="0.01" min="0"
+            style="background:var(--paper);cursor:pointer;color:var(--ink)"
+            oninput="document.getElementById('f-collected').value=this.value;updatePaymentPct()"
+            onfocus="switchModalTabById('payment')">
+        </div>
+      </div>
+      
+      <!-- 交付内容 -->
+      <div class="form-group" style="margin-bottom:12px" id="f-delivery-content-group">
+        <label style="display:flex;align-items:center;gap:6px">
+          📦 交付内容
+          <span id="dt-ai-hint2" style="font-size:.62rem;color:#7eccd8;font-weight:400"></span>
+          <span style="font-size:.6rem;color:#bbb;font-weight:400;margin-left:auto">点击标签切换 · 与「交付情况」Tab同步</span>
+        </label>
+        <div class="dtag-wrap" style="margin:6px 0 0">
+          <div class="dtag dtag-wl off" id="dtag2-wl" onclick="toggleDtag2('wl')">📡 无线硬件</div>
+          <div class="dtag dtag-wd off" id="dtag2-wd" onclick="toggleDtag2('wd')">🔌 有线硬件</div>
+          <div class="dtag dtag-sw off" id="dtag2-sw" onclick="toggleDtag2('sw')">💻 软件定制</div>
+          <div class="dtag dtag-ot off" id="dtag2-ot" onclick="toggleDtag2('ot')">📎 其他</div>
+        </div>
+      </div>
+      
+      <!-- 内容简介 -->
+      <div class="form-group" style="margin-bottom:16px" id="f-delivery-brief-group">
+        <label style="display:flex;align-items:center;gap:5px">内容简介（合同约定的交付物概述）
+          <span style="font-size:.6rem;color:#bbb;font-weight:400">→ 在「交付情况」Tab编辑</span>
+        </label>
+        <textarea id="f-delivery-brief" placeholder="简要描述合同约定的交付内容，如：无线传感器×20套、数据平台软件一套…" style="min-height:64px; background:var(--paper);cursor:pointer;color:var(--ink)" onfocus="switchModalTabById('delivery')"></textarea>
+      </div>
+      
+      <!-- 终止原因 -->
+      <div class="form-group" id="f-termination-reason-group" style="display:none">
+        <label>终止原因</label>
+        <textarea id="f-termination-reason" placeholder="简要描述项目终止的原因…" style="min-height:64px"></textarea>
+      </div>
+      
       <div class="form-section-title">待办事项</div>
       <div class="todos-editor">
         <div id="todos-list"></div>
