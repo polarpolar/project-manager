@@ -3094,11 +3094,15 @@ function openModal() {
   updateTabAiBtns();
 }
 
+let originalProjectData = null;
+
 function editProject(id) {
   const p = projects.find(x=>String(x.id)===String(id));
   if (!p) return;
   editingId = id;
   _pendingLogs = [];
+  // 保存原始项目数据，用于比较是否有更新
+  originalProjectData = JSON.parse(JSON.stringify(p));
   document.getElementById('modal-title').textContent = p.name;
   document.getElementById('f-name').value      = p.name||'';
   document.getElementById('f-channel').value   = p.channel||'';
@@ -3288,11 +3292,12 @@ function saveProject() {
   // 合同签署日期
   const contractDate = document.getElementById('f-contract-date')?.value || '';
 
+  let autoLogs = [];
+  
   if (editingId) {
     const idx = projects.findIndex(p=>p.id===editingId);
     const old = projects[idx];
     // 自动日志：合同签署日期首次填写或变更
-    const autoLogs = [];
     const newContractDate = document.getElementById('f-contract-date')?.value || '';
     if (newContractDate && !old.contractDate) {
       autoLogs.push(`📝 签订合同，签署日期 ${newContractDate}`);
@@ -3329,9 +3334,97 @@ function saveProject() {
     data.contractDate = contractDate;
     projects.push(data);
   }
+  
+  const isEditing = !!editingId;
+  let hasChanges = !isEditing; // 新建项目默认为有变化
+  
+  if (isEditing && originalProjectData) {
+    // 比较当前数据与原始数据是否有差异
+    const currentData = {
+      name: document.getElementById('f-name').value.trim(),
+      stage: parseInt(document.getElementById('f-stage').value),
+      channel: document.getElementById('f-channel').value.trim(),
+      source: document.getElementById('f-source').value.trim(),
+      owner: document.getElementById('f-owner').value.trim(),
+      product: document.getElementById('f-product').value.trim(),
+      desc: document.getElementById('f-desc').value.trim(),
+      active: document.getElementById('f-active').value,
+      quote: document.getElementById('f-quote').value,
+      contract: document.getElementById('f-contract').value,
+      cost: document.getElementById('f-cost').value,
+      collected: document.getElementById('f-collected').value,
+      deliveryNote: document.getElementById('f-delivery-note').value.trim(),
+      deliveryBrief: deliveryBrief,
+      terminationReason: document.getElementById('f-termination-reason')?.value.trim() || '',
+      洽谈状态: document.getElementById('f-discuss-status')?.value || '需求沟通',
+      contractDate: document.getElementById('f-contract-date')?.value || ''
+    };
+    
+    // 比较基本字段
+    hasChanges = JSON.stringify(currentData) !== JSON.stringify({
+      name: originalProjectData.name,
+      stage: originalProjectData.stage,
+      channel: originalProjectData.channel,
+      source: originalProjectData.source,
+      owner: originalProjectData.owner,
+      product: originalProjectData.product,
+      desc: originalProjectData.desc,
+      active: originalProjectData.active,
+      quote: originalProjectData.quote,
+      contract: originalProjectData.contract,
+      cost: originalProjectData.cost,
+      collected: originalProjectData.collected,
+      deliveryNote: originalProjectData.deliveryNote,
+      deliveryBrief: originalProjectData.deliveryBrief,
+      terminationReason: originalProjectData.terminationReason,
+      洽谈状态: originalProjectData.洽谈状态,
+      contractDate: originalProjectData.contractDate
+    });
+    
+    // 比较回款节点
+    if (!hasChanges) {
+      const currentPaymentNodes = getPaymentNodes();
+      const originalPaymentNodes = originalProjectData.paymentNodes || [];
+      hasChanges = JSON.stringify(currentPaymentNodes) !== JSON.stringify(originalPaymentNodes);
+    }
+    
+    // 比较交付标签
+    if (!hasChanges) {
+      const currentDeliveryTags = getDtags();
+      const originalDeliveryTags = originalProjectData.deliveryTags || {};
+      hasChanges = JSON.stringify(currentDeliveryTags) !== JSON.stringify(originalDeliveryTags);
+    }
+    
+    // 比较待办事项
+    if (!hasChanges) {
+      const currentTodos = getTodos();
+      const originalTodos = originalProjectData.todos || [];
+      hasChanges = JSON.stringify(currentTodos) !== JSON.stringify(originalTodos);
+    }
+    
+    // 比较催款任务
+    if (!hasChanges) {
+      const currentCollectTasks = getCollectTasks();
+      const originalCollectTasks = originalProjectData.collectTasks || [];
+      hasChanges = JSON.stringify(currentCollectTasks) !== JSON.stringify(originalCollectTasks);
+    }
+    
+    // 检查是否有日志
+    if (!hasChanges) {
+      const logText = document.getElementById('f-update-log').value.trim();
+      const hasAutoLogs = autoLogs.length > 0;
+      const hasPendingLogs = _pendingLogs.length > 0;
+      hasChanges = logText || hasAutoLogs || hasPendingLogs;
+    }
+  }
+  
   closeModal(); save();
   refreshView();
-  showToast(editingId ? '项目已更新' : '新项目已创建');
+  if (hasChanges) {
+    showToast(isEditing ? '项目已更新' : '新项目已创建');
+  }
+  // 清空原始项目数据
+  originalProjectData = null;
 }
 
 
