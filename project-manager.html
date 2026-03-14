@@ -4,8 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>项目总览</title>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@300;400;500&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- 预加载关键资源 -->
+<link rel="preload" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@300;400;500&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@300;400;500&display=swap"></noscript>
+<link rel="preload" href="./db.js" as="script">
+<!-- 外部脚本 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+<!-- 内联关键CSS -->
 <style>
   :root {
     --ink: #1a0533; --ink-light: #5b3478;
@@ -744,10 +749,10 @@
   <div class="side-panel-header" style="border-bottom:2px solid #7eccd8">
     <h2 style="color:#fff">项目<span style="color:#7eccd8">台账</span></h2>
     <div class="ledger-search-wrap">
-      <span style="opacity:.5">🤖</span>
-      <input class="ledger-search-input" id="ledgerAiInput" placeholder="自然语言筛选：催款中的项目、苏奕玮负责的、合同超50万…" onkeydown="if(event.key==='Enter')ledgerAiSearch()">
-      <button class="ai-search-btn" id="ledgerAiBtn" onclick="ledgerAiSearch()">AI 筛选</button>
-    </div>
+          <span style="opacity:.5">🤖</span>
+          <input class="ledger-search-input" id="ledgerAiInput" placeholder="自然语言筛选：催款中的项目、苏奕玮负责的、合同超50万…" onkeydown="if(event.key==='Enter')ledgerAiSearch()" oninput="ledgerAiSearchDebounced()">
+          <button class="ai-search-btn" id="ledgerAiBtn" onclick="ledgerAiSearch()">AI 筛选</button>
+        </div>
     <button class="btn-close-panel" onclick="closeLedger()">✕</button>
   </div>
   <div class="ledger-filter-bar" id="ledgerFilterBar"></div>
@@ -1248,7 +1253,7 @@
 
     <div class="modal-footer">
       <button class="btn-cancel" onclick="closeModal()">取消</button>
-      <button class="btn-save" onclick="saveProject()">保存</button>
+      <button class="btn-save" id="btn-save" onclick="saveProject()">保存</button>
     </div>
   </div>
 </div>
@@ -1754,52 +1759,123 @@ async function loadDatabase() {
 // ║  MODULE: store（数据层，无 DOM 依赖）     ║
 // ╚══════════════════════════════════════════╝
 
+// 显示加载状态
+function showLoading() {
+  const loadingElement = document.createElement('div');
+  loadingElement.id = 'loading-overlay';
+  loadingElement.style.cssText = `
+    position: fixed;
+    inset: 0;
+    background: var(--paper);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    transition: opacity 0.3s ease;
+  `;
+  loadingElement.innerHTML = `
+    <div style="font-size: 2rem; margin-bottom: 20px;">📊</div>
+    <div style="font-size: 1.2rem; font-weight: 600; color: var(--ink); margin-bottom: 10px;">加载中...</div>
+    <div style="font-size: 0.9rem; color: var(--ink-light);">正在初始化数据，请稍候</div>
+    <div style="margin-top: 30px; display: flex; gap: 8px;">
+      <div style="width: 10px; height: 10px; border-radius: 50%; background: var(--accent); animation: pulse 1.4s infinite;"></div>
+      <div style="width: 10px; height: 10px; border-radius: 50%; background: var(--accent); animation: pulse 1.4s infinite 0.2s;"></div>
+      <div style="width: 10px; height: 10px; border-radius: 50%; background: var(--accent); animation: pulse 1.4s infinite 0.4s;"></div>
+    </div>
+    <style>
+      @keyframes pulse {
+        0%, 100% { transform: scale(0.8); opacity: 0.5; }
+        50% { transform: scale(1.2); opacity: 1; }
+      }
+    </style>
+  `;
+  document.body.appendChild(loadingElement);
+  return loadingElement;
+}
+
+// 隐藏加载状态
+function hideLoading(loadingElement) {
+  if (loadingElement) {
+    loadingElement.style.opacity = '0';
+    setTimeout(() => {
+      if (loadingElement.parentNode) {
+        loadingElement.parentNode.removeChild(loadingElement);
+      }
+    }, 300);
+  }
+}
+
 // 初始化数据库并加载数据
 async function initDatabase() {
+  const loadingElement = showLoading();
+  
   try {
-    // 先加载数据库模块
+    // 1. 优先从localStorage加载数据，快速显示首页
+    const hasLocalData = loadFromLocalStorage();
+    
+    // 2. 隐藏加载状态，显示localStorage中的数据
+    hideLoading(loadingElement);
+    
+    // 3. 在后台从数据库加载完整数据
     const loadSuccess = await loadDatabase();
     if (!loadSuccess) {
-      if (DEBUG) console.error('数据库模块加载失败，使用localStorage作为备用存储');
-      loadFromLocalStorage();
+      if (DEBUG) console.error('数据库模块加载失败，继续使用localStorage数据');
       return;
     }
     
-    const success = await db.init();
-    if (success) {
-      if (DEBUG) console.log('数据库初始化成功');
-      // 加载项目数据
-      projects = await db.getProjects();
-      if (DEBUG) console.log('项目数据加载成功，数量：', projects.length);
+    // 4. 初始化数据库
+    const initSuccess = await db.init();
+    
+    if (initSuccess) {
+      if (DEBUG) console.log('数据库初始化成功，开始加载完整数据');
       
-      // 加载回收站数据
-      recycleBin = await db.getRecycleBin();
-      if (DEBUG) console.log('回收站数据加载成功，数量：', recycleBin.length);
+      // 5. 并行加载项目数据和回收站数据
+      const [projectsData, recycleData] = await Promise.all([
+        db.getProjects().catch(() => []),
+        db.getRecycleBin().catch(() => [])
+      ]);
       
-      // 渲染页面
+      if (DEBUG) {
+        console.log('项目数据加载成功，数量：', projectsData.length);
+        console.log('回收站数据加载成功，数量：', recycleData.length);
+      }
+      
+      // 6. 更新数据并重新渲染
+      projects = projectsData;
+      recycleBin = recycleData;
+      
+      // 7. 保存到localStorage，以便下次快速加载
+      saveToLocalStorage();
+      
+      // 8. 重新渲染页面，显示完整数据
       render();
     } else {
-      if (DEBUG) console.error('数据库初始化失败，使用localStorage作为备用存储');
-      loadFromLocalStorage();
+      if (DEBUG) console.error('数据库初始化失败，继续使用localStorage数据');
     }
   } catch (error) {
     if (DEBUG) console.error('初始化数据库失败：', error);
-    loadFromLocalStorage();
+    // 继续使用localStorage中的数据
   }
 }
 
 // 从localStorage加载数据作为备用
 function loadFromLocalStorage() {
   try {
+    let hasData = false;
+    
     const raw = localStorage.getItem(STORAGE_KEY.PROJECTS);
     if (raw) {
       try {
         projects = JSON.parse(raw);
         if (DEBUG) console.log('从localStorage加载项目数据，数量：', projects.length);
+        hasData = true;
       } catch (parseError) {
         if (DEBUG) console.error('解析项目数据失败：', parseError);
         projects = [];
       }
+    } else {
+      projects = [];
     }
     
     const recycleRaw = localStorage.getItem(STORAGE_KEY.RECYCLE);
@@ -1811,11 +1887,29 @@ function loadFromLocalStorage() {
         if (DEBUG) console.error('解析回收站数据失败：', recycleParseError);
         recycleBin = [];
       }
+    } else {
+      recycleBin = [];
     }
     
     render();
+    return hasData;
   } catch (error) {
     if (DEBUG) console.error('加载localStorage数据失败：', error);
+    projects = [];
+    recycleBin = [];
+    render();
+    return false;
+  }
+}
+
+// 保存数据到localStorage
+function saveToLocalStorage() {
+  try {
+    localStorage.setItem(STORAGE_KEY.PROJECTS, JSON.stringify(projects));
+    localStorage.setItem(STORAGE_KEY.RECYCLE, JSON.stringify(recycleBin));
+    if (DEBUG) console.log('数据已保存到localStorage');
+  } catch (error) {
+    if (DEBUG) console.error('保存到localStorage失败：', error);
   }
 }
 
@@ -1997,29 +2091,62 @@ async function importFromLocalStorage() {
   }
 }
 
+// 项目修改状态跟踪
+let modifiedProjects = new Set();
+let modifiedRecycleItems = new Set();
+
+// 标记项目为已修改
+function markProjectModified(projectId) {
+  modifiedProjects.add(projectId);
+}
+
+// 标记回收站项目为已修改
+function markRecycleItemModified(itemId) {
+  modifiedRecycleItems.add(itemId);
+}
+
 function save() {
   try {
     if (db) {
-      // 保存每个项目到数据库
+      // 只保存修改过的项目到数据库
+      let savedCount = 0;
       for (const project of projects) {
-        db.saveProject(project);
+        if (modifiedProjects.has(project.id)) {
+          db.saveProject(project);
+          modifiedProjects.delete(project.id);
+          savedCount++;
+        }
       }
       
-      // 保存回收站数据
+      // 只保存修改过的回收站数据
+      let savedRecycleCount = 0;
       for (const item of recycleBin) {
-        db.saveToRecycleBin(item);
+        if (modifiedRecycleItems.has(item.id)) {
+          db.saveToRecycleBin(item);
+          modifiedRecycleItems.delete(item.id);
+          savedRecycleCount++;
+        }
       }
       
-      if (DEBUG) console.log('数据保存到数据库成功');
-    } else {
-      // 数据库不可用时，保存到 localStorage
-      try {
+      if (DEBUG && (savedCount > 0 || savedRecycleCount > 0)) {
+        console.log(`数据保存到数据库成功：项目 ${savedCount} 个，回收站 ${savedRecycleCount} 个`);
+      }
+    }
+    
+    // 无论数据库是否可用，都保存到localStorage，确保下次快速加载
+    try {
+      // 只有当有修改时才保存
+      if (modifiedProjects.size > 0 || modifiedRecycleItems.size > 0 || projects.some(p => p._modified)) {
         localStorage.setItem(STORAGE_KEY.PROJECTS, JSON.stringify(projects));
         localStorage.setItem(STORAGE_KEY.RECYCLE, JSON.stringify(recycleBin));
+        // 清除修改标记
+        modifiedProjects.clear();
+        modifiedRecycleItems.clear();
+        projects.forEach(p => delete p._modified);
         if (DEBUG) console.log('数据保存到 localStorage 成功');
-      } catch (localStorageError) {
-        if (DEBUG) console.error('保存到 localStorage 失败：', localStorageError);
       }
+    } catch (localStorageError) {
+      if (DEBUG) console.error('保存到 localStorage 失败：', localStorageError);
     }
   } catch(e) {
     if (DEBUG) console.error('保存数据失败：', e);
@@ -2048,6 +2175,9 @@ async function moveToRecycleBin(id) {
   // 添加删除时间
   project.deletedAt = new Date().toISOString();
   recycleBin.push(project);
+  
+  // 标记回收站项目为已修改
+  markRecycleItemModified(project.id);
   
   // 保存到数据库
   await db.deleteProject(id);
@@ -2279,25 +2409,96 @@ function render() {
   const cols = { '0':[], '1':[], 'c':[], '2':[], '3':[] };
   projects.forEach(p => cols[getBoardColumn(p)].push(p));
 
+  // 缓存DOM元素
+  const badgeElements = {};
+  const pipeElements = {};
+  const colElements = {};
   ['0','1','2','3'].forEach(key => {
-    const ps = cols[key];
-    const bId    = 'badge'+key;
-    const pipeId = 'pipe'+key;
-    if (document.getElementById(bId)) {
-      document.getElementById(bId).textContent = ps.length;
-    }
-    if (document.getElementById(pipeId)) {
-      document.getElementById(pipeId).textContent = ps.length;
-    }
-    const body = document.getElementById('col'+key);
-    if (body) {
-      body.innerHTML = ps.length
-        ? ps.map(p => cardHTML(p, key)).join('')
-        : '<div class="empty-state">暂无项目</div>';
-    }
+    badgeElements[key] = document.getElementById('badge'+key);
+    pipeElements[key] = document.getElementById('pipe'+key);
+    colElements[key] = document.getElementById('col'+key);
   });
 
+  // 使用requestAnimationFrame优化渲染
+  requestAnimationFrame(() => {
+    // 更新数量
+    ['0','1','2','3'].forEach(key => {
+      const count = cols[key].length;
+      if (badgeElements[key]) {
+        badgeElements[key].textContent = count;
+      }
+      if (pipeElements[key]) {
+        pipeElements[key].textContent = count;
+      }
+    });
+    
+    // 增量渲染项目卡片
+    const renderQueue = [];
+    ['0','1','2','3'].forEach(key => {
+      if (colElements[key]) {
+        renderQueue.push(() => {
+          const ps = cols[key];
+          const count = ps.length;
+          const body = colElements[key];
+          
+          // 使用DocumentFragment批量处理DOM操作
+          const fragment = document.createDocumentFragment();
+          
+          if (count > 0) {
+            // 预生成所有卡片HTML
+            const cardsHtml = ps.map(p => cardHTML(p, key)).join('');
+            const tempContainer = document.createElement('div');
+            tempContainer.innerHTML = cardsHtml;
+            
+            // 将所有卡片添加到fragment
+            while (tempContainer.firstChild) {
+              fragment.appendChild(tempContainer.firstChild);
+            }
+          } else {
+            const emptyState = document.createElement('div');
+            emptyState.className = 'empty-state';
+            emptyState.textContent = '暂无项目';
+            fragment.appendChild(emptyState);
+          }
+          
+          // 一次性更新DOM
+          body.innerHTML = '';
+          body.appendChild(fragment);
+        });
+      }
+    });
+    
+    // 串行执行渲染任务，避免阻塞
+    let index = 0;
+    function processQueue() {
+      if (index < renderQueue.length) {
+        renderQueue[index]();
+        index++;
+        // 给浏览器一点时间处理其他任务
+        setTimeout(processQueue, 0);
+      } else {
+        // 所有卡片渲染完成后，更新统计信息
+        requestAnimationFrame(() => {
+          updateStats();
+        });
+      }
+    }
+    
+    processQueue();
+  });
+}
+
+// 更新统计信息
+function updateStats() {
   const thisYear = new Date().getFullYear();
+  
+  // 缓存DOM元素
+  const statTotal = document.getElementById('stat-total');
+  const statQuote = document.getElementById('stat-quote');
+  const statContract = document.getElementById('stat-contract');
+  const statTodo = document.getElementById('stat-todo');
+  
+  if (!statTotal || !statQuote || !statContract || !statTodo) return;
   
   // 根据筛选条件过滤项目
   const filteredProjects = statsFilter === 'thisYear' ? 
@@ -2325,10 +2526,11 @@ function render() {
   const contractSum = filteredProjects.reduce((a,p)=>a+(parseFloat(p.contract)||0),0);
   const todoCount = filteredProjects.reduce((a,p)=>a+(p.todos||[]).filter(t=>!t.done).length,0);
   
-  document.getElementById('stat-total').textContent    = totalCount;
-  document.getElementById('stat-quote').textContent    = quoteSum.toFixed(2);
-  document.getElementById('stat-contract').textContent = contractSum.toFixed(2);
-  document.getElementById('stat-todo').textContent     = todoCount;
+  // 更新统计数字
+  statTotal.textContent = totalCount;
+  statQuote.textContent = quoteSum.toFixed(2);
+  statContract.textContent = contractSum.toFixed(2);
+  statTodo.textContent = todoCount;
 }
 
 function cardHTML(p, colKey) {
@@ -2930,27 +3132,39 @@ function removePaymentNode(btn) {
 }
 
 function getPaymentNodes() {
-  return [...document.querySelectorAll('#f-pn-list .pn-row')].map(r => {
-    const pnBody = r.querySelector('.pn-body');
-    const cols = pnBody ? pnBody.querySelectorAll('.pn-col') : [];
-    const leftCol = cols[0];
-    const rightCol = cols[1];
-    const ratioInput = leftCol ? leftCol.querySelectorAll('.pn-field input')[0] : null;
-    const amountInput = leftCol ? leftCol.querySelectorAll('.pn-field input')[1] : null;
-    const actualInput = rightCol ? rightCol.querySelector('.pn-field input') : null;
-    const doneToggle = rightCol ? rightCol.querySelector('.pn-done-toggle input[type=checkbox]') : null;
+  const nodes = [];
+  const rows = document.querySelectorAll('#f-pn-list .pn-row');
+  const rowCount = rows.length;
+  
+  for (let i = 0; i < rowCount; i++) {
+    const r = rows[i];
+    
+    // 缓存DOM查询结果
+    const conditionEl = r.querySelector('.pn-condition');
+    const ratioInput = r.querySelector('.pn-ratio');
+    const amountInput = r.querySelector('.pn-amount');
+    const actualInput = r.querySelector('.pn-actual');
+    const doneToggle = r.querySelector('.pn-done-toggle input[type=checkbox]');
     const deliverToggle = r.querySelector('.pn-deliver-chk');
     
-    return {
-    condition:          r.querySelector('.pn-condition')?.value?.trim() || '',
-    ratio:              ratioInput?.value?.trim() || '',
-    amount:             amountInput?.value?.trim() || '',
-    actualAmount:       actualInput?.value?.trim() || '',
-    done:               doneToggle?.checked || false,
-    deliverDone:        deliverToggle?.checked || false,
-    _fromAi:            r.dataset.fromAi === '1'
-  };
-  }).filter(n => n.condition || n.ratio || n.amount);
+    // 提取值
+    const condition = conditionEl?.value?.trim() || '';
+    const ratio = ratioInput?.value?.trim() || '';
+    const amount = amountInput?.value?.trim() || '';
+    
+    if (condition || ratio || amount) {
+      nodes.push({
+        condition: condition,
+        ratio: ratio,
+        amount: amount,
+        actualAmount: actualInput?.value?.trim() || '',
+        done: doneToggle?.checked || false,
+        deliverDone: deliverToggle?.checked || false,
+        _fromAi: r.dataset.fromAi === '1'
+      });
+    }
+  }
+  return nodes;
 }
 
 // ── 交付标签 ──
@@ -3016,30 +3230,80 @@ function addCollectRow(task={}, isNew=false) {
 }
 
 function getCollectTasks() {
-  return [...document.querySelectorAll('.collect-row')].map(r=>({
-    done:   r.querySelector('.ct-done').checked,
-    date:   r.querySelector('.ct-date').value,
-    amount: r.querySelector('.ct-amount').value,
-    owner:  r.querySelector('.ct-owner').value.trim(),
-    note:   r.querySelector('.ct-note').value.trim()
-  })).filter(t=>t.date||t.amount);
+  const tasks = [];
+  const rows = document.querySelectorAll('.collect-row');
+  const rowCount = rows.length;
+  
+  for (let i = 0; i < rowCount; i++) {
+    const r = rows[i];
+    
+    // 缓存DOM查询结果
+    const doneEl = r.querySelector('.ct-done');
+    const dateEl = r.querySelector('.ct-date');
+    const amountEl = r.querySelector('.ct-amount');
+    const ownerEl = r.querySelector('.ct-owner');
+    const noteEl = r.querySelector('.ct-note');
+    
+    const date = dateEl?.value || '';
+    const amount = amountEl?.value || '';
+    
+    if (date || amount) {
+      tasks.push({
+        done: doneEl?.checked || false,
+        date: date,
+        amount: amount,
+        owner: ownerEl?.value?.trim() || '',
+        note: noteEl?.value?.trim() || ''
+      });
+    }
+  }
+  return tasks;
 }
 
 function addTodoRow(text='', done=false) {
   const list = document.getElementById('todos-list');
-  const row = document.createElement('div'); row.className='todo-row';
+  const row = document.createElement('div');
+  row.className='todo-row';
   row.innerHTML = `
     <input type="checkbox" ${done?'checked':''}>
     <input type="text" placeholder="待办内容…" value="${esc(text)}">
-    <button class="btn-remove-todo" onclick="this.parentElement.remove()">×</button>`;
+    <button class="btn-remove-todo">×</button>`;
   list.appendChild(row);
 }
 
+// 为待办事项列表添加事件委托
+function setupTodoEventDelegation() {
+  const todosList = document.getElementById('todos-list');
+  if (todosList) {
+    todosList.addEventListener('click', function(e) {
+      if (e.target.classList.contains('btn-remove-todo')) {
+        e.target.parentElement.remove();
+      }
+    });
+  }
+}
+
 function getTodos() {
-  return [...document.querySelectorAll('#todos-list .todo-row')].map(r=>({
-    text: r.querySelector('input[type=text]').value.trim(),
-    done: r.querySelector('input[type=checkbox]').checked
-  })).filter(t=>t.text);
+  const todos = [];
+  const rows = document.querySelectorAll('#todos-list .todo-row');
+  const rowCount = rows.length;
+  
+  for (let i = 0; i < rowCount; i++) {
+    const r = rows[i];
+    
+    // 缓存DOM查询结果
+    const textEl = r.querySelector('input[type=text]');
+    const doneEl = r.querySelector('input[type=checkbox]');
+    
+    const text = textEl?.value?.trim() || '';
+    if (text) {
+      todos.push({
+        text: text,
+        done: doneEl?.checked || false
+      });
+    }
+  }
+  return todos;
 }
 
 function renderLogHistory(logs) {
@@ -3144,15 +3408,94 @@ function editProject(id) {
   if (dsGroup) dsGroup.style.display = (p.stage === STAGE.NEGOTIATING) ? 'block' : 'none';
   if (dsEl) dsEl.value = p.洽谈状态 || '需求沟通';
   // 回款节点
-  document.getElementById('f-pn-list').innerHTML = '';
+  const pnList = document.getElementById('f-pn-list');
+  pnList.innerHTML = '';
   const nodes = p.paymentNodes || [];
-  nodes.forEach(n => addPaymentNode(n, !!n._fromAi));
+  if (nodes.length > 0) {
+    const pnFragment = document.createDocumentFragment();
+    nodes.forEach((n, index) => {
+      const row = document.createElement('div');
+      row.className = 'pn-row' + (n.done ? ' done-row' : '');
+      const idx = index + 1;
+      const amtDisplay = n.amount || '';
+      row.innerHTML = `
+        <!-- 顶部工具栏：序号 / AI标签 / 删除 -->
+        <div class="pn-toolbar">
+          <span class="pn-idx">${idx}</span>
+          ${!!n._fromAi ? `<span class="pn-ai-badge">AI</span>` : ''}
+          <button type="button" class="pn-rm" onclick="removePaymentNode(this)" title="删除">×</button>
+        </div>
+        <!-- 交付任务目标区：标题描述 + 紧跟的完成勾选 -->
+        <div class="pn-task-area">
+          <div class="pn-task-label">📋 交付任务目标</div>
+          <div class="pn-task-row" style="display:flex;align-items:center;gap:10px;">
+            <input class="pn-condition" type="text" style="flex:1;" 
+              placeholder="描述需完成的交付任务，如：合同签订后收到保函及发票"
+              value="${(n.condition||'').replace(/"/g,'&quot;')}">
+            <div class="pn-deliver-toggle" onclick="onPnDeliverToggle(this)" style="flex-shrink:0;">
+              <input type="checkbox" class="pn-deliver-chk" ${n.deliverDone?'checked':''}>
+              <div class="pn-status-btn ${n.deliverDone?'active-deliver':''}">
+                ${n.deliverDone?'✅ 交付完成':'○ 交付完成'}
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- 主体：左=回款目标  右=回款落实 -->
+        <div class="pn-body">
+          <div class="pn-col">
+            <div class="pn-col-title">🎯 回款目标</div>
+            <div class="pn-field">
+              <label>回款比例</label>
+              <input class="pn-ratio" type="text" placeholder="如 30%"
+                value="${n.ratio||''}" oninput="onPnRatioInput(this)">
+            </div>
+            <div class="pn-field">
+              <label>金额（万元）</label>
+              <input class="pn-amount" type="text" placeholder="0" 
+                value="${amtDisplay}" onchange="updatePaymentNode(${idx-1}, 'amount', this.value)">
+            </div>
+          </div>
+          <div class="pn-col">
+            <div class="pn-col-title">💰 回款落实</div>
+            <div class="pn-field">
+              <label>实际到账（万元）</label>
+              <input class="pn-actual" type="text" placeholder="0" 
+                  value="${n.actualAmount||''}" oninput="onPnActualInput(this)">
+            </div>
+            <div class="pn-done-toggle" onclick="onPnDoneToggle(this)">
+              <input type="checkbox" ${n.done?'checked':''}>
+              <div class="pn-status-btn ${n.done?'active-done':''}">
+                ${n.done?'✅ 回款已到账':'○ 回款已到账'}
+              </div>
+            </div>
+          </div>
+        </div>`;
+      row.dataset.contractAmountYuan = n.contractAmountYuan || '';
+      pnFragment.appendChild(row);
+      
+      // 如果有比例但没有金额，根据合同金额自动计算
+      const amtInput = row.querySelector('.pn-amount');
+      if (!amtInput.value && n.ratio) {
+        const ratioInput = row.querySelector('.pn-ratio');
+        const contract = parseFloat(document.getElementById('f-contract').value) || 0;
+        if (contract > 0) {
+          const ratio = parsePnRatio(n.ratio);
+          if (ratio) {
+            const amount = (contract * ratio).toFixed(4).replace(/\.?0+$/, '');
+            amtInput.value = amount;
+          }
+        }
+      }
+    });
+    pnList.appendChild(pnFragment);
+  }
   document.getElementById('f-pn-empty').style.display = nodes.length ? 'none' : 'block';
   document.getElementById('pn-ai-hint').textContent = nodes.some(n=>n._fromAi) ? '（含AI识别数据）' : '';
   // 交付标签
   setDtags(p.deliveryTags || {});
   // 催款任务
-  document.getElementById('f-collect-list').innerHTML = '';
+  const collectList = document.getElementById('f-collect-list');
+  collectList.innerHTML = '';
   const collectTasks = p.collectTasks||[];
   if (collectTasks.length > 0) {
     // 添加标注行
@@ -3171,14 +3514,46 @@ function editProject(id) {
       <div style="flex: 1; font-size: 0.68rem; color: #888;">备注</div>
       <div style="width: 20px;"></div>
     `;
-    document.getElementById('f-collect-list').appendChild(labelRow);
+    collectList.appendChild(labelRow);
+    
+    const collectFragment = document.createDocumentFragment();
+    collectTasks.forEach(t => {
+      const row = document.createElement('div');
+      row.className = 'collect-row';
+      row.innerHTML = `
+        <input type="checkbox" class="ct-done" ${t.done?'checked':''} onchange="onCollectDoneChange(this)">
+        <input type="date" class="ct-date" value="${t.date||''}">
+        <div style="display: flex; align-items: center; gap: 4px; width: 120px;">
+          <input type="number" class="ct-amount" placeholder="金额" value="${t.amount||''}" step="0.01" min="0" style="width: 80px;">
+          <span style="font-size: 0.72rem; color: #888;">万元</span>
+        </div>
+        <input type="text" class="ct-owner" placeholder="负责人" value="${t.owner||''}" style="width: 80px;">
+        <input type="text" class="ct-note"  placeholder="备注（可选）" value="${esc(t.note||'')}" style="flex: 1;">
+        <button type="button" class="btn-rm-row" onclick="this.parentElement.remove()">×</button>`;
+      collectFragment.appendChild(row);
+    });
+    collectList.appendChild(collectFragment);
   }
-  collectTasks.forEach(t=>addCollectRow(t, false));
   updatePaymentPct();
   // 待办
-  document.getElementById('todos-list').innerHTML='';
-  (p.todos||[]).forEach(t=>addTodoRow(t.text,t.done));
-  if(!(p.todos||[]).length) addTodoRow();
+  const todosList = document.getElementById('todos-list');
+  todosList.innerHTML='';
+  const todos = p.todos||[];
+  if (todos.length > 0) {
+    const todosFragment = document.createDocumentFragment();
+    todos.forEach(t => {
+      const row = document.createElement('div');
+      row.className='todo-row';
+      row.innerHTML = `
+        <input type="checkbox" ${t.done?'checked':''}>
+        <input type="text" placeholder="待办内容…" value="${esc(t.text)}">
+        <button class="btn-remove-todo" onclick="this.parentElement.remove()">×</button>`;
+      todosFragment.appendChild(row);
+    });
+    todosList.appendChild(todosFragment);
+  } else {
+    addTodoRow();
+  }
   renderLogHistory(p.logs||[]);
   document.querySelectorAll('.m-tab').forEach((t,i)=>t.classList.toggle('active',i===0));
   document.querySelectorAll('.m-tab-body').forEach((b,i)=>b.classList.toggle('active',i===0));
@@ -3196,8 +3571,25 @@ function closeModal() {
 }
 
 function saveProject() {
+  // 显示加载状态
+  const saveBtn = document.getElementById('btn-save');
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.style.opacity = '0.5';
+    saveBtn.innerHTML = '<div class="ai-thinking"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div></div> 保存中…';
+  }
+  
   const name = document.getElementById('f-name').value.trim();
-  if (!name) { alert('项目名称不能为空'); return; }
+  if (!name) { 
+    // 恢复按钮状态
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.style.opacity = '1';
+      saveBtn.innerHTML = '保存';
+    }
+    alert('项目名称不能为空'); 
+    return; 
+  }
   const logText  = document.getElementById('f-update-log').value.trim();
   const now = new Date();
   const ts = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
@@ -3324,6 +3716,8 @@ function saveProject() {
     data.projectCode  = projectCode;
     data.contractDate = contractDate;
     projects[idx] = {...old, ...data};
+    // 标记项目为已修改
+    markProjectModified(editingId);
     // 目录重命名（编号或名称变了）
     const newDirName = getProjectDirName(projects[idx]);
     if (oldDirName !== newDirName) renameProjectDir(oldDirName, newDirName);
@@ -3333,80 +3727,126 @@ function saveProject() {
     data.projectCode  = genProjectCode(stage, contractDate);
     data.contractDate = contractDate;
     projects.push(data);
+    // 标记新项目为已修改
+    markProjectModified(data.id);
   }
   
   const isEditing = !!editingId;
   let hasChanges = !isEditing; // 新建项目默认为有变化
   
   if (isEditing && originalProjectData) {
-    // 比较当前数据与原始数据是否有差异
-    const currentData = {
-      name: document.getElementById('f-name').value.trim(),
-      stage: parseInt(document.getElementById('f-stage').value),
-      channel: document.getElementById('f-channel').value.trim(),
-      source: document.getElementById('f-source').value.trim(),
-      owner: document.getElementById('f-owner').value.trim(),
-      product: document.getElementById('f-product').value.trim(),
-      desc: document.getElementById('f-desc').value.trim(),
-      active: document.getElementById('f-active').value,
-      quote: document.getElementById('f-quote').value,
-      contract: document.getElementById('f-contract').value,
-      cost: document.getElementById('f-cost').value,
-      collected: document.getElementById('f-collected').value,
-      deliveryNote: document.getElementById('f-delivery-note').value.trim(),
-      deliveryBrief: deliveryBrief,
-      terminationReason: document.getElementById('f-termination-reason')?.value.trim() || '',
-      洽谈状态: document.getElementById('f-discuss-status')?.value || '需求沟通',
-      contractDate: document.getElementById('f-contract-date')?.value || ''
-    };
+    // 快速比较基本字段
+    const name = document.getElementById('f-name').value.trim();
+    const stage = parseInt(document.getElementById('f-stage').value);
+    const channel = document.getElementById('f-channel').value.trim();
+    const source = document.getElementById('f-source').value.trim();
+    const owner = document.getElementById('f-owner').value.trim();
+    const product = document.getElementById('f-product').value.trim();
+    const desc = document.getElementById('f-desc').value.trim();
+    const active = document.getElementById('f-active').value;
+    const quote = document.getElementById('f-quote').value;
+    const contract = document.getElementById('f-contract').value;
+    const cost = document.getElementById('f-cost').value;
+    const collected = document.getElementById('f-collected').value;
+    const deliveryNote = document.getElementById('f-delivery-note').value.trim();
+    const terminationReason = document.getElementById('f-termination-reason')?.value.trim() || '';
+    const discussStatus = document.getElementById('f-discuss-status')?.value || '需求沟通';
+    const contractDate = document.getElementById('f-contract-date')?.value || '';
     
     // 比较基本字段
-    hasChanges = JSON.stringify(currentData) !== JSON.stringify({
-      name: originalProjectData.name,
-      stage: originalProjectData.stage,
-      channel: originalProjectData.channel,
-      source: originalProjectData.source,
-      owner: originalProjectData.owner,
-      product: originalProjectData.product,
-      desc: originalProjectData.desc,
-      active: originalProjectData.active,
-      quote: originalProjectData.quote,
-      contract: originalProjectData.contract,
-      cost: originalProjectData.cost,
-      collected: originalProjectData.collected,
-      deliveryNote: originalProjectData.deliveryNote,
-      deliveryBrief: originalProjectData.deliveryBrief,
-      terminationReason: originalProjectData.terminationReason,
-      洽谈状态: originalProjectData.洽谈状态,
-      contractDate: originalProjectData.contractDate
-    });
+    hasChanges = 
+      name !== (originalProjectData.name || '') ||
+      stage !== originalProjectData.stage ||
+      channel !== (originalProjectData.channel || '') ||
+      source !== (originalProjectData.source || '') ||
+      owner !== (originalProjectData.owner || '') ||
+      product !== (originalProjectData.product || '') ||
+      desc !== (originalProjectData.desc || '') ||
+      active !== (originalProjectData.active || 'active') ||
+      quote !== (originalProjectData.quote || '') ||
+      contract !== (originalProjectData.contract || '') ||
+      cost !== (originalProjectData.cost || '') ||
+      collected !== (originalProjectData.collected || '') ||
+      deliveryNote !== (originalProjectData.deliveryNote || '') ||
+      deliveryBrief !== (originalProjectData.deliveryBrief || '') ||
+      terminationReason !== (originalProjectData.terminationReason || '') ||
+      discussStatus !== (originalProjectData.洽谈状态 || '需求沟通') ||
+      contractDate !== (originalProjectData.contractDate || '');
     
     // 比较回款节点
     if (!hasChanges) {
       const currentPaymentNodes = getPaymentNodes();
       const originalPaymentNodes = originalProjectData.paymentNodes || [];
-      hasChanges = JSON.stringify(currentPaymentNodes) !== JSON.stringify(originalPaymentNodes);
+      if (currentPaymentNodes.length !== originalPaymentNodes.length) {
+        hasChanges = true;
+      } else {
+        for (let i = 0; i < currentPaymentNodes.length; i++) {
+          const current = currentPaymentNodes[i];
+          const original = originalPaymentNodes[i];
+          if (current.condition !== original.condition ||
+              current.ratio !== original.ratio ||
+              current.amount !== original.amount ||
+              current.actualAmount !== original.actualAmount ||
+              current.deliverDone !== original.deliverDone ||
+              current.done !== original.done) {
+            hasChanges = true;
+            break;
+          }
+        }
+      }
     }
     
     // 比较交付标签
     if (!hasChanges) {
       const currentDeliveryTags = getDtags();
       const originalDeliveryTags = originalProjectData.deliveryTags || {};
-      hasChanges = JSON.stringify(currentDeliveryTags) !== JSON.stringify(originalDeliveryTags);
+      const keys = [...new Set([...Object.keys(currentDeliveryTags), ...Object.keys(originalDeliveryTags)])];
+      for (const key of keys) {
+        if (currentDeliveryTags[key] !== originalDeliveryTags[key]) {
+          hasChanges = true;
+          break;
+        }
+      }
     }
     
     // 比较待办事项
     if (!hasChanges) {
       const currentTodos = getTodos();
       const originalTodos = originalProjectData.todos || [];
-      hasChanges = JSON.stringify(currentTodos) !== JSON.stringify(originalTodos);
+      if (currentTodos.length !== originalTodos.length) {
+        hasChanges = true;
+      } else {
+        for (let i = 0; i < currentTodos.length; i++) {
+          const current = currentTodos[i];
+          const original = originalTodos[i];
+          if (current.text !== original.text || current.done !== original.done) {
+            hasChanges = true;
+            break;
+          }
+        }
+      }
     }
     
     // 比较催款任务
     if (!hasChanges) {
       const currentCollectTasks = getCollectTasks();
       const originalCollectTasks = originalProjectData.collectTasks || [];
-      hasChanges = JSON.stringify(currentCollectTasks) !== JSON.stringify(originalCollectTasks);
+      if (currentCollectTasks.length !== originalCollectTasks.length) {
+        hasChanges = true;
+      } else {
+        for (let i = 0; i < currentCollectTasks.length; i++) {
+          const current = currentCollectTasks[i];
+          const original = originalCollectTasks[i];
+          if (current.date !== original.date ||
+              current.amount !== original.amount ||
+              current.owner !== original.owner ||
+              current.note !== original.note ||
+              current.done !== original.done) {
+            hasChanges = true;
+            break;
+          }
+        }
+      }
     }
     
     // 检查是否有日志
@@ -3425,6 +3865,13 @@ function saveProject() {
   }
   // 清空原始项目数据
   originalProjectData = null;
+  
+  // 恢复按钮状态
+  if (saveBtn) {
+    saveBtn.disabled = false;
+    saveBtn.style.opacity = '1';
+    saveBtn.innerHTML = '保存';
+  }
 }
 
 
@@ -4772,36 +5219,50 @@ function renderTodosPanel() {
   // 按欠款天数降序排列
   collectRows.sort((a,b) => b.daysDiff - a.daysDiff);
 
-  const collectSection = collectRows.length ? `
-    <div class="tp-section" style="color:#e65100;border-left-color:#e65100">🔔 催款任务 <span class="tp-badge" style="background:rgba(230,81,0,.15);color:#e65100">${collectRows.length}</span></div>
-    <div style="margin-bottom:16px">
-      <div style="display:grid;grid-template-columns:1fr 1fr 80px 90px;gap:4px 10px;padding:4px 10px 6px;font-size:.6rem;color:#bbb;font-weight:600;letter-spacing:.05em">
-        <span>项目 / 客户</span><span>启动日期 / 金额</span><span>欠款时长</span><span>负责人</span>
-      </div>
-      ${collectRows.map(r => {
-        const cls = r.daysDiff >= 30 ? 'danger' : r.daysDiff >= 14 ? 'warn' : 'normal';
-        return '<div class="tp-collect-row" onclick="editProject(\'' + r.projectId + '\');closeTodosPanel()">'
-          + '<div>'
-          + '<div class="tp-cr-name">' + r.projectName + '</div>'
-          + '<div class="tp-cr-client">📌 ' + r.client + '</div>'
-          + '</div>'
-          + '<div>'
-          + '<div class="tp-cr-meta">📅 ' + (r.startDate||'—') + '</div>'
-          + '<div class="tp-cr-meta" style="margin-top:2px">' + (r.amount ? '💰 '+parseFloat(r.amount).toFixed(2)+'万' : '') + (r.note ? ' · '+r.note : '') + '</div>'
-          + '</div>'
-          + '<div class="tp-cr-days ' + cls + '">' + r.daysLabel + '</div>'
-          + '<div class="tp-cr-owner">👤 ' + r.owner + '</div>'
-          + '</div>';
-      }).join('')}
-    </div>` : '';
-
-  document.getElementById('todosPanelBody').innerHTML = collectSection + `
-    <div class="tp-summary">
-      <div class="tp-stat" data-c="p"><div class="tp-stat-num">${all.length}</div><div class="tp-stat-lbl">总数</div></div>
-      <div class="tp-stat" data-c="o"><div class="tp-stat-num">${pending.length}</div><div class="tp-stat-lbl">未完成</div></div>
-      <div class="tp-stat" data-c="g"><div class="tp-stat-num">${done.length}</div><div class="tp-stat-lbl">已完成</div></div>
-      <div class="tp-stat" data-c="b"><div class="tp-stat-num">${rate}%</div><div class="tp-stat-lbl">完成率</div></div>
-    </div>
+  // 使用DocumentFragment批量处理DOM操作
+  const fragment = document.createDocumentFragment();
+  
+  // 催款任务部分
+  if (collectRows.length) {
+    const collectSection = document.createElement('div');
+    collectSection.innerHTML = `
+      <div class="tp-section" style="color:#e65100;border-left-color:#e65100">🔔 催款任务 <span class="tp-badge" style="background:rgba(230,81,0,.15);color:#e65100">${collectRows.length}</span></div>
+      <div style="margin-bottom:16px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 80px 90px;gap:4px 10px;padding:4px 10px 6px;font-size:.6rem;color:#bbb;font-weight:600;letter-spacing:.05em">
+          <span>项目 / 客户</span><span>启动日期 / 金额</span><span>欠款时长</span><span>负责人</span>
+        </div>
+        ${collectRows.map(r => {
+          const cls = r.daysDiff >= 30 ? 'danger' : r.daysDiff >= 14 ? 'warn' : 'normal';
+          return '<div class="tp-collect-row" onclick="editProject(\'' + r.projectId + '\');closeTodosPanel()">'
+            + '<div>'
+            + '<div class="tp-cr-name">' + r.projectName + '</div>'
+            + '<div class="tp-cr-client">📌 ' + r.client + '</div>'
+            + '</div>'
+            + '<div>'
+            + '<div class="tp-cr-meta">📅 ' + (r.startDate||'—') + '</div>'
+            + '<div class="tp-cr-meta" style="margin-top:2px">' + (r.amount ? '💰 '+parseFloat(r.amount).toFixed(2)+'万' : '') + (r.note ? ' · '+r.note : '') + '</div>'
+            + '</div>'
+            + '<div class="tp-cr-days ' + cls + '">' + r.daysLabel + '</div>'
+            + '<div class="tp-cr-owner">👤 ' + r.owner + '</div>'
+            + '</div>';
+        }).join('')}
+      </div>`;
+    fragment.appendChild(collectSection);
+  }
+  
+  // 统计部分
+  const summarySection = document.createElement('div');
+  summarySection.className = 'tp-summary';
+  summarySection.innerHTML = `
+    <div class="tp-stat" data-c="p"><div class="tp-stat-num">${all.length}</div><div class="tp-stat-lbl">总数</div></div>
+    <div class="tp-stat" data-c="o"><div class="tp-stat-num">${pending.length}</div><div class="tp-stat-lbl">未完成</div></div>
+    <div class="tp-stat" data-c="g"><div class="tp-stat-num">${done.length}</div><div class="tp-stat-lbl">已完成</div></div>
+    <div class="tp-stat" data-c="b"><div class="tp-stat-num">${rate}%</div><div class="tp-stat-lbl">完成率</div></div>`;
+  fragment.appendChild(summarySection);
+  
+  // 按类型分析
+  const typeSection = document.createElement('div');
+  typeSection.innerHTML = `
     <div class="tp-section">🗂 按类型分析（未完成）<span class="tp-badge">${pending.length}</span></div>
     <div>${TODO_TYPES.map(tp=>{ const items=byType[tp.key]; if(!items.length)return''; return `
       <div class="tp-type-card" id="tptype-${tp.key}">
@@ -4810,13 +5271,23 @@ function renderTodosPanel() {
           <div style="display:flex;align-items:center;gap:8px"><span style="font-size:.68rem;color:#aaa">${items.length}项</span><span class="tp-type-arrow">▶</span></div>
         </div>
         <div class="tp-type-body">${items.map(t=>todoRowHTML(t)).join('')}</div>
-      </div>`; }).join('')}</div>
+      </div>`; }).join('')}</div>`;
+  fragment.appendChild(typeSection);
+  
+  // 按负责人
+  const ownerSection = document.createElement('div');
+  ownerSection.innerHTML = `
     <div class="tp-section">👤 按负责人（未完成）<span class="tp-badge">${Object.keys(byOwner).length}人</span></div>
     <div>${Object.entries(byOwner).map(([o,ts])=>`
       <div class="tp-owner-block">
         <div class="tp-owner-name">👤 ${o} <span style="font-weight:400;color:#aaa;font-size:.68rem">（${ts.length}项）</span></div>
         ${ts.map(t=>todoRowHTML(t)).join('')}
-      </div>`).join('')||'<div style="color:#ccc;font-size:.78rem;padding:8px 0">暂无未完成待办</div>'}</div>
+      </div>`).join('')||'<div style="color:#ccc;font-size:.78rem;padding:8px 0">暂无未完成待办</div>'}</div>`;
+  fragment.appendChild(ownerSection);
+  
+  // 按项目列出
+  const projectSection = document.createElement('div');
+  projectSection.innerHTML = `
     <div class="tp-section">📋 按项目列出<span class="tp-badge">${Object.keys(byProject).length}个</span></div>
     ${Object.values(byProject).map(proj=>{ const d=proj.todos.filter(t=>t.done).length; const pct=Math.round(d/proj.todos.length*100); return `
       <div class="tp-project-block">
@@ -4827,6 +5298,12 @@ function renderTodosPanel() {
         <div style="background:var(--paper2);border-radius:4px;height:4px;margin-bottom:7px;overflow:hidden"><div style="width:${pct}%;height:100%;background:var(--accent);border-radius:4px"></div></div>
         ${proj.todos.map(t=>todoRowHTML(t)).join('')}
       </div>`; }).join('')||'<div style="color:#ccc;font-size:.78rem">暂无项目待办</div>'}`;
+  fragment.appendChild(projectSection);
+  
+  // 一次性更新DOM
+  const panelBody = document.getElementById('todosPanelBody');
+  panelBody.innerHTML = '';
+  panelBody.appendChild(fragment);
 }
 
 // ═══════════════════════════════════════════════════
@@ -4870,42 +5347,88 @@ function renderLedger() {
   const rows=getLedgerRows();
   document.getElementById('ledgerCount').innerHTML=`共 <b>${rows.length}</b> 条 / 全部 ${projects.length} 个`;
   const tbody=document.getElementById('ledgerBody');
-  if (!rows.length) { tbody.innerHTML=`<tr><td colspan="10"><div class="ledger-empty">🔍<br>没有符合条件的项目</div></td></tr>`; return; }
-  const isAi=!!ledgerFilter.aiMatchIds;
-  tbody.innerHTML=rows.map(p=>{
-    const col=getBoardColumn(p);
-    const stageLabel = col==='c' ? '<span class="l-stage" style="background:var(--sc)">💰 催款中</span>' : `<span class="l-stage" style="background:${STAGE_COLOR[p.stage]}">${STAGE_LABEL[p.stage]}</span>`;
-    const pending=(p.todos||[]).filter(t=>!t.done).length;
-    const allT=(p.todos||[]).length;
-    const contract=parseFloat(p.contract)||0, cost=parseFloat(p.cost)||0;
-    const profit=contract&&cost?contract-cost:null;
-    const pct=profit!==null?Math.round(profit/contract*100):null;
-    const profitHtml=profit!==null?`<span class="l-profit ${profit>=0?'pos':'neg'}">${profit>=0?'+':''}${profit.toFixed(2)}万 <span style="font-size:.6rem;font-weight:400">(${pct}%)</span></span>`:'<span class="l-profit na">—</span>';
-    const payPct=p.paymentPct||0;
-    const payHtml=p.stage===STAGE.DELIVERING?`<span style="color:var(--sc);font-weight:600">${payPct}%</span>`:'-';
-    const collectedHtml=p.collected?`${fmtWanShort(p.collected)} 万`:'-';
-    const todoHtml=allT?`<span class="l-todo ${pending?'pending':''}">${pending?'⏳'+pending+'项':'✅全完成'}</span>`:'<span class="l-todo">—</span>';
-    return `<tr class="${isAi?'ai-match':''}">
-      <td class="l-name"><div class="l-name-inner" title="${esc(p.name)}" onclick="editProject('${p.id}');closeLedger()">${esc(p.name)}</div></td>
-      <td>${stageLabel}</td>
-      <td style="color:#888;font-size:.7rem">${p.channel||'—'}</td>
-      <td style="color:#888;font-size:.7rem">${p.source||'—'}</td>
-      <td style="font-size:.73rem">${p.owner||'—'}</td>
-      <td class="l-amt q">${p.quote?fmtWanShort(p.quote)+' 万':'<span class="l-empty">—</span>'}</td>
-      <td class="l-amt c">${p.contract?fmtWanShort(p.contract)+' 万':'<span class="l-empty">—</span>'}</td>
-      <td style="font-size:.7rem;color:#888;white-space:nowrap">${p.contractDate||'<span class="l-empty">—</span>'}</td>
-      <td style="color:var(--sc);font-weight:600;font-size:.73rem">${collectedHtml}</td>
-      <td>${payHtml}</td>
-      <td>${profitHtml}</td>
-      <td>${todoHtml}</td>
-    </tr>`;
-  }).join('');
+  
+  // 使用DocumentFragment批量处理DOM操作
+  const fragment = document.createDocumentFragment();
+  
+  if (!rows.length) {
+    const emptyRow = document.createElement('tr');
+    emptyRow.innerHTML = `<td colspan="10"><div class="ledger-empty">🔍<br>没有符合条件的项目</div></td></tr>`;
+    fragment.appendChild(emptyRow);
+  } else {
+    const isAi=!!ledgerFilter.aiMatchIds;
+    
+    // 预生成所有行HTML
+    const rowsHtml = rows.map(p=>{
+      const col=getBoardColumn(p);
+      const stageLabel = col==='c' ? '<span class="l-stage" style="background:var(--sc)">💰 催款中</span>' : `<span class="l-stage" style="background:${STAGE_COLOR[p.stage]}">${STAGE_LABEL[p.stage]}</span>`;
+      const pending=(p.todos||[]).filter(t=>!t.done).length;
+      const allT=(p.todos||[]).length;
+      const contract=parseFloat(p.contract)||0, cost=parseFloat(p.cost)||0;
+      const profit=contract&&cost?contract-cost:null;
+      const pct=profit!==null?Math.round(profit/contract*100):null;
+      const profitHtml=profit!==null?`<span class="l-profit ${profit>=0?'pos':'neg'}">${profit>=0?'+':''}${profit.toFixed(2)}万 <span style="font-size:.6rem;font-weight:400">(${pct}%)</span></span>`:'<span class="l-profit na">—</span>';
+      const payPct=p.paymentPct||0;
+      const payHtml=p.stage===STAGE.DELIVERING?`<span style="color:var(--sc);font-weight:600">${payPct}%</span>`:'-';
+      const collectedHtml=p.collected?`${fmtWanShort(p.collected)} 万`:'-';
+      const todoHtml=allT?`<span class="l-todo ${pending?'pending':''}">${pending?'⏳'+pending+'项':'✅全完成'}</span>`:'<span class="l-todo">—</span>';
+      return `<tr class="${isAi?'ai-match':''}">
+        <td class="l-name"><div class="l-name-inner" title="${esc(p.name)}" onclick="editProject('${p.id}');closeLedger()">${esc(p.name)}</div></td>
+        <td>${stageLabel}</td>
+        <td style="color:#888;font-size:.7rem">${p.channel||'—'}</td>
+        <td style="color:#888;font-size:.7rem">${p.source||'—'}</td>
+        <td style="font-size:.73rem">${p.owner||'—'}</td>
+        <td class="l-amt q">${p.quote?fmtWanShort(p.quote)+' 万':'<span class="l-empty">—</span>'}</td>
+        <td class="l-amt c">${p.contract?fmtWanShort(p.contract)+' 万':'<span class="l-empty">—</span>'}</td>
+        <td style="font-size:.7rem;color:#888;white-space:nowrap">${p.contractDate||'<span class="l-empty">—</span>'}</td>
+        <td style="color:var(--sc);font-weight:600;font-size:.73rem">${collectedHtml}</td>
+        <td>${payHtml}</td>
+        <td>${profitHtml}</td>
+        <td>${todoHtml}</td>
+      </tr>`;
+    }).join('');
+    
+    // 创建临时容器并设置HTML
+    const tempContainer = document.createElement('tbody');
+    tempContainer.innerHTML = rowsHtml;
+    
+    // 将所有行添加到fragment
+    while (tempContainer.firstChild) {
+      fragment.appendChild(tempContainer.firstChild);
+    }
+  }
+  
+  // 一次性更新DOM
+  tbody.innerHTML = '';
+  tbody.appendChild(fragment);
 }
+// 防抖版本的AI搜索函数
+function ledgerAiSearchDebounced() {
+  // 清除之前的计时器
+  if (ledgerAiDebounceTimer) {
+    clearTimeout(ledgerAiDebounceTimer);
+  }
+  
+  // 设置新的计时器
+  ledgerAiDebounceTimer = setTimeout(async () => {
+    await ledgerAiSearch();
+  }, LEDGER_AI_DEBOUNCE_DELAY);
+}
+
 async function ledgerAiSearch() {
   if (ledgerAiPending) return;
   
   const query=document.getElementById('ledgerAiInput').value.trim(); if(!query) return;
   const btn=document.getElementById('ledgerAiBtn'); 
+  
+  // 检查缓存
+  const cacheKey = query + JSON.stringify(projects.map(p => p.id));
+  if (ledgerAiCache.has(cacheKey)) {
+    const cachedResult = ledgerAiCache.get(cacheKey);
+    applyAiSearchResult(cachedResult, query);
+    return;
+  }
+  
   ledgerAiPending = true;
   btn.disabled=true;
   btn.style.opacity='0.5';
@@ -4916,12 +5439,11 @@ async function ledgerAiSearch() {
     const data=await claudeCall({task:'台账AI筛选',max_tokens:800,messages:[{role:'user',content:`项目台账筛选。从列表中找出符合条件的项目ID，只返回JSON不加说明。\n项目列表：${JSON.stringify(summary)}\n条件：「${query}」\n格式：{"matchIds":["id1"],"explanation":"一句话","tags":["标签"]}`}]});
     const text=(data._parsed?.text||data.content?.map(c=>c.text||'').join('')||'').replace(/```json|```/g,'').trim();
     const result=JSON.parse(text);
-    ledgerFilter.aiMatchIds=result.matchIds||[];
-    document.querySelectorAll('.qf-btn').forEach(b=>b.classList.remove('active'));
-    bar.innerHTML=(result.tags||[query]).map(t=>`<span class="filter-tag">🤖 ${t}</span>`).join('')
-      +`<span style="margin-left:6px;font-size:.68rem;color:rgba(255,255,255,.4)">${result.explanation||''}</span>`
-      +`<span style="margin-left:auto;font-size:.68rem;color:#7eccd8;cursor:pointer" onclick="clearAiFilter()">✕ 清除</span>`;
-    renderLedger();
+    
+    // 缓存结果
+    ledgerAiCache.set(cacheKey, result);
+    
+    applyAiSearchResult(result, query);
   } catch(e) {
     bar.innerHTML=`<span style="color:#e57373;font-size:.7rem">⚠️ AI筛选失败</span><span style="margin-left:auto;cursor:pointer;font-size:.7rem;color:#aaa" onclick="clearAiFilter()">✕</span>`;
   } finally { 
@@ -4930,6 +5452,17 @@ async function ledgerAiSearch() {
     ledgerAiPending = false;
   }
 }
+
+// 应用AI搜索结果
+function applyAiSearchResult(result, query) {
+  ledgerFilter.aiMatchIds=result.matchIds||[];
+  document.querySelectorAll('.qf-btn').forEach(b=>b.classList.remove('active'));
+  const bar=document.getElementById('ledgerFilterBar');
+  bar.innerHTML=(result.tags||[query]).map(t=>`<span class="filter-tag">🤖 ${t}</span>`).join('')
+    +`<span style="margin-left:6px;font-size:.68rem;color:rgba(255,255,255,.4)">${result.explanation||''}</span>`
+    +`<span style="margin-left:auto;font-size:.68rem;color:#7eccd8;cursor:pointer" onclick="clearAiFilter()">✕ 清除</span>`;
+  renderLedger();
+}
 function clearAiFilter() {
   ledgerFilter={type:'all',aiMatchIds:null}; document.getElementById('ledgerAiInput').value=''; document.getElementById('ledgerFilterBar').innerHTML='';
   document.querySelectorAll('.qf-btn').forEach((b,i)=>b.classList.toggle('active',i===0)); renderLedger();
@@ -4937,6 +5470,11 @@ function clearAiFilter() {
 
 // 台账 AI 搜索并发保护
 let ledgerAiPending = false;
+// AI 搜索防抖计时器
+let ledgerAiDebounceTimer = null;
+// AI 搜索缓存
+const ledgerAiCache = new Map();
+const LEDGER_AI_DEBOUNCE_DELAY = 500; // 防抖延迟时间（毫秒）
 
 // ═══════════════════════════════════════════════════
 // AI 配置 & 多服务商支持
@@ -7789,8 +8327,8 @@ function sbxRenderAgreementResult(rawText) {
   }
 }
 
-// 拖拽上传支持（沙盒面板两个上传区）
-document.addEventListener('DOMContentLoaded', () => {
+// 延迟加载拖拽上传功能
+function initDragAndDrop() {
   function setupDrop(dropId, inputId, handler) {
     const drop = document.getElementById(dropId);
     const inp  = document.getElementById(inputId);
@@ -7805,6 +8343,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   setupDrop('sbx-c-drop', 'sbx-c-file', sbxContractFileSelected);
   setupDrop('sbx-a-drop', 'sbx-a-file', sbxAgreementFileSelected);
+  
+  // 设置待办事项事件委托
+  setupTodoEventDelegation();
+}
+
+// 页面加载完成后延迟初始化非关键功能
+window.addEventListener('load', () => {
+  // 延迟1秒初始化拖拽上传功能
+  setTimeout(initDragAndDrop, 1000);
 });
 
 

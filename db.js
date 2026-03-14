@@ -86,7 +86,19 @@ class Database {
 
       const result = callback(store);
 
-      transaction.oncomplete = () => resolve(result);
+      // 检查result是否为Promise
+      if (result && typeof result.then === 'function') {
+        // 如果是Promise，等待它完成
+        result.then(resolvedResult => {
+          transaction.oncomplete = () => resolve(resolvedResult);
+        }).catch(error => {
+          transaction.onerror = () => reject(error);
+        });
+      } else {
+        // 如果不是Promise，直接resolve
+        transaction.oncomplete = () => resolve(result);
+      }
+
       transaction.onerror = (event) => reject(event.target.error);
     });
   }
