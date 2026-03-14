@@ -289,7 +289,7 @@
   .pn-task-area { padding:9px 14px 10px; border-bottom:1px solid var(--paper2); background:#fff; }
   .pn-task-label { font-size:.6rem; font-weight:700; color:#9575cd; letter-spacing:.04em; margin-bottom:5px; }
   .pn-task-row { display:flex; align-items:center; gap:10px; }
-  .pn-condition { flex:1; border:1px solid var(--paper2); border-radius:7px; padding:6px 10px; font-size:.79rem; font-family:inherit; color:var(--ink); outline:none; background:#fafafa; font-weight:500; transition:border-color .15s; }
+  .pn-condition { flex:1; border:1px solid var(--paper2); border-radius:7px; padding:6px 10px; font-size:.79rem; font-family:inherit; color:var(--ink); outline:none; background:#fafafa; font-weight:500; transition:border-color .15s; min-height:36px; max-height:120px; resize:none; }
   .pn-condition:focus { border-color:rgba(103,58,183,.35); background:#fff; box-shadow:0 0 0 2px rgba(103,58,183,.06); }
   .pn-condition::placeholder { color:#ccc; font-weight:400; }
   /* 节点体：两列 左=回款目标 右=回款落实 */
@@ -305,7 +305,7 @@
   .pn-field input:focus { border-color:var(--sc); box-shadow:0 0 0 2px rgba(77,182,172,.08); }
   .pn-field input.pn-actual-done { border-color:rgba(77,182,172,.5); background:rgba(77,182,172,.04); }
   /* 状态按钮 */
-  .pn-status-btn { display:inline-flex; align-items:center; gap:5px; font-size:.69rem; font-weight:600; padding:5px 12px; border-radius:7px; border:1.5px solid #e0e0e0; color:#bbb; background:#fff; cursor:pointer; user-select:none; transition:all .2s; white-space:nowrap; margin-top:6px; }
+  .pn-status-btn { display:inline-flex; align-items:center; gap:5px; font-size:.69rem; font-weight:600; padding:5px 12px; border-radius:7px; border:1.5px solid #e0e0e0; color:#bbb; background:#fff; cursor:pointer; user-select:none; transition:all .2s; white-space:nowrap; }
   .pn-status-btn.active-deliver { border-color:#1976d2; background:rgba(25,118,210,.08); color:#1976d2; }
   .pn-status-btn.active-done    { border-color:var(--sc); background:rgba(77,182,172,.1); color:var(--sc); }
   .pn-done-toggle input, .pn-deliver-toggle input { display:none; }
@@ -1071,9 +1071,10 @@
         </div>
         <div style="display:flex;gap:6px">
           <button type="button" class="ca-analyze-btn" onclick="analyzeContractsForPayment()" style="font-size:.68rem;padding:4px 10px">🔍 识别合同</button>
-          <button type="button" class="btn-add-pn" style="width:auto;padding:4px 12px;margin:0" onclick="addPaymentNode()">＋ 手动添加</button>
+          <button type="button" class="btn-add-pn" style="width:auto;padding:4px 12px;margin:0" onclick="addPaymentNodeToProject()">＋ 手动添加</button>
         </div>
       </div>
+      <div id="f-contract-analysis" style="margin-bottom:12px"></div>
       <div class="pn-list" id="f-pn-list"></div>
       <div id="f-pn-empty" style="font-size:.73rem;color:#ccc;text-align:center;padding:14px 0;display:none">
         暂无回款节点，可通过合同识别自动填入，或手动添加
@@ -1104,6 +1105,7 @@
           <div class="dtag dtag-ot off" id="dtag-ot" onclick="toggleDtag('ot')">📎 其他</div>
         </div>
       </div>
+      <div id="f-delivery-analysis" style="margin-bottom:12px"></div>
       <div class="form-group">
         <label>交付内容描述（由AI自动更新）</label>
         <textarea id="f-delivery-brief" placeholder="AI将根据合同和技术协议自动生成交付内容描述…" style="min-height:80px"></textarea>
@@ -2425,11 +2427,8 @@ function addPaymentNode(node={}, fromAi=false) {
   const idx = list.children.length + 1;
   const row = document.createElement('div');
   row.className = 'pn-row' + (node.done ? ' done-row' : '');
-  // 从合同识别的 amount 字段解析出数字（如 "30万元" → 300000）
-  const contractAmtRaw = node.amount || '';
-  const contractAmtNum = parseContractAmt(contractAmtRaw);
-
-  const amtDisplay = contractAmtNum || node.contractAmountYuan || '';
+  // 使用万元单位显示金额
+  const amtDisplay = node.amount || '';
   row.innerHTML = `
     <!-- 顶部工具栏：序号 / AI标签 / 删除 -->
     <div class="pn-toolbar">
@@ -2440,14 +2439,14 @@ function addPaymentNode(node={}, fromAi=false) {
     <!-- 交付任务目标区：标题描述 + 紧跟的完成勾选 -->
     <div class="pn-task-area">
       <div class="pn-task-label">📋 交付任务目标</div>
-      <div class="pn-task-row">
-        <input class="pn-condition" type="text"
+      <div class="pn-task-row" style="display:flex;align-items:center;gap:10px;">
+        <input class="pn-condition" type="text" style="flex:1;"
           placeholder="描述需完成的交付任务，如：合同签订后收到保函及发票"
           value="${(node.condition||'').replace(/"/g,'&quot;')}">
-        <div class="pn-deliver-toggle" onclick="onPnDeliverToggle(this)">
+        <div class="pn-deliver-toggle" onclick="onPnDeliverToggle(this)" style="flex-shrink:0;">
           <input type="checkbox" class="pn-deliver-chk" ${node.deliverDone?'checked':''}>
           <div class="pn-status-btn ${node.deliverDone?'active-deliver':''}">
-            ${node.deliverDone?'✅ 任务已完成':'○ 任务完成'}
+            ${node.deliverDone?'✅ 交付完成':'○ 交付完成'}
           </div>
         </div>
       </div>
@@ -2462,19 +2461,19 @@ function addPaymentNode(node={}, fromAi=false) {
             value="${node.ratio||''}" oninput="onPnRatioInput(this)">
         </div>
         <div class="pn-field">
-          <label>应收金额（元）</label>
-          <input class="pn-amount" type="number" placeholder="0" step="1" min="0"
-            value="${amtDisplay}" oninput="onPnAmountInput(this)">
+          <label>金额（万元）</label>
+          <input class="pn-amount" type="text" placeholder="0" 
+            value="${amtDisplay}" onchange="updatePaymentNode(${idx-1}, 'amount', this.value)">
         </div>
       </div>
       <div class="pn-col">
         <div class="pn-col-title">💰 回款落实</div>
         <div class="pn-field">
-          <label>已回款金额（元）</label>
-          <input class="pn-actual" type="number" placeholder="0" step="1" min="0"
-            value="${node.actualAmount||''}" oninput="onPnActualInput(this)">
+          <label>实际到账（万元）</label>
+          <input class="pn-actual" type="text" placeholder="0" 
+              value="${node.actualAmount||''}" oninput="onPnActualInput(this)">
         </div>
-        <div class="pn-done-toggle" onclick="onPnDoneToggle(this)" style="margin-top:6px">
+        <div class="pn-done-toggle" onclick="onPnDoneToggle(this)">
           <input type="checkbox" ${node.done?'checked':''}>
           <div class="pn-status-btn ${node.done?'active-done':''}">
             ${node.done?'✅ 回款已到账':'○ 回款已到账'}
@@ -2483,7 +2482,7 @@ function addPaymentNode(node={}, fromAi=false) {
       </div>
     </div>`;
   list.appendChild(row);
-  row.dataset.contractAmountYuan = contractAmtNum || node.contractAmountYuan || '';
+  row.dataset.contractAmountYuan = node.contractAmountYuan || '';
 
   // 如果有比例但没有金额，根据合同金额自动计算
   const amtInput = row.querySelector('.pn-amount');
@@ -2497,18 +2496,17 @@ function addPaymentNode(node={}, fromAi=false) {
 // 最终转为万元，保留4位小数去零尾
 function calcCollectedFromNodes(nodes, contractWanStr) {
   if (!nodes || !nodes.length) return '';
-  let totalYuan = 0;
+  let totalWan = 0;
   let hasAny = false;
   nodes.forEach(n => {
     const actual = parseFloat(n.actualAmount);
     if (!isNaN(actual) && actual > 0) {
-      totalYuan += actual;
+      totalWan += actual;
       hasAny = true;
     }
   });
   if (!hasAny) return '';
-  const wan = totalYuan / 10000;
-  return +wan.toFixed(4) === 0 ? '' : String(+wan.toFixed(4));
+  return +totalWan.toFixed(4) === 0 ? '' : String(+totalWan.toFixed(4));
 }
 
 // 解析金额字符串为元（数字）：支持"万元"、"元"、纯数字
@@ -2577,9 +2575,9 @@ function calcPnAmountFromRatio(row) {
   if (pct === null) return;
   const contractWan = parseFloat(document.getElementById('f-contract').value) || 0;
   if (!contractWan) return;
-  const computed = Math.round(contractWan * 10000 * pct);
-  amtInput.value = computed;
-  row.dataset.contractAmountYuan = computed;
+  const computed = contractWan * pct;
+  amtInput.value = String(computed);
+  row.dataset.contractAmountYuan = Math.round(computed * 10000);
   row.dataset.calcFromRatio = '1';
   onPnActualInput(row.querySelector('.pn-actual'));
 }
@@ -2589,7 +2587,7 @@ function onPnRatioInput(input) {
   calcPnAmountFromRatio(input.closest('.pn-row'));
 }
 
-// 交付任务完成toggle → 如未回款则自动生成催款任务
+// 交付任务完成toggle
 function onPnDeliverToggle(wrap) {
   const row   = wrap.closest('.pn-row');
   const chk   = wrap.querySelector('.pn-deliver-chk');
@@ -2600,24 +2598,8 @@ function onPnDeliverToggle(wrap) {
     btn.classList.toggle('active-deliver', newDone);
     btn.textContent = newDone ? '✅ 交付任务完成' : '○ 交付任务完成';
   }
-
+  // 写日志
   if (newDone) {
-    // 判断是否已回款
-    const amtInput    = row.querySelector('.pn-amount');
-    const actualInput = row.querySelector('.pn-actual');
-    const doneChk     = row.querySelector('.pn-done-toggle input[type=checkbox]');
-    const alreadyPaid = doneChk?.checked || (parseFloat(actualInput?.value)||0) >= (parseFloat(amtInput?.value)||1);
-    if (!alreadyPaid) {
-      // 自动生成催款任务
-      const condition  = row.querySelector('.pn-condition')?.value || '回款节点';
-      const amtYuan    = parseFloat(amtInput?.value) || 0;
-      const amtWan     = amtYuan ? (amtYuan/10000).toFixed(4).replace(/\.?0+$/,'') : '';
-      const defaultOwner = document.getElementById('f-owner')?.value || '';
-      const todayStr   = new Date().toISOString().slice(0,10);
-      addCollectRow({ date: todayStr, amount: amtWan, owner: defaultOwner, note: `待催：${condition}`, done: false });
-      showToast('📌 已自动添加催款任务，请确认金额和负责人');
-    }
-    // ⑥ 写日志
     _appendPendingLog(`📦 节点「${row.querySelector('.pn-condition')?.value||'回款节点'}」交付任务已完成`);
   }
 }
@@ -2638,37 +2620,19 @@ function onPnDoneToggle(wrap) {
   row.classList.toggle('done-row', newDone);
   if (newDone) {
     const target = parseFloat(amtInput.value) || 0;
-    if (target > 0) {
+    const actual = parseFloat(actualInput.value) || 0;
+    // 如果实际到账小于目标金额，自动填充目标金额
+    if (target > 0 && actual < target) {
       actualInput.value = target;
-      actualInput.classList.add('pn-actual-done');
     }
-    // 回款完成 → 移除对应催款任务行（按备注中条件名匹配）
-    const condition = row.querySelector('.pn-condition')?.value || '';
-    document.querySelectorAll('.collect-row').forEach(cr => {
-      const noteEl = cr.querySelector('.ct-note');
-      if (noteEl && condition && noteEl.value.includes(condition)) {
-        cr.style.transition = 'opacity .25s';
-        cr.style.opacity = '0';
-        setTimeout(() => cr.remove(), 260);
-      }
-    });
+    actualInput.classList.add('pn-actual-done');
     // 写日志
+    const condition = row.querySelector('.pn-condition')?.value || '';
     const amtYuan = parseFloat(amtInput.value)||0;
     const amtWan = amtYuan?(amtYuan/10000).toFixed(2)+'万':'';
     _appendPendingLog(`💰 节点「${condition||'回款节点'}」回款已到账${amtWan?' · '+amtWan:''}`);
   } else {
     actualInput.classList.remove('pn-actual-done');
-    // 取消回款 → 若该节点交付任务已完成，重新生成催款行
-    const condition = row.querySelector('.pn-condition')?.value || '';
-    const deliverChk = row.querySelector('.pn-deliver-chk');
-    if (deliverChk?.checked) {
-      const amtYuan2 = parseFloat(amtInput.value) || 0;
-      const amtWan2  = amtYuan2 ? (amtYuan2/10000).toFixed(4).replace(/\.?0+$/,'') : '';
-      const owner    = document.getElementById('f-owner')?.value || '';
-      const todayStr = new Date().toISOString().slice(0,10);
-      addCollectRow({ date: todayStr, amount: amtWan2, owner, note: `待催：${condition}`, done: false });
-      showToast('⚠️ 回款已撤销，已重新生成催款任务');
-    }
   }
   syncCollectedFromNodes();
 }
@@ -2681,6 +2645,7 @@ function onCollectDoneChange(chk) {
     const noteEl   = row.querySelector('.ct-note');
     const amt = amountEl?.value;
     _appendPendingLog(`🔔 催款任务完成${amt?' · '+amt+'万':''}${noteEl?.value?' · '+noteEl.value:''}`);
+    showToast('✅ 催款任务已完成');
   }
 }
 
@@ -2707,14 +2672,27 @@ function removePaymentNode(btn) {
 }
 
 function getPaymentNodes() {
-  return [...document.querySelectorAll('#f-pn-list .pn-row')].map(r => ({
-    condition:          r.querySelector('.pn-condition').value.trim(),
-    ratio:              r.querySelector('input:nth-of-type(2)').value.trim(),
-    amount:             r.querySelector('input:nth-of-type(3)').value.trim(),
-    actualAmount:       r.querySelector('input:nth-of-type(4)').value.trim(),
-    done:               r.querySelector('.pn-status-btn input[type=checkbox]')?.checked || false,
-    _fromAi:            true
-  })).filter(n => n.condition || n.ratio || n.amount);
+  return [...document.querySelectorAll('#f-pn-list .pn-row')].map(r => {
+    const pnBody = r.querySelector('.pn-body');
+    const cols = pnBody ? pnBody.querySelectorAll('.pn-col') : [];
+    const leftCol = cols[0];
+    const rightCol = cols[1];
+    const ratioInput = leftCol ? leftCol.querySelectorAll('.pn-field input')[0] : null;
+    const amountInput = leftCol ? leftCol.querySelectorAll('.pn-field input')[1] : null;
+    const actualInput = rightCol ? rightCol.querySelector('.pn-field input') : null;
+    const doneToggle = rightCol ? rightCol.querySelector('.pn-done-toggle input[type=checkbox]') : null;
+    const deliverToggle = r.querySelector('.pn-deliver-chk');
+    
+    return {
+      condition:          r.querySelector('.pn-condition')?.value?.trim() || '',
+      ratio:              ratioInput?.value?.trim() || '',
+      amount:             amountInput?.value?.trim() || '',
+      actualAmount:       actualInput?.value?.trim() || '',
+      done:               doneToggle?.checked || false,
+      deliverDone:        deliverToggle?.checked || false,
+      _fromAi:            true
+    };
+  }).filter(n => n.condition || n.ratio || n.amount);
 }
 
 // ── 交付标签 ──
@@ -2764,11 +2742,19 @@ function addCollectRow(task={}) {
   row.innerHTML = `
     <input type="checkbox" class="ct-done" ${task.done?'checked':''} onchange="onCollectDoneChange(this)">
     <input type="date" class="ct-date" value="${task.date||''}">
-    <input type="number" class="ct-amount" placeholder="催款金额（万）" value="${task.amount||''}" step="0.01" min="0">
-    <input type="text" class="ct-owner" placeholder="负责人" value="${task.owner||''}">
-    <input type="text" class="ct-note"  placeholder="备注（可选）" value="${task.note||''}">
+    <div style="display: flex; align-items: center; gap: 4px; width: 120px;">
+      <input type="number" class="ct-amount" placeholder="金额" value="${task.amount||''}" step="0.01" min="0" style="width: 80px;">
+      <span style="font-size: 0.72rem; color: #888;">万元</span>
+    </div>
+    <input type="text" class="ct-owner" placeholder="负责人" value="${task.owner||''}" style="width: 80px;">
+    <input type="text" class="ct-note"  placeholder="备注（可选）" value="${task.note||''}" style="flex: 1;">
     <button type="button" class="btn-rm-row" onclick="this.parentElement.remove()">×</button>`;
   list.appendChild(row);
+  // 新增催款任务时添加系统提示
+  if (!task.done) {
+    _appendPendingLog(`🔔 新增催款任务${task.amount?' · '+task.amount+'万':''}${task.note?' · '+task.note:''}`);
+    showToast('✅ 催款任务已新增');
+  }
 }
 
 function getCollectTasks() {
@@ -2898,7 +2884,27 @@ function editProject(id) {
   setDtags(p.deliveryTags || {});
   // 催款任务
   document.getElementById('f-collect-list').innerHTML = '';
-  (p.collectTasks||[]).forEach(t=>addCollectRow(t));
+  const collectTasks = p.collectTasks||[];
+  if (collectTasks.length > 0) {
+    // 添加标注行
+    const labelRow = document.createElement('div');
+    labelRow.style.display = 'flex';
+    labelRow.style.gap = '6px';
+    labelRow.style.padding = '6px 10px';
+    labelRow.style.background = 'var(--paper2)';
+    labelRow.style.borderRadius = '6px';
+    labelRow.style.marginBottom = '6px';
+    labelRow.innerHTML = `
+      <div style="width: 14px;"></div>
+      <div style="width: 130px; font-size: 0.68rem; color: #888;">日期</div>
+      <div style="width: 120px; font-size: 0.68rem; color: #888;">金额</div>
+      <div style="width: 80px; font-size: 0.68rem; color: #888;">负责人</div>
+      <div style="flex: 1; font-size: 0.68rem; color: #888;">备注</div>
+      <div style="width: 20px;"></div>
+    `;
+    document.getElementById('f-collect-list').appendChild(labelRow);
+  }
+  collectTasks.forEach(t=>addCollectRow(t));
   updatePaymentPct();
   // 待办
   document.getElementById('todos-list').innerHTML='';
@@ -2940,6 +2946,51 @@ function saveProject() {
   const collected = parseFloat(document.getElementById('f-collected').value)||0;
   const paymentPct = contract>0 ? Math.min(100,Math.round(collected/contract*100)) : 0;
   const deliveryTags = getDtags();
+  
+  // 处理催款任务逻辑
+  const collectTasks = getCollectTasks();
+  const owner = document.getElementById('f-owner')?.value || '';
+  const todayStr = new Date().toISOString().slice(0,10);
+  
+  // 1. 检查是否有"交付任务已完成"但"回款未足额到账"的节点，生成催款任务
+  paymentNodes.forEach(node => {
+    if (node.deliverDone && !node.done) {
+      // 交付任务已完成但回款未足额到账
+      const targetAmount = parseFloat(node.amount) || 0;
+      const actualAmount = parseFloat(node.actualAmount) || 0;
+      if (targetAmount > 0 && actualAmount < targetAmount) {
+        // 检查是否已存在相同条件的催款任务
+        const existingTask = collectTasks.find(t => 
+          t.note && t.note.includes(node.condition) && !t.done
+        );
+        if (!existingTask) {
+          // 生成新的催款任务
+          const amtWan = targetAmount ? targetAmount.toFixed(4).replace(/\.?0+$/, '') : '';
+          collectTasks.push({
+            date: todayStr,
+            amount: amtWan,
+            owner: owner,
+            note: `待催：${node.condition}`,
+            done: false
+          });
+        }
+      }
+    }
+  });
+  
+  // 2. 检查已有催款任务对应的节点是否已足额到账，如果是，则自动勾选催款任务
+  collectTasks.forEach(task => {
+    if (!task.done && task.note) {
+      // 查找对应的回款节点
+      const matchingNode = paymentNodes.find(node => 
+        task.note.includes(node.condition)
+      );
+      if (matchingNode && matchingNode.done) {
+        task.done = true;
+      }
+    }
+  });
+  
   const data = {
     name, stage,
     channel:      document.getElementById('f-channel').value.trim(),
@@ -2956,7 +3007,7 @@ function saveProject() {
     deliveryBrief: document.getElementById('f-delivery-brief').value.trim(),
     terminationReason: document.getElementById('f-termination-reason')?.value.trim() || '',
     paymentPct, paymentNodes, deliveryTags,
-    collectTasks: getCollectTasks(),
+    collectTasks: collectTasks,
     todos:        getTodos(),
    洽谈状态:     document.getElementById('f-discuss-status')?.value || '需求沟通',
     updatedAt:    ts};
@@ -5091,9 +5142,9 @@ function renderPaymentNodes(p) {
         </div>
         <div class="pn-task-area">
           <div class="pn-task-label">回款条件</div>
-          <div class="pn-task-row" style="flex-direction: column; align-items: flex-start; gap: 8px;">
-            <textarea class="pn-condition" onchange="updatePaymentNode(${i}, 'condition', this.value)" onfocus="this.style.borderColor='rgba(103,58,183,.35)'; this.style.background='#fff'; this.style.boxShadow='0 0 0 2px rgba(103,58,183,.06)';" onblur="this.style.borderColor='var(--paper2)'; this.style.background='#fafafa'; this.style.boxShadow='none';" style="width: 100%; min-height: 60px; resize: vertical; border:1px solid var(--paper2); border-radius:7px; padding:6px 10px; font-size:.79rem; font-family:inherit; color:var(--ink); outline:none; background:#fafafa; font-weight:500; transition:border-color .15s;">${node.condition || ''}</textarea>
-            <div class="pn-deliver-toggle" onclick="onPnDeliverToggle(this)" style="align-self: flex-start;">
+          <div class="pn-task-row">
+            <textarea class="pn-condition" onchange="updatePaymentNode(${i}, 'condition', this.value)" oninput="this.style.height='auto'; this.style.height=(this.scrollHeight)+'px'">${node.condition || ''}</textarea>
+            <div class="pn-deliver-toggle" onclick="onPnDeliverToggle(this)">
               <input type="checkbox" class="pn-deliver-chk" ${node.deliverDone?'checked':''}>
               <div class="pn-status-btn ${node.deliverDone?'active-deliver':''}">
                 ${node.deliverDone?'✅ 交付任务完成':'○ 交付任务完成'}
@@ -5106,20 +5157,20 @@ function renderPaymentNodes(p) {
             <div class="pn-col-title">回款目标</div>
             <div class="pn-field">
               <label>回款比例</label>
-              <input type="text" value="${node.ratio || ''}" onchange="updatePaymentNode(${i}, 'ratio', this.value)">
+              <input type="text" class="pn-ratio" value="${node.ratio || ''}" onchange="updatePaymentNode(${i}, 'ratio', this.value)">
             </div>
             <div class="pn-field">
               <label>金额（万元）</label>
-              <input type="text" value="${node.amount || ''}" onchange="updatePaymentNode(${i}, 'amount', this.value)">
+              <input type="text" class="pn-amount" value="${node.amount || ''}" onchange="updatePaymentNode(${i}, 'amount', this.value)">
             </div>
           </div>
           <div class="pn-col">
             <div class="pn-col-title">回款落实</div>
             <div class="pn-field">
               <label>实际到账（万元）</label>
-              <input type="text" class="pn-actual-done" value="${node.actualAmount || ''}" onchange="updatePaymentNode(${i}, 'actualAmount', this.value)">
+              <input type="text" class="pn-actual" value="${node.actualAmount || ''}" oninput="onPnActualInput(this)">
             </div>
-            <div class="pn-done-toggle" onclick="onPnDoneToggle(this)" style="margin-top: 6px;">
+            <div class="pn-done-toggle" onclick="onPnDoneToggle(this)">
               <input type="checkbox" ${node.done?'checked':''}>
               <div class="pn-status-btn ${node.done?'active-done':''}">
                 ${node.done?'✅ 回款已到账':'○ 回款已到账'}
@@ -5148,7 +5199,7 @@ function updatePaymentNode(index, field, value) {
   if (field === 'ratio' && value) {
     // 输入了百分比，自动计算金额
     const ratioValue = parseFloat(value.replace('%', '')) / 100;
-    node.amount = (contractAmount * ratioValue).toFixed(2);
+    node.amount = String(contractAmount * ratioValue);
   } else if (field === 'amount' && value) {
     // 输入了金额，自动计算百分比
     const amountValue = parseFloat(value);
@@ -5221,7 +5272,7 @@ function removePaymentNode(index) {
 }
 
 // 添加回款节点
-function addPaymentNode() {
+function addPaymentNodeToProject() {
   if (!currentEditProjectId) return;
   const p = projects.find(x => x.id === currentEditProjectId);
   if (!p) return;
@@ -5312,6 +5363,9 @@ async function analyzeContractsForPayment() {
     pnAiHint.textContent = '正在识别合同…';
   }
   
+  // 获取分析结果显示区域
+  const analysisDiv = document.getElementById('f-contract-analysis');
+  
   try {
     // 读取合同文件内容
     let combinedText = '';
@@ -5329,7 +5383,7 @@ async function analyzeContractsForPayment() {
           // PDF 处理逻辑
           const ab = await file.arrayBuffer();
           const b64 = btoa(String.fromCharCode(...new Uint8Array(ab)));
-          await analyzeContractFile(name, b64, 'pdf', null, null);
+          await analyzeContractFile(name, b64, 'pdf', analysisDiv, btn);
           return;
         }
       } catch(e) {
@@ -5343,15 +5397,12 @@ async function analyzeContractsForPayment() {
     }
     
     // 使用全局AI模型分析合同
-    await analyzeContractText(combinedText, null);
+    await analyzeContractText(combinedText, analysisDiv);
     
     // 更新UI
     if (pnAiHint) {
       pnAiHint.textContent = '识别完成';
     }
-    
-    // 重新渲染回款节点
-    renderPaymentNodes(p);
     
   } catch(e) {
     console.error('合同识别失败:', e);
@@ -5447,6 +5498,12 @@ async function analyzeContractsForDelivery() {
     dtAiHint.textContent = '正在识别交付内容…';
   }
   
+  // 获取分析结果显示区域
+  const analysisDiv = document.getElementById('f-delivery-analysis');
+  if (analysisDiv) {
+    analysisDiv.innerHTML = `<div class="contract-analysis"><div class="ca-loading"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div>&nbsp;AI 正在分析交付内容…</div></div>`;
+  }
+  
   try {
     // 读取合同文件内容
     let contractText = '';
@@ -5498,42 +5555,20 @@ async function analyzeContractsForDelivery() {
       messages: [{ role: 'user', content: AGREEMENT_ANALYZE_PROMPT + '\n\n以下是合同和技术协议内容：\n' + combinedText.slice(0, 12000) }]
     });
     
-    // 解析结果
-    const rawText = (data._parsed?.text || data.choices?.[0]?.message?.content || data.content?.filter(b => b.type==='text').map(b => b.text).join('') || '').replace(/```json|```/g,'').trim();
-    if (!rawText) throw new Error('AI 返回空响应');
+    // 使用 renderAgreementAnalysis 显示分析结果
+    renderAgreementAnalysis(data, analysisDiv, currentEditProjectId);
     
-    const match = rawText.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error('未找到JSON');
-    
-    const result = JSON.parse(match[0]);
-    
-    // 更新项目
-    const idx = projects.findIndex(x => x.id === currentEditProjectId);
-    if (idx !== -1) {
-      projects[idx].deliveryTags = {
-        wireless_hardware: !!result.wireless_hardware,
-        wired_hardware: !!result.wired_hardware,
-        software: !!result.software,
-        other: result.other || '',
-        _fromAi: true
-      };
-      
-      if (result.brief) {
-        projects[idx].deliveryBrief = result.brief;
-        // 同步到UI
-        const briefEl = document.getElementById('f-delivery-brief');
-        if (briefEl) briefEl.value = result.brief;
-      }
-      
-      // 同步交付标签
-      setDtags(projects[idx].deliveryTags);
-      save();
-      showToast('✅ 交付内容识别完成，数据已更新');
+    // 更新UI提示
+    if (dtAiHint) {
+      dtAiHint.textContent = '识别完成';
     }
     
   } catch(e) {
     console.error('交付内容识别失败:', e);
     showToast('交付内容识别失败：' + e.message);
+    if (analysisDiv) {
+      analysisDiv.innerHTML = '';
+    }
   } finally {
     if (dtAiHint) {
       dtAiHint.textContent = '';
@@ -6431,15 +6466,25 @@ function confirmAgreementAIAnalysis() {
   
   // 清除全局变量
   delete window.aiAgreementAnalysisResult;
+  
+  // 清除临时分析结果显示区域
+  const analysisDiv = document.getElementById('f-delivery-analysis') || 
+                      document.getElementById('agreementAnalysis') || 
+                      document.getElementById('modalAgreementAnalysis');
+  if (analysisDiv) {
+    analysisDiv.innerHTML = '';
+  }
 }
 
 // 取消技术协议AI分析结果
 function cancelAgreementAIAnalysis() {
   delete window.aiAgreementAnalysisResult;
-  // 隐藏分析结果
-  const analysisDiv = document.getElementById('agreementAnalysis') || document.getElementById('modalAgreementAnalysis');
+  // 清除临时分析结果显示区域
+  const analysisDiv = document.getElementById('f-delivery-analysis') || 
+                      document.getElementById('agreementAnalysis') || 
+                      document.getElementById('modalAgreementAnalysis');
   if (analysisDiv) {
-    analysisDiv.style.display = 'none';
+    analysisDiv.innerHTML = '';
   }
   // 重新启用分析按钮
   const btn = document.getElementById('agreementAnalyzeBtn') || document.getElementById('modalAgreementAnalyzeBtn');
@@ -7433,10 +7478,8 @@ function confirmAIAnalysis() {
   if (projectId) {
     const idx = projects.findIndex(p => p.id === projectId);
     if (idx !== -1) {
-      // 回款节点：标记为AI来源，保留原有actualAmount/done
-      const existing = projects[idx].paymentNodes || [];
+      // 回款节点：标记为AI来源，完全重新创建，不保留原有数据
       const newNodes = payments.map((row, i) => {
-        const old = existing[i] || {};
         let ratio = row.ratio || '';
         let amount = row.amount || '';
         
@@ -7445,7 +7488,7 @@ function confirmAIAnalysis() {
           if (ratio && !amount) {
             // 有百分比无金额，自动计算金额
             const ratioValue = parseFloat(ratio.replace('%', '')) / 100;
-            amount = (contractAmountYuan * ratioValue / 10000).toFixed(2);
+            amount = String(contractAmountYuan * ratioValue / 10000);
           } else if (amount && !ratio) {
             // 有金额无百分比，自动计算百分比
             const amountValue = parseFloat(amount) * 10000;
@@ -7458,13 +7501,20 @@ function confirmAIAnalysis() {
           condition:          row.condition || '',
           ratio:              ratio,
           amount:             amount,
-          contractAmountYuan: parseContractAmt(amount) || '',
-          actualAmount:       old.actualAmount || '',
-          done:               old.done || false,
+          contractAmountYuan: contractAmountYuan != null && ratio ? Math.round(contractAmountYuan * parseFloat(ratio.replace('%', '')) / 100) : '',
+          actualAmount:       '',
+          done:               false,
           _fromAi:            true
         };
       });
       projects[idx].paymentNodes = newNodes;
+      // 删除原有催款任务
+      projects[idx].collectTasks = [];
+      // 清空DOM中的催款任务
+      const collectList = document.getElementById('f-collect-list');
+      if (collectList) {
+        collectList.innerHTML = '<button class="btn-add-row" onclick="addCollectRow()">+ 添加催款任务</button>';
+      }
       // 交付标签
       projects[idx].deliveryTags = { ...d, _fromAi: true };
       // 合同金额：AI识别结果与已有记录不一致时自动更新
@@ -7496,6 +7546,35 @@ function confirmAIAnalysis() {
           if (document.getElementById('f-contract')) {
             document.getElementById('f-contract').value = p.contract || '';
           }
+          // 刷新催款任务
+          const collectList = document.getElementById('f-collect-list');
+          if (collectList) {
+            collectList.innerHTML = '';
+            const collectTasks = p.collectTasks||[];
+            if (collectTasks.length > 0) {
+              // 添加标注行
+              const labelRow = document.createElement('div');
+              labelRow.style.display = 'flex';
+              labelRow.style.gap = '6px';
+              labelRow.style.padding = '6px 10px';
+              labelRow.style.background = 'var(--paper2)';
+              labelRow.style.borderRadius = '6px';
+              labelRow.style.marginBottom = '6px';
+              labelRow.innerHTML = `
+                <div style="width: 14px;"></div>
+                <div style="width: 130px; font-size: 0.68rem; color: #888;">日期</div>
+                <div style="width: 120px; font-size: 0.68rem; color: #888;">金额</div>
+                <div style="width: 80px; font-size: 0.68rem; color: #888;">负责人</div>
+                <div style="flex: 1; font-size: 0.68rem; color: #888;">备注</div>
+                <div style="width: 20px;"></div>
+              `;
+              collectList.appendChild(labelRow);
+            }
+            collectTasks.forEach(t=>addCollectRow(t));
+            if (collectTasks.length === 0) {
+              collectList.innerHTML = '<button class="btn-add-row" onclick="addCollectRow()">+ 添加催款任务</button>';
+            }
+          }
         }
       }
       
@@ -7508,6 +7587,14 @@ function confirmAIAnalysis() {
   
   // 清除全局变量
   delete window.aiAnalysisResult;
+  
+  // 清除临时分析结果显示区域
+  const analysisDiv = document.getElementById('f-contract-analysis') || 
+                      document.getElementById('contractAnalysis') || 
+                      document.getElementById('modalContractAnalysis');
+  if (analysisDiv) {
+    analysisDiv.innerHTML = '';
+  }
 }
 
 // 取消AI分析结果
