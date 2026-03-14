@@ -2017,6 +2017,10 @@ function save() {
   } catch(e) {
     if (DEBUG) console.error('保存数据失败：', e);
   }
+}
+
+// 统一的视图刷新函数
+function refreshView() {
   render();
   if (document.getElementById('todosPanel').classList.contains('open')) renderTodosPanel();
   if (document.getElementById('ledgerPanel').classList.contains('open')) renderLedger();
@@ -2043,6 +2047,7 @@ async function moveToRecycleBin(id) {
   await db.saveToRecycleBin(project);
   
   save();
+  refreshView();
   showToast('项目已移至回收站');
 }
 
@@ -2063,6 +2068,7 @@ async function restoreFromRecycleBin(id) {
   await db.saveProject(project);
   
   save();
+  refreshView();
   showToast('项目已从回收站恢复');
   renderRecycleBin();
 }
@@ -2078,6 +2084,7 @@ async function deleteFromRecycleBin(id) {
   await db.deleteFromRecycleBin(id);
   
   save();
+  refreshView();
   showToast('项目已彻底删除');
   renderRecycleBin();
 }
@@ -2091,6 +2098,7 @@ async function emptyRecycleBin() {
     await db.clearRecycleBin();
     
     save();
+    refreshView();
     showToast('回收站已清空');
     renderRecycleBin();
   }
@@ -3302,6 +3310,7 @@ function saveProject() {
     projects.push(data);
   }
   closeModal(); save();
+  refreshView();
   showToast(editingId ? '项目已更新' : '新项目已创建');
 }
 
@@ -3465,6 +3474,7 @@ function moveStage(id, newStage) {
     organizeFilesForProjectStart(p.id);
   }
   save();
+  refreshView();
   // 若项目进入执行中/完结但无合同签署日期，提示填写
   if (newStage !== STAGE.NEGOTIATING && !p.contractDate) {
     showToast('⚠️ 请补填合同签署日期（点击卡片→基本信息Tab）');
@@ -3490,7 +3500,8 @@ async function clearAll() {
       for (const project of allProjects) {
         await db.deleteProject(project.id);
       }
-      save(); 
+      save();
+      refreshView();
       showToast('已清空'); 
     }});
 }
@@ -3844,6 +3855,7 @@ function confirmImport() {
     }
   });
   closeImport(); save();
+  refreshView();
   showToast(`导入完成：新增 ${added} 个，更新 ${updated} 个`);
 }
 function downloadTemplate() {
@@ -4559,6 +4571,7 @@ function confirmYuqueImport() {
     }
   });
   closeImport(); save();
+  refreshView();
   showToast(`语雀导入：新增 ${added} 个，更新 ${updated} 个`);
 }
 
@@ -4601,6 +4614,7 @@ function todoRowHTML(t) {
 function toggleTodo(pid,ti) {
   const p=projects.find(x=>x.id===pid); if(!p||!p.todos[ti]) return;
   p.todos[ti].done=!p.todos[ti].done; save();
+  refreshView();
   if(document.getElementById('todosPanel').classList.contains('open')) renderTodosPanel();
 }
 function renderTodosPanel() {
@@ -5119,6 +5133,22 @@ async function claudeCall({ task, model, max_tokens, messages }) {
   }
 }
 
+// AI 日志管理
+function clearAiLogs() {
+  aiLogs = [];
+  try { localStorage.removeItem(STORAGE_KEY.AI_LOGS); } catch(e) {}
+}
+
+function getAiLogs() {
+  return aiLogs;
+}
+
+
+// ╔══════════════════════════════════════════╗
+// ║  MODULE: ai-ui（AI 界面控制）            ║
+// ╚══════════════════════════════════════════╝
+
+// 测试对话
 
 function openMonitor() {
   chatHistory = [];
@@ -5128,13 +5158,13 @@ function openMonitor() {
   renderMonitor();
   document.getElementById('monitorPanel').classList.add('open');
 }
-function closeMonitor() { document.getElementById('monitorPanel').classList.remove('open'); }
-function clearAiLogs() {
-  if (!confirm('确定清空所有 AI 调用记录？')) return;
-  aiLogs = []; localStorage.removeItem(STORAGE_KEY.AI_LOGS);
-  renderMonitor(); showToast('已清空记录');
+
+function closeMonitor() {
+  document.getElementById('monitorPanel').classList.remove('open');
 }
+
 function renderMonitor() {
+  const aiLogs = getAiLogs();
   const totalIn  = aiLogs.reduce((a,l) => a + (l.in  || 0), 0);
   const totalOut = aiLogs.reduce((a,l) => a + (l.out || 0), 0);
   document.getElementById('ms-total').textContent  = aiLogs.length;
@@ -5158,8 +5188,8 @@ function renderMonitor() {
       <td>${l.status==='ok' ? '<span class="mlog-status-ok">✅ 成功</span>' : `<span class="mlog-status-err" title="${l.error}">❌ 失败</span>`}</td>
     </tr>`).join('');
 }
-document.getElementById('monitorPanel').addEventListener('click', e => { if (e.target === e.currentTarget) closeMonitor(); });
 
+document.getElementById('monitorPanel').addEventListener('click', e => { if (e.target === e.currentTarget) closeMonitor(); });
 
 // ╔══════════════════════════════════════════╗
 // ║  MODULE: file-system（文件系统层）        ║
@@ -5494,6 +5524,7 @@ function updatePaymentNode(index, field, value) {
   // 重新渲染回款节点
   renderPaymentNodes(p);
   save();
+  refreshView();
 }
 
 // 切换回款节点完成状态
@@ -5507,6 +5538,7 @@ function togglePaymentNodeDone(index) {
   // 重新渲染回款节点
   renderPaymentNodes(p);
   save();
+  refreshView();
 }
 
 // 切换回款节点任务完成状态
@@ -5520,6 +5552,7 @@ function togglePaymentNodeTaskCompleted(index) {
   // 重新渲染回款节点
   renderPaymentNodes(p);
   save();
+  refreshView();
 }
 
 // 移除回款节点
@@ -5533,6 +5566,7 @@ function removePaymentNode(index) {
   // 重新渲染回款节点
   renderPaymentNodes(p);
   save();
+  refreshView();
 }
 
 // 添加回款节点
@@ -5557,6 +5591,7 @@ function addPaymentNodeToProject() {
   // 重新渲染回款节点
   renderPaymentNodes(p);
   save();
+  refreshView();
 }
 
 // 回款节点页面的合同识别
@@ -6728,6 +6763,7 @@ function confirmAgreementAIAnalysis() {
       // 同步两个Tab的交付标签
       setDtags(projects[idx].deliveryTags);
       save();
+      refreshView();
       showToast('✅ 技术协议识别完成，交付内容已写入项目');
     }
   }
@@ -6793,6 +6829,7 @@ function renderQuoteAnalysis(data, analysisDiv, projectId) {
         const quoteEl = document.getElementById('f-quote');
         if (quoteEl && editingId === projectId) quoteEl.value = result.quote;
         save();
+        refreshView();
         showToast('✅ 方案报价识别完成，报价金额已写入项目');
       }
     }
@@ -7826,6 +7863,7 @@ function confirmAIAnalysis() {
       const r = parseFloat(projects[idx].collected) || 0;
       projects[idx].paymentPct = c > 0 ? Math.min(100, Math.round(r / c * 100)) : 0;
       save();
+      refreshView();
       
       // 重新渲染相关UI
       if (currentEditProjectId) {
