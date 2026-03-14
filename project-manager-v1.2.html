@@ -681,6 +681,15 @@
     <button class="sb-btn" onclick="openRecycleBin()">
       <span class="sb-icon">🗑️</span><span class="sb-label">项目回收站</span>
     </button>
+    <button class="sb-btn" onclick="exportData()">
+      <span class="sb-icon">📥</span><span class="sb-label">导出数据</span>
+    </button>
+    <button class="sb-btn" onclick="importData()">
+      <span class="sb-icon">📤</span><span class="sb-label">导入数据</span>
+    </button>
+    <button class="sb-btn" onclick="importFromLocalStorage()">
+      <span class="sb-icon">🔄</span><span class="sb-label">从缓存导入数据</span>
+    </button>
     <button class="sb-btn danger" onclick="clearAll()">
       <span class="sb-icon">🗑</span><span class="sb-label">清空数据</span>
     </button>
@@ -1648,104 +1657,309 @@
 <div class="toast" id="toast"></div>
 
 <script>
-// ═══════════════════════════════════════════════════
-// 数据
-// ═══════════════════════════════════════════════════
+// 全局函数定义
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+let _confirmCb = null;
+function showConfirm({icon='⚠️',title='确认',msg='',okText='确认',onOk}) {
+  document.getElementById('confirmIcon').textContent  = icon;
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmMsg').textContent   = msg;
+  document.getElementById('confirmOkBtn').textContent = okText;
+  _confirmCb = onOk;
+  document.getElementById('confirmOverlay').classList.add('show');
+}
+function closeConfirm() { document.getElementById('confirmOverlay').classList.remove('show'); _confirmCb=null; }
+document.getElementById('confirmOkBtn').onclick = function() { const cb=_confirmCb; closeConfirm(); if(cb) cb(); };
+document.getElementById('confirmOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeConfirm();});
+</script>
+
+<script>
+// 全局变量
 let projects = [];
 let recycleBin = [];
 let editingId = null;
 let currentEditProjectId = null;
 let statsFilter = 'thisYear'; // all 或 thisYear
+let db = null;
 
-try {
-  const raw = localStorage.getItem('pm_projects_v3');
-  if (raw) {
-    try {
-      projects = JSON.parse(raw);
+// 动态导入数据库模块
+async function loadDatabase() {
+  try {
+    const module = await import('./db.js');
+    db = module.default;
+    console.log('数据库模块加载成功');
+    return true;
+  } catch (error) {
+    console.error('数据库模块加载失败:', error);
+    return false;
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// 数据
+// ═══════════════════════════════════════════════════
+
+// 初始化数据库并加载数据
+async function initDatabase() {
+  try {
+    // 先加载数据库模块
+    const loadSuccess = await loadDatabase();
+    if (!loadSuccess) {
+      console.error('数据库模块加载失败，使用localStorage作为备用存储');
+      loadFromLocalStorage();
+      return;
+    }
+    
+    const success = await db.init();
+    if (success) {
+      console.log('数据库初始化成功');
+      // 加载项目数据
+      projects = await db.getProjects();
       console.log('项目数据加载成功，数量：', projects.length);
-    } catch (parseError) {
-      console.error('解析项目数据失败：', parseError);
-      // 尝试从旧版本迁移
-      const old = localStorage.getItem('pm_projects_v2');
-      if (old) {
-        try {
-          const oldArr = JSON.parse(old);
-          projects = oldArr.map(p => ({
-            ...p,
-            // 旧阶段映射：0→0, 1→1, 2→1(执行中), 3→2
-            stage: p.stage === 3 ? 2 : (p.stage === 2 ? 1 : p.stage),
-            collectTasks: p.collectTasks || [],
-            collected: p.collected || '',
-            paymentPct: p.paymentPct || 0}));
-          console.log('从旧版本迁移数据成功，数量：', projects.length);
-          // 保存迁移后的数据
-          localStorage.setItem('pm_projects_v3', JSON.stringify(projects));
-        } catch (oldParseError) {
-          console.error('解析旧版本数据失败：', oldParseError);
-          projects = [];
-        }
-      } else {
-        projects = [];
-      }
-    }
-  } else {
-    // 尝试迁移旧数据
-    const old = localStorage.getItem('pm_projects_v2');
-    if (old) {
-      try {
-        const oldArr = JSON.parse(old);
-        projects = oldArr.map(p => ({
-          ...p,
-          // 旧阶段映射：0→0, 1→1, 2→1(执行中), 3→2
-          stage: p.stage === 3 ? 2 : (p.stage === 2 ? 1 : p.stage),
-          collectTasks: p.collectTasks || [],
-          collected: p.collected || '',
-          paymentPct: p.paymentPct || 0}));
-        console.log('从旧版本迁移数据成功，数量：', projects.length);
-        // 保存迁移后的数据
-        localStorage.setItem('pm_projects_v3', JSON.stringify(projects));
-      } catch (oldParseError) {
-        console.error('解析旧版本数据失败：', oldParseError);
-        projects = [];
-      }
-    }
-  }
-  
-  // 加载回收站数据
-  const recycleRaw = localStorage.getItem('pm_recycle_bin_v1');
-  if (recycleRaw) {
-    try {
-      recycleBin = JSON.parse(recycleRaw);
+      
+      // 加载回收站数据
+      recycleBin = await db.getRecycleBin();
       console.log('回收站数据加载成功，数量：', recycleBin.length);
-    } catch (recycleParseError) {
-      console.error('解析回收站数据失败：', recycleParseError);
-      recycleBin = [];
+      
+      // 渲染页面
+      render();
+    } else {
+      console.error('数据库初始化失败，使用localStorage作为备用存储');
+      loadFromLocalStorage();
     }
+  } catch (error) {
+    console.error('初始化数据库失败：', error);
+    loadFromLocalStorage();
   }
-} catch(e) {
-  console.error('加载数据失败：', e);
-  projects = [];
-  recycleBin = [];
+}
+
+// 从localStorage加载数据作为备用
+function loadFromLocalStorage() {
+  try {
+    const raw = localStorage.getItem('pm_projects_v3');
+    if (raw) {
+      try {
+        projects = JSON.parse(raw);
+        console.log('从localStorage加载项目数据，数量：', projects.length);
+      } catch (parseError) {
+        console.error('解析项目数据失败：', parseError);
+        projects = [];
+      }
+    }
+    
+    const recycleRaw = localStorage.getItem('pm_recycle_bin_v1');
+    if (recycleRaw) {
+      try {
+        recycleBin = JSON.parse(recycleRaw);
+        console.log('从localStorage加载回收站数据，数量：', recycleBin.length);
+      } catch (recycleParseError) {
+        console.error('解析回收站数据失败：', recycleParseError);
+        recycleBin = [];
+      }
+    }
+    
+    render();
+  } catch (error) {
+    console.error('加载localStorage数据失败：', error);
+  }
+}
+
+// 导出数据为JSON文件
+function exportData() {
+  try {
+    const exportData = {
+      projects: projects,
+      recycleBin: recycleBin,
+      exportDate: new Date().toISOString(),
+      version: '1.2'
+    };
+    
+    const jsonString = JSON.stringify(exportData, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `project-manager-data-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    showToast('数据导出成功');
+  } catch (error) {
+    console.error('导出数据失败：', error);
+    showToast('导出失败：' + error.message);
+  }
+}
+
+// 导入数据从JSON文件
+function importData() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    try {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        try {
+          const importData = JSON.parse(event.target.result);
+          
+          // 验证数据格式
+          if (!importData.projects || !Array.isArray(importData.projects)) {
+            throw new Error('数据格式错误：缺少项目数据');
+          }
+          
+          showConfirm({ 
+            icon: '📤', 
+            title: '导入数据', 
+            msg: `确定要导入数据吗？这将会覆盖当前的${importData.projects.length}个项目和${importData.recycleBin ? importData.recycleBin.length : 0}个回收站项目。`, 
+            okText: '导入',
+            onOk: async () => {
+              // 更新内存中的数据
+              projects = importData.projects;
+              recycleBin = importData.recycleBin || [];
+              
+              // 保存到数据库
+              if (db) {
+                // 清空当前数据库
+                const allProjects = await db.getProjects();
+                for (const project of allProjects) {
+                  await db.deleteProject(project.id);
+                }
+                await db.clearRecycleBin();
+                
+                // 保存项目数据到数据库
+                for (const project of projects) {
+                  await db.saveProject(project);
+                }
+                
+                // 保存回收站数据到数据库
+                for (const item of recycleBin) {
+                  await db.saveToRecycleBin(item);
+                }
+              }
+              
+              // 重新渲染页面
+              render();
+              showToast('数据导入成功');
+            }
+          });
+        } catch (parseError) {
+          console.error('解析导入数据失败：', parseError);
+          showToast('导入失败：数据格式错误');
+        }
+      };
+      reader.readAsText(file);
+    } catch (error) {
+      console.error('导入数据失败：', error);
+      showToast('导入失败：' + error.message);
+    }
+  };
+  
+  input.click();
+}
+
+// 页面加载时初始化数据库
+window.addEventListener('DOMContentLoaded', initDatabase);
+
+// 暴露函数到全局作用域
+window.initDatabase = initDatabase;
+window.importFromLocalStorage = importFromLocalStorage;
+window.save = save;
+window.moveToRecycleBin = moveToRecycleBin;
+window.restoreFromRecycleBin = restoreFromRecycleBin;
+window.deleteFromRecycleBin = deleteFromRecycleBin;
+window.emptyRecycleBin = emptyRecycleBin;
+window.clearAll = clearAll;
+
+// 从localStorage导入数据到数据库
+async function importFromLocalStorage() {
+  try {
+    showConfirm({ 
+      icon: '📤', 
+      title: '从缓存导入数据', 
+      msg: '确定要从localStorage缓存中导入数据到数据库吗？这将会覆盖当前数据库中的数据。', 
+      okText: '导入',
+      onOk: async () => {
+        // 从localStorage读取数据
+        const raw = localStorage.getItem('pm_projects_v3');
+        const recycleRaw = localStorage.getItem('pm_recycle_bin_v1');
+        
+        if (raw) {
+          try {
+            const localStorageProjects = JSON.parse(raw);
+            console.log('从localStorage导入项目数据，数量：', localStorageProjects.length);
+            
+            // 清空当前数据库
+            const allProjects = await db.getProjects();
+            for (const project of allProjects) {
+              await db.deleteProject(project.id);
+            }
+            await db.clearRecycleBin();
+            
+            // 保存项目数据到数据库
+            for (const project of localStorageProjects) {
+              await db.saveProject(project);
+            }
+            
+            // 保存回收站数据到数据库
+            if (recycleRaw) {
+              try {
+                const localStorageRecycleBin = JSON.parse(recycleRaw);
+                console.log('从localStorage导入回收站数据，数量：', localStorageRecycleBin.length);
+                for (const item of localStorageRecycleBin) {
+                  await db.saveToRecycleBin(item);
+                }
+                recycleBin = localStorageRecycleBin;
+              } catch (recycleParseError) {
+                console.error('解析回收站数据失败：', recycleParseError);
+              }
+            }
+            
+            // 更新内存中的数据
+            projects = localStorageProjects;
+            
+            // 重新渲染页面
+            render();
+            showToast('数据导入成功');
+          } catch (parseError) {
+            console.error('解析项目数据失败：', parseError);
+            showToast('导入失败：数据格式错误');
+          }
+        } else {
+          showToast('没有找到缓存数据');
+        }
+      }
+    });
+  } catch (error) {
+    console.error('导入数据失败：', error);
+    showToast('导入失败：' + error.message);
+  }
 }
 
 function save() {
   try {
-    const projectsData = JSON.stringify(projects);
-    const recycleData = JSON.stringify(recycleBin);
-    
-    // 检查数据大小
-    const projectsSize = new Blob([projectsData]).size;
-    const recycleSize = new Blob([recycleData]).size;
-    const totalSize = projectsSize + recycleSize;
-    
-    // 检查是否超过localStorage容量限制（约5MB）
-    if (totalSize > 5 * 1024 * 1024) {
-      console.warn('localStorage容量警告：数据大小为', (totalSize / (1024 * 1024)).toFixed(2), 'MB，可能接近容量限制');
+    // 保存每个项目到数据库
+    for (const project of projects) {
+      db.saveProject(project);
     }
     
-    localStorage.setItem('pm_projects_v3', projectsData);
-    localStorage.setItem('pm_recycle_bin_v1', recycleData);
-    console.log('数据保存成功，大小：', (totalSize / 1024).toFixed(2), 'KB');
+    // 保存回收站数据
+    for (const item of recycleBin) {
+      db.saveToRecycleBin(item);
+    }
+    
+    console.log('数据保存成功');
   } catch(e) {
     console.error('保存数据失败：', e);
   }
@@ -1759,7 +1973,7 @@ function save() {
 // ═══════════════════════════════════════════════════
 
 // 将项目移至回收站
-function moveToRecycleBin(id) {
+async function moveToRecycleBin(id) {
   const idx = projects.findIndex(p => p.id === id);
   if (idx === -1) return;
   
@@ -1770,12 +1984,16 @@ function moveToRecycleBin(id) {
   project.deletedAt = new Date().toISOString();
   recycleBin.push(project);
   
+  // 保存到数据库
+  await db.deleteProject(id);
+  await db.saveToRecycleBin(project);
+  
   save();
   showToast('项目已移至回收站');
 }
 
 // 从回收站恢复项目
-function restoreFromRecycleBin(id) {
+async function restoreFromRecycleBin(id) {
   const idx = recycleBin.findIndex(p => p.id === id);
   if (idx === -1) return;
   
@@ -1786,24 +2004,36 @@ function restoreFromRecycleBin(id) {
   delete project.deletedAt;
   projects.push(project);
   
+  // 保存到数据库
+  await db.deleteFromRecycleBin(id);
+  await db.saveProject(project);
+  
   save();
   showToast('项目已从回收站恢复');
 }
 
 // 从回收站删除项目（彻底删除）
-function deleteFromRecycleBin(id) {
+async function deleteFromRecycleBin(id) {
   const idx = recycleBin.findIndex(p => p.id === id);
   if (idx === -1) return;
   
   recycleBin.splice(idx, 1);
+  
+  // 从数据库删除
+  await db.deleteFromRecycleBin(id);
+  
   save();
   showToast('项目已彻底删除');
 }
 
 // 清空回收站
-function emptyRecycleBin() {
+async function emptyRecycleBin() {
   if (confirm('确定要清空回收站吗？此操作不可恢复。')) {
     recycleBin = [];
+    
+    // 清空数据库中的回收站
+    await db.clearRecycleBin();
+    
     save();
     showToast('回收站已清空');
   }
@@ -1935,12 +2165,6 @@ async function organizeFilesForProjectStart(projectId) {
     console.error('整理项目文件失败:', e);
     showToast('⚠️ 整理项目文件失败');
   }
-}
-
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2200);
 }
 
 // ═══════════════════════════════════════════════════
@@ -3239,29 +3463,25 @@ function deleteProject(id) {
   const p = projects.find(x=>x.id===id);
   if (!p) return;
   showConfirm({ icon:'🗑', title:'删除项目', msg:`确认将「${p.name}」移至回收站？您可以在回收站中恢复此项目。`, okText:'移至回收站',
-    onOk:()=>{ moveToRecycleBin(id); }});
+    onOk:async()=>{ await moveToRecycleBin(id); }});
 }
 
-function clearAll() {
+async function clearAll() {
   showConfirm({ icon:'🗑', title:'清空所有项目', msg:'将删除全部项目数据，不可撤销。', okText:'全部清空',
-    onOk:()=>{ projects=[]; save(); showToast('已清空'); }});
+    onOk:async()=>{ 
+      projects=[];
+      recycleBin=[];
+      // 清空数据库
+      await db.clearRecycleBin();
+      // 清空所有项目
+      const allProjects = await db.getProjects();
+      for (const project of allProjects) {
+        await db.deleteProject(project.id);
+      }
+      save(); 
+      showToast('已清空'); 
+    }});
 }
-
-// ═══════════════════════════════════════════════════
-// 确认弹窗
-// ═══════════════════════════════════════════════════
-let _confirmCb = null;
-function showConfirm({icon='⚠️',title='确认',msg='',okText='确认',onOk}) {
-  document.getElementById('confirmIcon').textContent  = icon;
-  document.getElementById('confirmTitle').textContent = title;
-  document.getElementById('confirmMsg').textContent   = msg;
-  document.getElementById('confirmOkBtn').textContent = okText;
-  _confirmCb = onOk;
-  document.getElementById('confirmOverlay').classList.add('show');
-}
-function closeConfirm() { document.getElementById('confirmOverlay').classList.remove('show'); _confirmCb=null; }
-document.getElementById('confirmOkBtn').onclick = function() { const cb=_confirmCb; closeConfirm(); if(cb) cb(); };
-document.getElementById('confirmOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeConfirm();});
 
 // ═══════════════════════════════════════════════════
 // Excel Import
