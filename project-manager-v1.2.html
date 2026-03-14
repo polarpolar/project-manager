@@ -997,7 +997,7 @@
       
       <!-- 合同金额 & 回款总金额（只读汇总，与金额Tab联动） -->
       <div class="form-row" style="margin-bottom:16px" id="f-contract-amount-group">
-        <div class="form-group" style="margin-bottom:0">
+        <div class="form-group" style="margin-bottom:0; flex:1">
           <label style="display:flex;align-items:center;gap:5px">合同金额（万元）
             <span style="font-size:.6rem;color:#bbb;font-weight:400">→ 在「金额与回款」Tab编辑</span>
           </label>
@@ -1006,7 +1006,7 @@
             oninput="document.getElementById('f-contract').value=this.value;updatePaymentPct();syncPnFromContract()"
             onfocus="switchModalTabById('payment')">
         </div>
-        <div class="form-group" style="margin-bottom:0" id="f-collected-amount-group">
+        <div class="form-group" style="margin-bottom:0; flex:1; margin-left:12px" id="f-collected-amount-group">
           <label style="display:flex;align-items:center;gap:5px">回款总金额（万元）
             <span style="font-size:.6rem;color:#bbb;font-weight:400">已回款</span>
           </label>
