@@ -984,8 +984,8 @@
         </div>
       </div>
 
-      <!-- 金额与回款 -->
-      <div class="form-section-title">金额与回款</div>
+      <!-- 回款管理 -->
+      <div class="form-section-title">回款管理</div>
       
       <!-- 报价/预算金额（洽谈中和已终止项目显示） -->
       <div class="form-row" id="f-quote-amount-group" style="margin-bottom:12px">
@@ -996,33 +996,36 @@
       </div>
       
       <!-- 合同金额 & 回款总金额（只读汇总，与金额Tab联动） -->
-      <div class="form-row" style="margin-bottom:16px" id="f-contract-amount-group">
-        <div class="form-group" style="margin-bottom:0; flex:1">
-          <label style="display:flex;align-items:center;gap:5px">合同金额（万元）
-            <span style="font-size:.6rem;color:#bbb;font-weight:400">→ 在「金额与回款」Tab编辑</span>
-          </label>
-          <input type="number" id="f-contract-mirror" placeholder="0.00" step="0.01" min="0"
-            style="background:var(--paper);cursor:pointer;color:var(--ink)"
-            oninput="document.getElementById('f-contract').value=this.value;updatePaymentPct();syncPnFromContract()"
-            onfocus="switchModalTabById('payment')">
-        </div>
-        <div class="form-group" style="margin-bottom:0; flex:1; margin-left:12px" id="f-collected-amount-group">
-          <label style="display:flex;align-items:center;gap:5px">回款总金额（万元）
-            <span style="font-size:.6rem;color:#bbb;font-weight:400">已回款</span>
-          </label>
-          <input type="number" id="f-collected-mirror" placeholder="0.00" step="0.01" min="0"
-            style="background:var(--paper);cursor:pointer;color:var(--ink)"
-            oninput="document.getElementById('f-collected').value=this.value;updatePaymentPct()"
-            onfocus="switchModalTabById('payment')">
+      <div style="margin-bottom:16px" id="f-contract-amount-group">
+        <div style="display:inline-flex; width:100%; gap:12px">
+          <div style="flex:1; min-width:0">
+            <label style="display:flex;align-items:center;gap:5px; font-size:.72rem; color:#888; margin-bottom:4px; font-weight:500">合同金额（万元）
+              <span style="font-size:.6rem;color:#bbb;font-weight:400">→ 在「回款管理」Tab编辑</span>
+            </label>
+            <input type="number" id="f-contract-mirror" placeholder="0.00" step="0.01" min="0"
+              style="background:var(--paper);cursor:pointer;color:var(--ink); width:100%; border:1.5px solid var(--paper2); border-radius:7px; padding:8px 11px; font-size:.82rem; font-family:'Noto Sans SC',sans-serif; outline:none; transition:border-color .2s"
+              oninput="document.getElementById('f-contract').value=this.value;updatePaymentPct();syncPnFromContract()"
+              onfocus="switchModalTabById('payment')">
+          </div>
+          <div style="flex:1; min-width:0">
+            <label style="display:flex;align-items:center;gap:5px; font-size:.72rem; color:#888; margin-bottom:4px; font-weight:500">回款总金额（万元）
+              <span style="font-size:.6rem;color:#bbb;font-weight:400">已回款</span>
+            </label>
+            <input type="number" id="f-collected-mirror" placeholder="0.00" step="0.01" min="0"
+              style="background:var(--paper);cursor:pointer;color:var(--ink); width:100%; border:1.5px solid var(--paper2); border-radius:7px; padding:8px 11px; font-size:.82rem; font-family:'Noto Sans SC',sans-serif; outline:none; transition:border-color .2s"
+              oninput="document.getElementById('f-collected').value=this.value;updatePaymentPct()"
+              onfocus="switchModalTabById('payment')">
+          </div>
         </div>
       </div>
       
       <!-- 交付内容 -->
-      <div class="form-section-title">交付内容</div>
+      <div class="form-section-title">交付内容
+        <span style="font-size:.6rem;color:#bbb;font-weight:400;float:right">点击标签切换 · 与「交付情况」Tab同步</span>
+      </div>
       <div class="form-group" style="margin-bottom:12px" id="f-delivery-content-group">
         <label style="display:flex;align-items:center;gap:6px">
           <span id="dt-ai-hint2" style="font-size:.62rem;color:#7eccd8;font-weight:400"></span>
-          <span style="font-size:.6rem;color:#bbb;font-weight:400;margin-left:auto">点击标签切换 · 与「交付情况」Tab同步</span>
         </label>
         <div class="dtag-wrap" style="margin:6px 0 0">
           <div class="dtag dtag-wl off" id="dtag2-wl" onclick="toggleDtag2('wl')">📡 无线硬件</div>
@@ -1053,7 +1056,7 @@
       </div>
     </div>
 
-    <!-- Tab 2：金额与回款 -->
+    <!-- Tab 2：回款管理 -->
     <div class="m-tab-body" id="mtab-payment">
       <div class="form-row">
         <div class="form-group"><label>报价金额（万元）</label><input type="number" id="f-quote" placeholder="0.00" step="0.01" min="0"></div>
@@ -2514,13 +2517,13 @@ function onStageChange() {
     if (DEBUG) console.log('内容简介字段显示状态:', (stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'block' : 'none');
   }
   
-  // 显示/隐藏金额与回款、交付情况tab页（洽谈中和已终止项目不显示）
+  // 显示/隐藏回款管理、交付情况tab页（洽谈中和已终止项目不显示）
   const paymentTab = document.querySelector('.m-tab[onclick="switchModalTab(\'payment\',this)"]');
   const deliveryTab = document.querySelector('.m-tab[onclick="switchModalTab(\'delivery\',this)"]');
   
   if (paymentTab) {
     paymentTab.style.display = (stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'flex' : 'none';
-    if (DEBUG) console.log('金额与回款tab显示状态:', (stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'flex' : 'none');
+    if (DEBUG) console.log('回款管理tab显示状态:', (stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'flex' : 'none');
   }
   if (deliveryTab) {
     deliveryTab.style.display = (stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'flex' : 'none';
