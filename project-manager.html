@@ -1762,103 +1762,71 @@ async function loadDatabase() {
 // ║  MODULE: store（数据层，无 DOM 依赖）     ║
 // ╚══════════════════════════════════════════╝
 
-// 显示加载状态
-function showLoading() {
-  const loadingElement = document.createElement('div');
-  loadingElement.id = 'loading-overlay';
-  loadingElement.style.cssText = `
-    position: fixed;
-    inset: 0;
-    background: var(--paper);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    z-index: 9999;
-    transition: opacity 0.3s ease;
-  `;
-  loadingElement.innerHTML = `
-    <div style="font-size: 2rem; margin-bottom: 20px;">📊</div>
-    <div style="font-size: 1.2rem; font-weight: 600; color: var(--ink); margin-bottom: 10px;">加载中...</div>
-    <div style="font-size: 0.9rem; color: var(--ink-light);">正在初始化数据，请稍候</div>
-    <div style="margin-top: 30px; display: flex; gap: 8px;">
-      <div style="width: 10px; height: 10px; border-radius: 50%; background: var(--accent); animation: pulse 1.4s infinite;"></div>
-      <div style="width: 10px; height: 10px; border-radius: 50%; background: var(--accent); animation: pulse 1.4s infinite 0.2s;"></div>
-      <div style="width: 10px; height: 10px; border-radius: 50%; background: var(--accent); animation: pulse 1.4s infinite 0.4s;"></div>
-    </div>
-    <style>
-      @keyframes pulse {
-        0%, 100% { transform: scale(0.8); opacity: 0.5; }
-        50% { transform: scale(1.2); opacity: 1; }
-      }
-    </style>
-  `;
-  document.body.appendChild(loadingElement);
-  return loadingElement;
-}
 
-// 隐藏加载状态
-function hideLoading(loadingElement) {
-  if (loadingElement) {
-    loadingElement.style.opacity = '0';
-    setTimeout(() => {
-      if (loadingElement.parentNode) {
-        loadingElement.parentNode.removeChild(loadingElement);
-      }
-    }, 300);
-  }
-}
 
 // 初始化数据库并加载数据
 async function initDatabase() {
-  const loadingElement = showLoading();
+  console.log('[Debug] initDatabase 开始执行');
   
   try {
     // 1. 优先从localStorage加载数据，快速显示首页
+    console.log('[Debug] 正在加载 localStorage...');
     const hasLocalData = loadFromLocalStorage();
-    
-    // 2. 隐藏加载状态，显示localStorage中的数据
-    hideLoading(loadingElement);
+    console.log('[Debug] localStorage 加载完成:', hasLocalData, '项目数:', projects?.length || 0);
     
     // 3. 在后台从数据库加载完整数据
+    console.log('[Debug] 正在加载数据库模块...');
     const loadSuccess = await loadDatabase();
     if (!loadSuccess) {
-      if (DEBUG) console.error('数据库模块加载失败，继续使用localStorage数据');
+      console.warn('[Debug] 数据库模块加载失败，使用 localStorage 数据');
       return;
     }
     
     // 4. 初始化数据库
+    console.log('[Debug] 正在初始化数据库...');
     const initSuccess = await db.init();
     
     if (initSuccess) {
-      if (DEBUG) console.log('数据库初始化成功，开始加载完整数据');
+      console.log('[Debug] 数据库初始化成功，加载完整数据...');
       
       // 5. 并行加载项目数据和回收站数据
       const [projectsData, recycleData] = await Promise.all([
-        db.getProjects().catch(() => []),
-        db.getRecycleBin().catch(() => [])
+        db.getProjects().catch(err => {
+          console.error('[Debug] 加载项目数据失败:', err);
+          return [];
+        }),
+        db.getRecycleBin().catch(err => {
+          console.error('[Debug] 加载回收站数据失败:', err);
+          return [];
+        })
       ]);
       
-      if (DEBUG) {
-        console.log('项目数据加载成功，数量：', projectsData.length);
-        console.log('回收站数据加载成功，数量：', recycleData.length);
-      }
+      console.log('[Debug] 数据库加载完成 - 项目:', projectsData.length, '回收站:', recycleData.length);
       
-      // 6. 更新数据并重新渲染
-      projects = projectsData;
-      recycleBin = recycleData;
+      // 6. 更新数据：只有当IndexedDB中有数据时，才用它覆盖localStorage的数据
+      if (projectsData.length > 0) {
+        projects = projectsData;
+      }
+      if (recycleData.length > 0) {
+        recycleBin = recycleData;
+      }
       
       // 7. 保存到localStorage，以便下次快速加载
       saveToLocalStorage();
       
-      // 8. 重新渲染页面，显示完整数据
-      render();
+      // 8. 检查 render 是否存在再调用
+      if (typeof render === 'function') {
+        render();
+      } else {
+        console.error('[Debug] render 函数未定义');
+      }
     } else {
-      if (DEBUG) console.error('数据库初始化失败，继续使用localStorage数据');
+      console.warn('[Debug] 数据库初始化失败，使用 localStorage 数据');
     }
   } catch (error) {
-    if (DEBUG) console.error('初始化数据库失败：', error);
-    // 继续使用localStorage中的数据
+    console.error('[Debug] 初始化异常:', error);
+    // 重新抛出让上层处理
+    throw error;
   }
 }
 
@@ -1867,17 +1835,21 @@ function loadFromLocalStorage() {
   try {
     let hasData = false;
     
+    console.log('[Debug] 开始加载 localStorage...');
+    console.log('[Debug] localStorage 项目数据长度:', localStorage.getItem(STORAGE_KEY.PROJECTS)?.length || 0);
+    
     const raw = localStorage.getItem(STORAGE_KEY.PROJECTS);
     if (raw) {
       try {
         projects = JSON.parse(raw);
-        if (DEBUG) console.log('从localStorage加载项目数据，数量：', projects.length);
+        console.log('[Debug] 从localStorage加载项目数据，数量：', projects.length);
         hasData = true;
       } catch (parseError) {
-        if (DEBUG) console.error('解析项目数据失败：', parseError);
+        console.error('[Debug] 解析项目数据失败：', parseError);
         projects = [];
       }
     } else {
+      console.log('[Debug] localStorage 中没有项目数据');
       projects = [];
     }
     
@@ -1885,19 +1857,21 @@ function loadFromLocalStorage() {
     if (recycleRaw) {
       try {
         recycleBin = JSON.parse(recycleRaw);
-        if (DEBUG) console.log('从localStorage加载回收站数据，数量：', recycleBin.length);
+        console.log('[Debug] 从localStorage加载回收站数据，数量：', recycleBin.length);
       } catch (recycleParseError) {
-        if (DEBUG) console.error('解析回收站数据失败：', recycleParseError);
+        console.error('[Debug] 解析回收站数据失败：', recycleParseError);
         recycleBin = [];
       }
     } else {
+      console.log('[Debug] localStorage 中没有回收站数据');
       recycleBin = [];
     }
     
+    console.log('[Debug] 加载完成，项目数:', projects.length, '回收站数:', recycleBin.length);
     render();
     return hasData;
   } catch (error) {
-    if (DEBUG) console.error('加载localStorage数据失败：', error);
+    console.error('[Debug] 加载localStorage数据失败：', error);
     projects = [];
     recycleBin = [];
     render();
@@ -1908,11 +1882,14 @@ function loadFromLocalStorage() {
 // 保存数据到localStorage
 function saveToLocalStorage() {
   try {
+    console.log('[Debug] 开始保存到 localStorage...');
+    console.log('[Debug] 保存项目数:', projects.length, '回收站数:', recycleBin.length);
     localStorage.setItem(STORAGE_KEY.PROJECTS, JSON.stringify(projects));
     localStorage.setItem(STORAGE_KEY.RECYCLE, JSON.stringify(recycleBin));
-    if (DEBUG) console.log('数据已保存到localStorage');
+    console.log('[Debug] 数据已保存到localStorage');
+    console.log('[Debug] localStorage 项目数据长度:', localStorage.getItem(STORAGE_KEY.PROJECTS)?.length || 0);
   } catch (error) {
-    if (DEBUG) console.error('保存到localStorage失败：', error);
+    console.error('[Debug] 保存到localStorage失败：', error);
   }
 }
 
@@ -2017,7 +1994,15 @@ function importData() {
 }
 
 // 页面加载时初始化数据库
-window.addEventListener('DOMContentLoaded', initDatabase);
+window.addEventListener('DOMContentLoaded', async () => {
+  try {
+    await initDatabase();
+  } catch (error) {
+    console.error('[Debug] 初始化失败:', error);
+    // 显示错误信息
+    alert('页面初始化失败: ' + (error?.message || '未知错误，请检查控制台'));
+  }
+});
 
 // 暴露函数到全局作用域
 window.initDatabase = initDatabase;
@@ -8938,6 +8923,7 @@ document.getElementById('filePanel').addEventListener('click', e => {
 // ═══════════════════════════════════════════════════
 render();
 </script>
+<script type="module" src="./main.js"></script>
 </div><!-- /#content -->
 </body>
 </html>

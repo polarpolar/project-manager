@@ -121,57 +121,10 @@ async function loadDatabase() {
   }
 }
 
-// 显示加载状态
-function showLoading() {
-  const loadingElement = document.createElement('div');
-  loadingElement.id = 'loading-overlay';
-  loadingElement.style.cssText = `
-    position: fixed;
-    inset: 0;
-    background: var(--paper);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    z-index: 9999;
-    transition: opacity 0.3s ease;
-  `;
-  loadingElement.innerHTML = `
-    <div style="font-size: 2rem; margin-bottom: 20px;">📊</div>
-    <div style="font-size: 1.2rem; font-weight: 600; color: var(--ink); margin-bottom: 10px;">加载中...</div>
-    <div style="font-size: 0.9rem; color: var(--ink-light);">正在初始化数据，请稍候</div>
-    <div style="margin-top: 30px; display: flex; gap: 8px;">
-      <div style="width: 10px; height: 10px; border-radius: 50%; background: var(--accent); animation: pulse 1.4s infinite;"></div>
-      <div style="width: 10px; height: 10px; border-radius: 50%; background: var(--accent); animation: pulse 1.4s infinite 0.2s;"></div>
-      <div style="width: 10px; height: 10px; border-radius: 50%; background: var(--accent); animation: pulse 1.4s infinite 0.4s;"></div>
-    </div>
-    <style>
-      @keyframes pulse {
-        0%, 100% { transform: scale(0.8); opacity: 0.5; }
-        50% { transform: scale(1.2); opacity: 1; }
-      }
-    </style>
-  `;
-  document.body.appendChild(loadingElement);
-  return loadingElement;
-}
 
-// 隐藏加载状态
-function hideLoading(loadingElement) {
-  if (loadingElement) {
-    loadingElement.style.opacity = '0';
-    setTimeout(() => {
-      if (loadingElement.parentNode) {
-        loadingElement.parentNode.removeChild(loadingElement);
-      }
-    }, 300);
-  }
-}
 
 // 初始化数据库并加载数据
 async function initDatabase() {
-  const loadingElement = showLoading();
-  
   try {
     // 清理 localStorage 中不必要的数据
     cleanLocalStorage();
@@ -205,10 +158,7 @@ async function initDatabase() {
         // 5. 保存到localStorage，以便下次快速加载
         markStorageDirty();
         
-        // 6. 隐藏加载状态，显示数据
-        hideLoading(loadingElement);
-        
-        // 7. 重新渲染页面，显示完整数据
+        // 6. 重新渲染页面，显示完整数据
         render();
         
         return;
@@ -218,9 +168,6 @@ async function initDatabase() {
     // 如果 IndexedDB 加载失败，从 localStorage 加载数据
     if (DEBUG) console.log('从 localStorage 加载数据');
     const hasLocalData = loadFromLocalStorage();
-    
-    // 隐藏加载状态，显示 localStorage 中的数据
-    hideLoading(loadingElement);
     
     // 如果有本地数据，尝试导入到 IndexedDB
     if (hasLocalData && loadSuccess) {
@@ -245,7 +192,6 @@ async function initDatabase() {
     if (DEBUG) console.error('初始化数据库失败：', error);
     // 继续使用localStorage中的数据
     loadFromLocalStorage();
-    hideLoading(loadingElement);
   }
 }
 
@@ -739,8 +685,6 @@ export {
   markStorageDirty,
   esc,
   loadDatabase,
-  showLoading,
-  hideLoading,
   initDatabase,
   loadFromLocalStorage,
   exportData,
