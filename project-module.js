@@ -25,13 +25,8 @@ const STORAGE_KEY = {
   SB_COLLAPSED: 'sb_collapsed'
 };
 
-// 全局变量
-let projects = [];
-let recycleBin = [];
-let editingId = null;
-let currentEditProjectId = null;
-let statsFilter = 'thisYear'; // all 或 thisYear
-let db = null;
+// 全局变量：由 main.js 在 window 上初始化
+// 模块内直接使用全局变量（window.projects 等）
 
 // 防抖函数
 function debounce(func, wait) {
@@ -673,12 +668,6 @@ export {
   STAGE_COLOR,
   STAGE_S_ATTR,
   STORAGE_KEY,
-  projects,
-  recycleBin,
-  editingId,
-  currentEditProjectId,
-  statsFilter,
-  db,
   debounce,
   cleanLocalStorage,
   saveToLocalStorage,
