@@ -119,117 +119,112 @@ async function loadDatabase() {
 
 
 // 初始化数据库并加载数据
+// 策略：优先从 localStorage 快速显示首屏，再后台从 IndexedDB 加载完整数据
 async function initDatabase() {
   try {
     // 清理 localStorage 中不必要的数据
     cleanLocalStorage();
-    
-    // 1. 尝试从 IndexedDB 加载数据
-    const loadSuccess = await loadDatabase();
-    if (loadSuccess) {
-      if (DEBUG) console.log('数据库模块加载成功');
-      
-      // 2. 初始化数据库
-      const initSuccess = await db.init();
-      
-      if (initSuccess) {
-        if (DEBUG) console.log('数据库初始化成功，开始加载完整数据');
-        
-        // 3. 并行加载项目数据和回收站数据
-        const [projectsData, recycleData] = await Promise.all([
-          db.getProjects().catch(() => []),
-          db.getRecycleBin().catch(() => [])
-        ]);
-        
-        if (DEBUG) {
-          console.log('项目数据加载成功，数量：', projectsData.length);
-          console.log('回收站数据加载成功，数量：', recycleData.length);
-        }
-        
-        // 4. 更新数据并重新渲染
-        projects = projectsData;
-        recycleBin = recycleData;
-        
-        // 5. 保存到localStorage，以便下次快速加载
-        markStorageDirty();
-        
-        // 6. 重新渲染页面，显示完整数据
-        render();
-        
-        return;
-      }
-    }
-    
-    // 如果 IndexedDB 加载失败，从 localStorage 加载数据
-    if (DEBUG) console.log('从 localStorage 加载数据');
+
+    // 1. 优先从 localStorage 加载，快速显示首屏
+    if (DEBUG) console.log('initDatabase: 正在加载 localStorage...');
     const hasLocalData = loadFromLocalStorage();
-    
-    // 如果有本地数据，尝试导入到 IndexedDB
-    if (hasLocalData && loadSuccess) {
-      if (DEBUG) console.log('尝试将 localStorage 数据导入到 IndexedDB');
-      try {
-        // 导入项目数据
-        for (const project of projects) {
-          await db.saveProject(project);
-        }
-        
-        // 导入回收站数据
-        for (const item of recycleBin) {
-          await db.saveToRecycleBin(item);
-        }
-        
-        if (DEBUG) console.log('数据导入成功');
-      } catch (e) {
-        if (DEBUG) console.error('数据导入失败：', e);
+    if (DEBUG) console.log('initDatabase: localStorage 加载完成，项目数:', projects?.length || 0);
+
+    // 2. 后台加载数据库模块
+    if (DEBUG) console.log('initDatabase: 正在加载数据库模块...');
+    const loadSuccess = await loadDatabase();
+    if (!loadSuccess) {
+      if (DEBUG) console.warn('initDatabase: 数据库模块加载失败，继续使用 localStorage 数据');
+      return;
+    }
+
+    // 3. 初始化数据库
+    if (DEBUG) console.log('initDatabase: 正在初始化数据库...');
+    const initSuccess = await db.init();
+
+    if (initSuccess) {
+      if (DEBUG) console.log('initDatabase: 数据库初始化成功，加载完整数据...');
+
+      // 4. 并行加载项目数据和回收站数据
+      const [projectsData, recycleData] = await Promise.all([
+        db.getProjects().catch(err => {
+          if (DEBUG) console.error('initDatabase: 加载项目数据失败:', err);
+          return [];
+        }),
+        db.getRecycleBin().catch(err => {
+          if (DEBUG) console.error('initDatabase: 加载回收站数据失败:', err);
+          return [];
+        })
+      ]);
+
+      if (DEBUG) console.log('initDatabase: 数据库加载完成 - 项目:', projectsData.length, '回收站:', recycleData.length);
+
+      // 5. 只有当 IndexedDB 中有数据时，才用它覆盖 localStorage 的数据
+      if (projectsData.length > 0) projects = projectsData;
+      if (recycleData.length > 0)  recycleBin = recycleData;
+
+      // 6. 同步到 localStorage
+      markStorageDirty();
+
+      // 7. 重新渲染（IndexedDB 数据可能比 localStorage 更新）
+      if (typeof render === 'function') {
+        render();
+      } else {
+        if (DEBUG) console.error('initDatabase: render 函数未定义');
       }
+    } else {
+      if (DEBUG) console.warn('initDatabase: 数据库初始化失败，继续使用 localStorage 数据');
     }
   } catch (error) {
-    if (DEBUG) console.error('初始化数据库失败：', error);
-    // 继续使用localStorage中的数据
-    loadFromLocalStorage();
+    if (DEBUG) console.error('initDatabase: 初始化异常:', error);
+    // 重新抛出，让上层 initApp 处理
+    throw error;
   }
 }
 
-// 从localStorage加载数据作为备用
+// 从 localStorage 加载数据（快速路径，作为首屏数据源）
 function loadFromLocalStorage() {
   try {
     let hasData = false;
-    
+
+    if (DEBUG) console.log('loadFromLocalStorage: 开始加载...');
+
     const raw = localStorage.getItem(STORAGE_KEY.PROJECTS);
     if (raw) {
       try {
         projects = JSON.parse(raw);
-        if (DEBUG) console.log('从localStorage加载项目数据，数量：', projects.length);
+        if (DEBUG) console.log('loadFromLocalStorage: 项目数据加载成功，数量：', projects.length);
         hasData = true;
       } catch (parseError) {
-        if (DEBUG) console.error('解析项目数据失败：', parseError);
+        if (DEBUG) console.error('loadFromLocalStorage: 解析项目数据失败：', parseError);
         projects = [];
       }
     } else {
+      if (DEBUG) console.log('loadFromLocalStorage: localStorage 中没有项目数据');
       projects = [];
     }
-    
+
     const recycleRaw = localStorage.getItem(STORAGE_KEY.RECYCLE);
     if (recycleRaw) {
       try {
         recycleBin = JSON.parse(recycleRaw);
-        if (DEBUG) console.log('从localStorage加载回收站数据，数量：', recycleBin.length);
+        if (DEBUG) console.log('loadFromLocalStorage: 回收站数据加载成功，数量：', recycleBin.length);
       } catch (parseError) {
-        if (DEBUG) console.error('解析回收站数据失败：', parseError);
+        if (DEBUG) console.error('loadFromLocalStorage: 解析回收站数据失败：', parseError);
         recycleBin = [];
       }
     } else {
       recycleBin = [];
     }
-    
-    if (projects.length > 0) {
-      // 从localStorage加载后，触发渲染
-      render();
-    }
-    
+
+    if (DEBUG) console.log('loadFromLocalStorage: 加载完成，项目数:', projects.length, '回收站数:', recycleBin.length);
+
+    // 有数据才触发渲染，避免空白闪烁
+    if (projects.length > 0 && typeof render === 'function') render();
+
     return hasData;
   } catch (error) {
-    if (DEBUG) console.error('从localStorage加载数据失败：', error);
+    if (DEBUG) console.error('loadFromLocalStorage: 加载失败：', error);
     projects = [];
     recycleBin = [];
     return false;

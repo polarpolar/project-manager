@@ -48,7 +48,16 @@ async function initApp() {
     
     if (loadSuccess) {
       // 初始化数据库
-      await initDatabase();
+      await window.initDatabase();
+
+      // 尝试恢复根目录
+      const saved = await loadRootHandle();
+      if (saved) {
+        try {
+          const perm = await saved.queryPermission({ mode: 'readwrite' });
+          if (perm === 'granted') { fsRootHandle = saved; updateRootBar(); }
+        } catch(e) {}
+      }
     } else {
       // 模块加载失败，显示错误信息
       showToast('模块加载失败，请刷新页面重试');

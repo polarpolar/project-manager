@@ -79,26 +79,29 @@ class Database {
   }
 
   // 通用事务方法
+  // - storeNames 为字符串时，callback 直接收到该 objectStore
+  // - storeNames 为数组时，callback 收到 { storeName: objectStore, ... } 对象
   async transaction(storeNames, mode, callback) {
     return new Promise((resolve, reject) => {
       try {
         const transaction = this.db.transaction(storeNames, mode);
-        
-        // 为每个存储对象创建store实例
-        const stores = {};
+
+        let callbackArg;
         if (typeof storeNames === 'string') {
-          stores[storeNames] = transaction.objectStore(storeNames);
+          // 单个 store：直接传 objectStore
+          callbackArg = transaction.objectStore(storeNames);
         } else {
+          // 多个 store：传 { name: objectStore } 对象
+          callbackArg = {};
           storeNames.forEach(name => {
-            stores[name] = transaction.objectStore(name);
+            callbackArg[name] = transaction.objectStore(name);
           });
         }
 
-        const result = callback(stores);
+        const result = callback(callbackArg);
 
         // 检查result是否为Promise
         if (result && typeof result.then === 'function') {
-          // 如果是Promise，等待它完成
           result.then(resolvedResult => {
             transaction.oncomplete = () => resolve(resolvedResult);
           }).catch(error => {
@@ -106,7 +109,6 @@ class Database {
             reject(error);
           });
         } else {
-          // 如果不是Promise，直接resolve
           transaction.oncomplete = () => resolve(result);
         }
 
@@ -114,8 +116,8 @@ class Database {
           transaction.abort();
           reject(event.target.error);
         };
-        
-        transaction.onabort = (event) => {
+
+        transaction.onabort = () => {
           reject(new Error('事务被中止'));
         };
       } catch (error) {
@@ -127,104 +129,94 @@ class Database {
   // 项目相关操作
   async saveProject(project) {
     try {
-      // 使用单个事务处理所有操作，提高性能
-      await this.transaction(['projects', 'paymentNodes', 'collectTasks', 'todos', 'logs'], 'readwrite', async (stores) => {
-        // 保存项目基本信息
-        stores.projects.put(project);
+      await this.transaction(
+        ['projects', 'paymentNodes', 'collectTasks', 'todos', 'logs'],
+        'readwrite',
+        async (stores) => {
+          // 保存项目基本信息
+          stores.projects.put(project);
 
-        // 保存回款节点
-        if (project.paymentNodes && project.paymentNodes.length) {
-          // 先删除该项目的所有回款节点
-          const nodeIndex = stores.paymentNodes.index('projectId');
-          const nodeCursorRequest = nodeIndex.openCursor(project.id);
-          await new Promise((resolve) => {
-            nodeCursorRequest.onsuccess = (event) => {
-              const cursor = event.target.result;
-              if (cursor) {
-                stores.paymentNodes.delete(cursor.value.id);
-                cursor.continue();
-              } else {
-                resolve();
-              }
-            };
-          });
-
-          // 再添加新的回款节点
-          for (const node of project.paymentNodes) {
-            stores.paymentNodes.add({ ...node, projectId: project.id });
-          }
-        }
-
-        // 保存催款任务
-        if (project.collectTasks && project.collectTasks.length) {
-          // 先删除该项目的所有催款任务
-          const taskIndex = stores.collectTasks.index('projectId');
-          const taskCursorRequest = taskIndex.openCursor(project.id);
-          await new Promise((resolve) => {
-            taskCursorRequest.onsuccess = (event) => {
-              const cursor = event.target.result;
-              if (cursor) {
-                stores.collectTasks.delete(cursor.value.id);
-                cursor.continue();
-              } else {
-                resolve();
-              }
-            };
-          });
-
-          // 再添加新的催款任务
-          for (const task of project.collectTasks) {
-            stores.collectTasks.add({ ...task, projectId: project.id });
-          }
-        }
-
-        // 保存待办事项
-        if (project.todos && project.todos.length) {
-          // 先删除该项目的所有待办事项
-          const todoIndex = stores.todos.index('projectId');
-          const todoCursorRequest = todoIndex.openCursor(project.id);
-          await new Promise((resolve) => {
-            todoCursorRequest.onsuccess = (event) => {
-              const cursor = event.target.result;
-              if (cursor) {
-                stores.todos.delete(cursor.value.id);
-                cursor.continue();
-              } else {
-                resolve();
-              }
-            };
-          });
-
-          // 再添加新的待办事项
-          for (const todo of project.todos) {
-            stores.todos.add({ ...todo, projectId: project.id });
-          }
-        }
-
-        // 保存更新日志
-        // 先删除该项目的所有旧日志
-        const logIndex = stores.logs.index('projectId');
-        const logCursorRequest = logIndex.openCursor(project.id);
-        await new Promise((resolve) => {
-          logCursorRequest.onsuccess = (event) => {
-            const cursor = event.target.result;
-            if (cursor) {
-              stores.logs.delete(cursor.value.id);
-              cursor.continue();
-            } else {
-              resolve();
+          // 保存回款节点
+          if (project.paymentNodes && project.paymentNodes.length) {
+            const nodeIndex = stores.paymentNodes.index('projectId');
+            const nodeCursorRequest = nodeIndex.openCursor(project.id);
+            await new Promise((resolve) => {
+              nodeCursorRequest.onsuccess = (event) => {
+                const cursor = event.target.result;
+                if (cursor) {
+                  stores.paymentNodes.delete(cursor.value.id);
+                  cursor.continue();
+                } else {
+                  resolve();
+                }
+              };
+            });
+            for (const node of project.paymentNodes) {
+              stores.paymentNodes.add({ ...node, projectId: project.id });
             }
-          };
-        });
+          }
 
-        // 再添加新的日志
-        if (project.logs && project.logs.length) {
-          for (const log of project.logs) {
-            stores.logs.add({ ...log, projectId: project.id });
+          // 保存催款任务
+          if (project.collectTasks && project.collectTasks.length) {
+            const taskIndex = stores.collectTasks.index('projectId');
+            const taskCursorRequest = taskIndex.openCursor(project.id);
+            await new Promise((resolve) => {
+              taskCursorRequest.onsuccess = (event) => {
+                const cursor = event.target.result;
+                if (cursor) {
+                  stores.collectTasks.delete(cursor.value.id);
+                  cursor.continue();
+                } else {
+                  resolve();
+                }
+              };
+            });
+            for (const task of project.collectTasks) {
+              stores.collectTasks.add({ ...task, projectId: project.id });
+            }
+          }
+
+          // 保存待办事项
+          if (project.todos && project.todos.length) {
+            const todoIndex = stores.todos.index('projectId');
+            const todoCursorRequest = todoIndex.openCursor(project.id);
+            await new Promise((resolve) => {
+              todoCursorRequest.onsuccess = (event) => {
+                const cursor = event.target.result;
+                if (cursor) {
+                  stores.todos.delete(cursor.value.id);
+                  cursor.continue();
+                } else {
+                  resolve();
+                }
+              };
+            });
+            for (const todo of project.todos) {
+              stores.todos.add({ ...todo, projectId: project.id });
+            }
+          }
+
+          // 保存更新日志（先删后写）
+          const logIndex = stores.logs.index('projectId');
+          const logCursorRequest = logIndex.openCursor(project.id);
+          await new Promise((resolve) => {
+            logCursorRequest.onsuccess = (event) => {
+              const cursor = event.target.result;
+              if (cursor) {
+                stores.logs.delete(cursor.value.id);
+                cursor.continue();
+              } else {
+                resolve();
+              }
+            };
+          });
+          if (project.logs && project.logs.length) {
+            for (const log of project.logs) {
+              stores.logs.add({ ...log, projectId: project.id });
+            }
           }
         }
-      });
-
+      );
       return true;
     } catch (error) {
       console.error('保存项目失败:', error);
@@ -234,23 +226,16 @@ class Database {
 
   async getProjects() {
     try {
-      // 先获取所有项目
-      const projects = await this.transaction('projects', 'readonly', (stores) => {
-        const store = stores.projects;
+      // 先获取所有项目（单 store，callback 直接收到 objectStore）
+      const projects = await this.transaction('projects', 'readonly', (store) => {
         const request = store.getAll();
         return new Promise((resolve) => {
           request.onsuccess = () => resolve(request.result);
         });
       });
 
-      if (projects.length === 0) {
-        return projects;
-      }
+      if (projects.length === 0) return projects;
 
-      // 批量加载关联数据
-      const projectIds = projects.map(p => p.id);
-      
-      // 创建项目ID到项目对象的映射
       const projectMap = new Map();
       projects.forEach(project => {
         project.paymentNodes = [];
@@ -261,8 +246,7 @@ class Database {
       });
 
       // 加载回款节点
-      await this.transaction('paymentNodes', 'readonly', (stores) => {
-        const store = stores.paymentNodes;
+      await this.transaction('paymentNodes', 'readonly', (store) => {
         const index = store.index('projectId');
         const request = index.openCursor();
         return new Promise((resolve) => {
@@ -285,8 +269,7 @@ class Database {
       });
 
       // 加载催款任务
-      await this.transaction('collectTasks', 'readonly', (stores) => {
-        const store = stores.collectTasks;
+      await this.transaction('collectTasks', 'readonly', (store) => {
         const index = store.index('projectId');
         const request = index.openCursor();
         return new Promise((resolve) => {
@@ -309,8 +292,7 @@ class Database {
       });
 
       // 加载待办事项
-      await this.transaction('todos', 'readonly', (stores) => {
-        const store = stores.todos;
+      await this.transaction('todos', 'readonly', (store) => {
         const index = store.index('projectId');
         const request = index.openCursor();
         return new Promise((resolve) => {
@@ -333,8 +315,7 @@ class Database {
       });
 
       // 加载更新日志
-      await this.transaction('logs', 'readonly', (stores) => {
-        const store = stores.logs;
+      await this.transaction('logs', 'readonly', (store) => {
         const index = store.index('projectId');
         const request = index.openCursor();
         return new Promise((resolve) => {
@@ -374,10 +355,9 @@ class Database {
 
       if (!project) return null;
 
-      // 加载关联数据
       project.paymentNodes = await this.transaction('paymentNodes', 'readonly', (store) => {
         const index = store.index('projectId');
-        const request = index.getAll(project.id);
+        const request = index.getAll(id);
         return new Promise((resolve) => {
           request.onsuccess = () => resolve(request.result.map(node => {
             delete node.projectId;
@@ -389,7 +369,7 @@ class Database {
 
       project.collectTasks = await this.transaction('collectTasks', 'readonly', (store) => {
         const index = store.index('projectId');
-        const request = index.getAll(project.id);
+        const request = index.getAll(id);
         return new Promise((resolve) => {
           request.onsuccess = () => resolve(request.result.map(task => {
             delete task.projectId;
@@ -401,7 +381,7 @@ class Database {
 
       project.todos = await this.transaction('todos', 'readonly', (store) => {
         const index = store.index('projectId');
-        const request = index.getAll(project.id);
+        const request = index.getAll(id);
         return new Promise((resolve) => {
           request.onsuccess = () => resolve(request.result.map(todo => {
             delete todo.projectId;
@@ -413,7 +393,7 @@ class Database {
 
       project.logs = await this.transaction('logs', 'readonly', (store) => {
         const index = store.index('projectId');
-        const request = index.getAll(project.id);
+        const request = index.getAll(id);
         return new Promise((resolve) => {
           request.onsuccess = () => resolve(request.result.map(log => {
             delete log.projectId;
@@ -432,72 +412,53 @@ class Database {
 
   async deleteProject(id) {
     try {
-      // 使用单个事务处理所有删除操作，提高性能
-      await this.transaction(['projects', 'paymentNodes', 'collectTasks', 'todos', 'logs'], 'readwrite', async (stores) => {
-        // 从项目表中删除
-        stores.projects.delete(id);
+      await this.transaction(
+        ['projects', 'paymentNodes', 'collectTasks', 'todos', 'logs'],
+        'readwrite',
+        async (stores) => {
+          stores.projects.delete(id);
 
-        // 删除关联的回款节点
-        const nodeIndex = stores.paymentNodes.index('projectId');
-        const nodeCursorRequest = nodeIndex.openCursor(id);
-        await new Promise((resolve) => {
-          nodeCursorRequest.onsuccess = (event) => {
-            const cursor = event.target.result;
-            if (cursor) {
-              stores.paymentNodes.delete(cursor.value.id);
-              cursor.continue();
-            } else {
-              resolve();
-            }
-          };
-        });
+          const nodeIndex = stores.paymentNodes.index('projectId');
+          const nodeCursorRequest = nodeIndex.openCursor(id);
+          await new Promise((resolve) => {
+            nodeCursorRequest.onsuccess = (event) => {
+              const cursor = event.target.result;
+              if (cursor) { stores.paymentNodes.delete(cursor.value.id); cursor.continue(); }
+              else resolve();
+            };
+          });
 
-        // 删除关联的催款任务
-        const taskIndex = stores.collectTasks.index('projectId');
-        const taskCursorRequest = taskIndex.openCursor(id);
-        await new Promise((resolve) => {
-          taskCursorRequest.onsuccess = (event) => {
-            const cursor = event.target.result;
-            if (cursor) {
-              stores.collectTasks.delete(cursor.value.id);
-              cursor.continue();
-            } else {
-              resolve();
-            }
-          };
-        });
+          const taskIndex = stores.collectTasks.index('projectId');
+          const taskCursorRequest = taskIndex.openCursor(id);
+          await new Promise((resolve) => {
+            taskCursorRequest.onsuccess = (event) => {
+              const cursor = event.target.result;
+              if (cursor) { stores.collectTasks.delete(cursor.value.id); cursor.continue(); }
+              else resolve();
+            };
+          });
 
-        // 删除关联的待办事项
-        const todoIndex = stores.todos.index('projectId');
-        const todoCursorRequest = todoIndex.openCursor(id);
-        await new Promise((resolve) => {
-          todoCursorRequest.onsuccess = (event) => {
-            const cursor = event.target.result;
-            if (cursor) {
-              stores.todos.delete(cursor.value.id);
-              cursor.continue();
-            } else {
-              resolve();
-            }
-          };
-        });
+          const todoIndex = stores.todos.index('projectId');
+          const todoCursorRequest = todoIndex.openCursor(id);
+          await new Promise((resolve) => {
+            todoCursorRequest.onsuccess = (event) => {
+              const cursor = event.target.result;
+              if (cursor) { stores.todos.delete(cursor.value.id); cursor.continue(); }
+              else resolve();
+            };
+          });
 
-        // 删除关联的更新日志
-        const logIndex = stores.logs.index('projectId');
-        const logCursorRequest = logIndex.openCursor(id);
-        await new Promise((resolve) => {
-          logCursorRequest.onsuccess = (event) => {
-            const cursor = event.target.result;
-            if (cursor) {
-              stores.logs.delete(cursor.value.id);
-              cursor.continue();
-            } else {
-              resolve();
-            }
-          };
-        });
-      });
-
+          const logIndex = stores.logs.index('projectId');
+          const logCursorRequest = logIndex.openCursor(id);
+          await new Promise((resolve) => {
+            logCursorRequest.onsuccess = (event) => {
+              const cursor = event.target.result;
+              if (cursor) { stores.logs.delete(cursor.value.id); cursor.continue(); }
+              else resolve();
+            };
+          });
+        }
+      );
       return true;
     } catch (error) {
       console.error('删除项目失败:', error);
