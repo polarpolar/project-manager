@@ -31,6 +31,18 @@ async function loadModules() {
     // 加载文件系统模块
     const fsModule = await import('./file-system-module.js');
     Object.assign(window, fsModule);
+
+    // 加载待办分析面板模块
+    const todosModule = await import('./todos-panel.js');
+    Object.assign(window, todosModule);
+
+    // 加载台账模块
+    const ledgerModule = await import('./ledger.js');
+    Object.assign(window, ledgerModule); 
+
+    // 加载 AI 界面控制模块
+    const aiUiModule = await import('./ai-ui.js');
+    Object.assign(window, aiUiModule);
     
     console.log('模块加载成功');
     return true;

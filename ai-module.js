@@ -6,6 +6,9 @@ const AI_CACHE_CONFIG = {
   expiryTime: 7 * 24 * 60 * 60 * 1000, // 缓存过期时间（7天）
 };
 
+// 在这里加上：
+const AI_CACHE_KEY = 'ai_file_classify_cache';
+
 // AI 调用配置
 const AI_CALL_CONFIG = {
   maxRetries: 3, // 最大重试次数
@@ -16,21 +19,195 @@ const AI_CALL_CONFIG = {
 // 加载 AI 配置
 function getAiConfig() {
   return {
-    provider:    localStorage.getItem(STORAGE_KEY.AI_PROVIDER)     || 'claude',
-    model:       localStorage.getItem(STORAGE_KEY.AI_MODEL)        || 'claude-haiku-4-5-20251001',
-    proxy:       (localStorage.getItem(STORAGE_KEY.AI_PROXY)       || '').replace(/\/+$/, ''),
-    key:         localStorage.getItem(STORAGE_KEY.AI_KEY)          || '',
-    modelPolicy: localStorage.getItem(STORAGE_KEY.AI_MODEL_POLICY) || 'auto',
-    maxTokens:   parseInt(localStorage.getItem(STORAGE_KEY.AI_MAX_TOKENS)) || 2000};
+    provider:    localStorage.getItem(window.STORAGE_KEY.AI_PROVIDER)     || 'claude',
+    model:       localStorage.getItem(window.STORAGE_KEY.AI_MODEL)        || 'claude-haiku-4-5-20251001',
+    proxy:       (localStorage.getItem(window.STORAGE_KEY.AI_PROXY)       || '').replace(/\/+$/, ''),
+    key:         localStorage.getItem(window.STORAGE_KEY.AI_KEY)          || '',
+    modelPolicy: localStorage.getItem(window.STORAGE_KEY.AI_MODEL_POLICY) || 'auto',
+    maxTokens:   parseInt(localStorage.getItem(window.STORAGE_KEY.AI_MAX_TOKENS)) || 2000};
 }
 
 // 保存 AI 配置
-function saveAiProxy(v)       { try { localStorage.setItem(STORAGE_KEY.AI_PROXY, v.trim()); } catch(e) {} }
-function saveAiKey(v)         { try { localStorage.setItem(STORAGE_KEY.AI_KEY, v.trim()); } catch(e) {} }
-function saveAiModel(v)       { try { localStorage.setItem(STORAGE_KEY.AI_MODEL, v); } catch(e) {} }
-function saveAiProvider(v)    { try { localStorage.setItem(STORAGE_KEY.AI_PROVIDER, v); } catch(e) {} }
-function saveModelPolicy(v)   { try { localStorage.setItem(STORAGE_KEY.AI_MODEL_POLICY, v); } catch(e) {} }
-function saveAiMaxTokens(v)   { try { localStorage.setItem(STORAGE_KEY.AI_MAX_TOKENS, parseInt(v) || 2000); } catch(e) {} }
+function saveAiProxy(v)       { try { localStorage.setItem(window.STORAGE_KEY.AI_PROXY, v.trim()); } catch(e) {} }
+function saveAiKey(v)         { try { localStorage.setItem(window.STORAGE_KEY.AI_KEY, v.trim()); } catch(e) {} }
+function saveAiModel(v)       { try { localStorage.setItem(window.STORAGE_KEY.AI_MODEL, v); } catch(e) {} }
+function saveAiProvider(v)    { try { localStorage.setItem(window.STORAGE_KEY.AI_PROVIDER, v); } catch(e) {} }
+function saveModelPolicy(v)   { try { localStorage.setItem(window.STORAGE_KEY.AI_MODEL_POLICY, v); } catch(e) {} }
+function saveAiMaxTokens(v)   { try { localStorage.setItem(window.STORAGE_KEY.AI_MAX_TOKENS, parseInt(v) || 2000); } catch(e) {} }
+
+// ╔══════════════════════════════════════════╗
+// ║  MODULE: ai-service（AI 调用层）          ║
+// ╚══════════════════════════════════════════╝
+
+const AI_PROVIDERS = {
+  claude: {
+    name: 'Claude', icon: '🤖',
+    endpoint: (proxy) => proxy ? `${proxy}/claude/v1/messages` : 'https://api.anthropic.com/v1/messages',
+    models: [
+      { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5（快速）' },
+      { id: 'claude-sonnet-4-20250514',  label: 'Claude Sonnet 4（均衡）' },
+      { id: 'claude-opus-4-20250514',    label: 'Claude Opus 4（最强）' },
+    ],
+    buildHeaders: (key, proxy) => {
+      const h = { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01' };
+      if (key) h['x-api-key'] = key;
+      if (!proxy) h['anthropic-dangerous-direct-browser-access'] = 'true';
+      return h;
+    },
+    buildBody: (model, max_tokens, messages) => ({ model, max_tokens, messages }),
+    parseResponse: (data) => ({
+      text:  data.content?.filter(b => b.type === 'text').map(b => b.text).join('') || '',
+      usage: data.usage,
+      error: data.error?.message
+    })
+  },
+  openai: {
+    name: 'OpenAI', icon: '✨',
+    endpoint: (proxy) => proxy ? `${proxy}/openai/v1/chat/completions` : 'https://api.openai.com/v1/chat/completions',
+    models: [
+      { id: 'gpt-4o-mini', label: 'GPT-4o Mini（快速）' },
+      { id: 'gpt-4o',      label: 'GPT-4o（均衡）' },
+      { id: 'o1-mini',     label: 'o1 Mini（推理）' },
+    ],
+    buildHeaders: (key) => ({ 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` }),
+    buildBody: (model, max_tokens, messages) => ({
+      model, max_tokens,
+      messages: messages.map(m => ({
+        role: m.role,
+        content: Array.isArray(m.content) ? m.content.map(c => c.text || '').join('') : m.content
+      }))
+    }),
+    parseResponse: (data) => ({
+      text:  data.choices?.[0]?.message?.content || '',
+      usage: data.usage ? { input_tokens: data.usage.prompt_tokens, output_tokens: data.usage.completion_tokens } : null,
+      error: data.error?.message
+    })
+  },
+  gemini: {
+    name: 'Gemini', icon: '💎',
+    endpoint: (proxy, model, key) => proxy
+      ? `${proxy}/gemini/v1beta/models/${model}:generateContent`
+      : `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
+    models: [
+      { id: 'gemini-2.0-flash',      label: 'Gemini 2.0 Flash（快速）' },
+      { id: 'gemini-2.5-pro-preview', label: 'Gemini 2.5 Pro（最强）' },
+    ],
+    buildHeaders: (key, proxy) => {
+      const h = { 'Content-Type': 'application/json' };
+      if (proxy && key) h['x-goog-api-key'] = key;
+      return h;
+    },
+    buildBody: (model, max_tokens, messages) => ({
+      contents: messages.map(m => ({
+        role:  m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: Array.isArray(m.content) ? m.content.map(c => c.text || '').join('') : m.content }]
+      })),
+      generationConfig: { maxOutputTokens: max_tokens }
+    }),
+    parseResponse: (data) => ({
+      text:  data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '',
+      usage: data.usageMetadata
+        ? { input_tokens: data.usageMetadata.promptTokenCount, output_tokens: data.usageMetadata.candidatesTokenCount }
+        : null,
+      error: data.error?.message
+    })
+  },
+  custom: {
+    name: '自定义', icon: '🔧',
+    endpoint: (proxy) => proxy || '',
+    models: [{ id: '', label: '请在下方输入模型名称' }],
+    buildHeaders: (key) => ({ 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` }),
+    buildBody: (model, max_tokens, messages) => ({
+      model, max_tokens,
+      messages: messages.map(m => ({
+        role: m.role,
+        content: Array.isArray(m.content) ? m.content.map(c => c.text || '').join('') : m.content
+      }))
+    }),
+    parseResponse: (data) => {
+      const choice    = data.choices?.[0];
+      const content   = choice?.message?.content || '';
+      const truncated = choice?.finish_reason === 'length';
+      return {
+        text:  content,
+        usage: data.usage
+          ? { input_tokens: data.usage.prompt_tokens || data.usage.input_tokens || 0, output_tokens: data.usage.completion_tokens || data.usage.output_tokens || 0 }
+          : null,
+        error: data.error?.message || (truncated ? '输出被截断（token 不足），请在模型配置中调大 max_tokens' : undefined)
+      };
+    }
+  }
+};
+
+// 快速任务用小模型，复杂任务用高级模型
+const TASK_MODEL_OVERRIDE = {
+  '合同文本解析': 'advanced',
+  '合同PDF解析':  'advanced',
+  '语雀文档解析': 'advanced',
+  '台账AI筛选':   'advanced'
+};
+
+// 自定义服务商的路由前缀（通过 Worker 转发）
+const CUSTOM_ROUTE = '/custom';
+
+// AI 调用日志
+let aiLogs = [];
+try { aiLogs = JSON.parse(localStorage.getItem(window.STORAGE_KEY.AI_LOGS) || '[]'); } catch(e) { aiLogs = []; }
+
+async function claudeCall({ task, model, max_tokens, messages }) {
+  const t0  = Date.now();
+  const cfg = getAiConfig();
+  const provider = AI_PROVIDERS[cfg.provider] || AI_PROVIDERS.claude;
+
+  // 模型策略：fixed=全部用cfg.model；auto=复杂任务升级高级模型
+  let usedModel = cfg.model;
+  if (cfg.modelPolicy === 'auto' && TASK_MODEL_OVERRIDE[task] === 'advanced' && cfg.provider !== 'custom') {
+    usedModel = provider.models[provider.models.length - 1].id;
+  }
+
+  const log = { id: Date.now(), time: new Date().toLocaleString(), task, model: usedModel, provider: cfg.provider, in: 0, out: 0, dur: 0, status: 'ok', error: '' };
+
+  let endpoint;
+  if (cfg.provider === 'custom') {
+    const base = cfg.proxy.replace(/\/+$/, '');
+    endpoint = base.endsWith('/chat/completions') ? base : base + '/chat/completions';
+  } else {
+    endpoint = typeof provider.endpoint === 'function'
+      ? provider.endpoint(cfg.proxy, usedModel, cfg.key)
+      : provider.endpoint;
+  }
+
+  const headers = provider.buildHeaders(cfg.key, cfg.proxy);
+  const body    = provider.buildBody(usedModel, max_tokens || cfg.maxTokens, messages);
+
+  try {
+    const resp = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body) });
+    const data = await resp.json();
+    log.dur = ((Date.now() - t0) / 1000).toFixed(2);
+    const parsed = provider.parseResponse(data);
+    if (parsed.usage) { log.in = parsed.usage.input_tokens || 0; log.out = parsed.usage.output_tokens || 0; }
+    if (!resp.ok || parsed.error) { log.status = 'err'; log.error = parsed.error || `HTTP ${resp.status}`; }
+    aiLogs.unshift(log);
+    if (aiLogs.length > 200) aiLogs = aiLogs.slice(0, 200);
+    try { localStorage.setItem(window.STORAGE_KEY.AI_LOGS, JSON.stringify(aiLogs)); } catch(e) {}
+    return { ...data, _parsed: parsed };
+  } catch(e) {
+    log.dur = ((Date.now() - t0) / 1000).toFixed(2);
+    log.status = 'err'; log.error = e.message;
+    aiLogs.unshift(log);
+    try { localStorage.setItem(window.STORAGE_KEY.AI_LOGS, JSON.stringify(aiLogs)); } catch(e2) {}
+    throw e;
+  }
+}
+
+function clearAiLogs() {
+  aiLogs = [];
+  try { localStorage.removeItem(window.STORAGE_KEY.AI_LOGS); } catch(e) {}
+}
+
+function getAiLogs() {
+  return aiLogs;
+}
 
 // AI 分类缓存
 let aiClassificationCache = {};
@@ -251,6 +428,7 @@ async function classifyFileNames(names) {
 
 // 导出模块
 export {
+  // AI 配置
   getAiConfig,
   saveAiProxy,
   saveAiKey,
@@ -258,6 +436,16 @@ export {
   saveAiProvider,
   saveModelPolicy,
   saveAiMaxTokens,
+  // AI 服务商
+  AI_PROVIDERS,
+  TASK_MODEL_OVERRIDE,
+  CUSTOM_ROUTE,
+  // AI 调用
+  claudeCall,
+  aiLogs,
+  clearAiLogs,
+  getAiLogs,
+  // 文件分类
   classifyFileNames,
   clearAiClassificationCache
 };
