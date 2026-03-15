@@ -2107,13 +2107,15 @@ function markRecycleItemModified(itemId) {
 
 function save() {
   try {
+    // 检查是否有修改，在清空集合之前
+    const hasModifications = modifiedProjects.size > 0 || modifiedRecycleItems.size > 0 || projects.some(p => p._modified);
+    
     if (db) {
       // 只保存修改过的项目到数据库
       let savedCount = 0;
       for (const project of projects) {
         if (modifiedProjects.has(project.id)) {
           db.saveProject(project);
-          modifiedProjects.delete(project.id);
           savedCount++;
         }
       }
@@ -2123,7 +2125,6 @@ function save() {
       for (const item of recycleBin) {
         if (modifiedRecycleItems.has(item.id)) {
           db.saveToRecycleBin(item);
-          modifiedRecycleItems.delete(item.id);
           savedRecycleCount++;
         }
       }
@@ -2136,7 +2137,7 @@ function save() {
     // 无论数据库是否可用，都保存到localStorage，确保下次快速加载
     try {
       // 只有当有修改时才保存
-      if (modifiedProjects.size > 0 || modifiedRecycleItems.size > 0 || projects.some(p => p._modified)) {
+      if (hasModifications) {
         localStorage.setItem(STORAGE_KEY.PROJECTS, JSON.stringify(projects));
         localStorage.setItem(STORAGE_KEY.RECYCLE, JSON.stringify(recycleBin));
         // 清除修改标记
@@ -2406,86 +2407,28 @@ function render() {
     }
   });
   
-  const cols = { '0':[], '1':[], 'c':[], '2':[], '3':[] };
+  const cols = { '0':[], '1':[], '2':[], '3':[] };
   projects.forEach(p => cols[getBoardColumn(p)].push(p));
 
-  // 缓存DOM元素
-  const badgeElements = {};
-  const pipeElements = {};
-  const colElements = {};
   ['0','1','2','3'].forEach(key => {
-    badgeElements[key] = document.getElementById('badge'+key);
-    pipeElements[key] = document.getElementById('pipe'+key);
-    colElements[key] = document.getElementById('col'+key);
+    const body = document.getElementById('col' + key);
+    if (!body) return;
+    const fragment = document.createDocumentFragment();
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = cols[key].length
+      ? cols[key].map(p => cardHTML(p, key)).join('')
+      : '<div class="empty-state">暂无项目</div>';
+    while (wrapper.firstChild) fragment.appendChild(wrapper.firstChild);
+    body.innerHTML = '';
+    body.appendChild(fragment);
+
+    const badge = document.getElementById('badge' + key);
+    const pipe = document.getElementById('pipe' + key);
+    if (badge) badge.textContent = cols[key].length;
+    if (pipe) pipe.textContent = cols[key].length;
   });
 
-  // 使用requestAnimationFrame优化渲染
-  requestAnimationFrame(() => {
-    // 更新数量
-    ['0','1','2','3'].forEach(key => {
-      const count = cols[key].length;
-      if (badgeElements[key]) {
-        badgeElements[key].textContent = count;
-      }
-      if (pipeElements[key]) {
-        pipeElements[key].textContent = count;
-      }
-    });
-    
-    // 增量渲染项目卡片
-    const renderQueue = [];
-    ['0','1','2','3'].forEach(key => {
-      if (colElements[key]) {
-        renderQueue.push(() => {
-          const ps = cols[key];
-          const count = ps.length;
-          const body = colElements[key];
-          
-          // 使用DocumentFragment批量处理DOM操作
-          const fragment = document.createDocumentFragment();
-          
-          if (count > 0) {
-            // 预生成所有卡片HTML
-            const cardsHtml = ps.map(p => cardHTML(p, key)).join('');
-            const tempContainer = document.createElement('div');
-            tempContainer.innerHTML = cardsHtml;
-            
-            // 将所有卡片添加到fragment
-            while (tempContainer.firstChild) {
-              fragment.appendChild(tempContainer.firstChild);
-            }
-          } else {
-            const emptyState = document.createElement('div');
-            emptyState.className = 'empty-state';
-            emptyState.textContent = '暂无项目';
-            fragment.appendChild(emptyState);
-          }
-          
-          // 一次性更新DOM
-          body.innerHTML = '';
-          body.appendChild(fragment);
-        });
-      }
-    });
-    
-    // 串行执行渲染任务，避免阻塞
-    let index = 0;
-    function processQueue() {
-      if (index < renderQueue.length) {
-        renderQueue[index]();
-        index++;
-        // 给浏览器一点时间处理其他任务
-        setTimeout(processQueue, 0);
-      } else {
-        // 所有卡片渲染完成后，更新统计信息
-        requestAnimationFrame(() => {
-          updateStats();
-        });
-      }
-    }
-    
-    processQueue();
-  });
+  updateStats();
 }
 
 // 更新统计信息
@@ -3929,9 +3872,10 @@ function saveProject() {
     }
   }
   
-  closeModal(); save();
-  refreshView();
+  closeModal();
   if (hasChanges) {
+    save();
+    refreshView();
     showToast(isEditing ? '项目已更新' : '新项目已创建');
   }
   // 清空原始项目数据
@@ -4104,6 +4048,7 @@ function moveStage(id, newStage) {
   if (oldStage === STAGE.NEGOTIATING && newStage === STAGE.DELIVERING) {
     organizeFilesForProjectStart(p.id);
   }
+  markProjectModified(id);
   save();
   refreshView();
   // 若项目进入执行中/完结但无合同签署日期，提示填写
@@ -4131,6 +4076,8 @@ async function clearAll() {
       for (const project of allProjects) {
         await db.deleteProject(project.id);
       }
+      // 标记存储为脏，确保 localStorage 被更新
+      storageDirty = true;
       save();
       refreshView();
       showToast('已清空'); 
@@ -5244,9 +5191,10 @@ function todoRowHTML(t) {
 }
 function toggleTodo(pid,ti) {
   const p=projects.find(x=>x.id===pid); if(!p||!p.todos[ti]) return;
-  p.todos[ti].done=!p.todos[ti].done; save();
+  p.todos[ti].done=!p.todos[ti].done;
+  markProjectModified(pid);
+  save();
   refreshView();
-  if(document.getElementById('todosPanel').classList.contains('open')) renderTodosPanel();
 }
 function renderTodosPanel() {
   const all=[];
@@ -7559,6 +7507,7 @@ function confirmAgreementAIAnalysis() {
       }
       // 同步两个Tab的交付标签
       setDtags(projects[idx].deliveryTags);
+      markProjectModified(projectId);
       save();
       refreshView();
       showToast('✅ 技术协议识别完成，交付内容已写入项目');
