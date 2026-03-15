@@ -237,11 +237,29 @@ function loadFromLocalStorage() {
 // 导出数据为JSON文件
 function exportData() {
   try {
+    // 导出配置信息
+    const config = {
+      aiProvider: localStorage.getItem(STORAGE_KEY.AI_PROVIDER),
+      aiModel: localStorage.getItem(STORAGE_KEY.AI_MODEL),
+      aiKey: localStorage.getItem(STORAGE_KEY.AI_KEY),
+      aiProxy: localStorage.getItem(STORAGE_KEY.AI_PROXY),
+      aiModelPolicy: localStorage.getItem(STORAGE_KEY.AI_MODEL_POLICY),
+      aiMaxTokens: localStorage.getItem(STORAGE_KEY.AI_MAX_TOKENS),
+      yuqueProxy: localStorage.getItem(STORAGE_KEY.YUQUE_PROXY),
+      yuqueToken: localStorage.getItem(STORAGE_KEY.YUQUE_TOKEN),
+      yuqueUrl: localStorage.getItem(STORAGE_KEY.YUQUE_URL),
+      parseMode: localStorage.getItem(STORAGE_KEY.PARSE_MODE),
+      sbCollapsed: localStorage.getItem(STORAGE_KEY.SB_COLLAPSED),
+      // 导出本地文件目录信息（只能导出名称，不能导出句柄）
+      fsRootName: window.fsRootHandle ? window.fsRootHandle.name : null
+    };
+    
     const exportData = {
       projects: projects,
       recycleBin: recycleBin,
+      config: config,
       exportDate: new Date().toISOString(),
-      version: '1.2'
+      version: '1.4' // 增加版本号
     };
     
     const jsonString = JSON.stringify(exportData, null, 2);
@@ -284,15 +302,45 @@ function importData() {
             throw new Error('数据格式错误：缺少项目数据');
           }
           
+          // 构建确认消息
+          let msg = `确定要导入数据吗？这将会覆盖当前的${importData.projects.length}个项目和${importData.recycleBin ? importData.recycleBin.length : 0}个回收站项目。`;
+          if (importData.config) {
+            msg += '\n同时会导入配置信息。';
+            if (importData.config.fsRootName) {
+              msg += `\n导出时使用的本地文件目录：${importData.config.fsRootName}`;
+              msg += '\n注意：由于浏览器安全限制，需要手动重新选择根目录。';
+            }
+          }
+          
           showConfirm({ 
             icon: '📤', 
             title: '导入数据', 
-            msg: `确定要导入数据吗？这将会覆盖当前的${importData.projects.length}个项目和${importData.recycleBin ? importData.recycleBin.length : 0}个回收站项目。`, 
+            msg: msg, 
             okText: '导入',
             onOk: async () => {
               // 更新内存中的数据
               projects = importData.projects;
               recycleBin = importData.recycleBin || [];
+              
+              // 导入配置信息
+              if (importData.config) {
+                try {
+                  // 保存配置到 localStorage
+                  if (importData.config.aiProvider) localStorage.setItem(STORAGE_KEY.AI_PROVIDER, importData.config.aiProvider);
+                  if (importData.config.aiModel) localStorage.setItem(STORAGE_KEY.AI_MODEL, importData.config.aiModel);
+                  if (importData.config.aiKey) localStorage.setItem(STORAGE_KEY.AI_KEY, importData.config.aiKey);
+                  if (importData.config.aiProxy) localStorage.setItem(STORAGE_KEY.AI_PROXY, importData.config.aiProxy);
+                  if (importData.config.aiModelPolicy) localStorage.setItem(STORAGE_KEY.AI_MODEL_POLICY, importData.config.aiModelPolicy);
+                  if (importData.config.aiMaxTokens) localStorage.setItem(STORAGE_KEY.AI_MAX_TOKENS, importData.config.aiMaxTokens);
+                  if (importData.config.yuqueProxy) localStorage.setItem(STORAGE_KEY.YUQUE_PROXY, importData.config.yuqueProxy);
+                  if (importData.config.yuqueToken) localStorage.setItem(STORAGE_KEY.YUQUE_TOKEN, importData.config.yuqueToken);
+                  if (importData.config.yuqueUrl) localStorage.setItem(STORAGE_KEY.YUQUE_URL, importData.config.yuqueUrl);
+                  if (importData.config.parseMode) localStorage.setItem(STORAGE_KEY.PARSE_MODE, importData.config.parseMode);
+                  if (importData.config.sbCollapsed) localStorage.setItem(STORAGE_KEY.SB_COLLAPSED, importData.config.sbCollapsed);
+                } catch (configError) {
+                  if (DEBUG) console.error('导入配置信息失败：', configError);
+                }
+              }
               
               // 保存到数据库
               if (db) {

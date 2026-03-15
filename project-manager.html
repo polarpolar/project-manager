@@ -4322,10 +4322,10 @@ async function loadModalFilePanel(projectId) {
 
   // 按分类分组
   const contractFiles  = displayFiles.filter(f => !f.isDirectory && (tagMap[f.name]?.cat === '合同')).sort((a, b) => b.lastModified - a.lastModified);
-  const agreementFiles = displayFiles.filter(f => !f.isDirectory && (tagMap[f.name]?.cat === '技术协议' || tagMap[f.name]?.cat === '技术方案')).sort((a, b) => b.lastModified - a.lastModified);
-  const techPlanFiles  = displayFiles.filter(f => !f.isDirectory && (tagMap[f.name]?.cat === '技术方案')).sort((a, b) => b.lastModified - a.lastModified);
-  const quoteFiles     = displayFiles.filter(f => !f.isDirectory && (tagMap[f.name]?.cat === '报价单' || tagMap[f.name]?.cat === '方案报价')).sort((a, b) => b.lastModified - a.lastModified);
-  const otherFiles     = displayFiles.filter(f => !['合同','技术协议','技术方案','报价单','方案报价'].includes(tagMap[f.name]?.cat)).sort((a, b) => {
+  const agreementFiles = displayFiles.filter(f => !f.isDirectory && (tagMap[f.name]?.cat === '技术协议')).sort((a, b) => b.lastModified - a.lastModified);
+  const techPlanFiles  = displayFiles.filter(f => !f.isDirectory && (tagMap[f.name]?.cat === '技术协议')).sort((a, b) => b.lastModified - a.lastModified);
+  const quoteFiles     = displayFiles.filter(f => !f.isDirectory && (tagMap[f.name]?.cat === '报价')).sort((a, b) => b.lastModified - a.lastModified);
+  const otherFiles     = displayFiles.filter(f => !['合同','技术协议','报价','发票'].includes(tagMap[f.name]?.cat)).sort((a, b) => {
     // 文件夹排在前面，然后按名称排序
     if (a.isDirectory && !b.isDirectory) return -1;
     if (!a.isDirectory && b.isDirectory) return 1;
@@ -5030,9 +5030,9 @@ async function loadFilePanel(projectId) {
 
   // 按分类分组
   const contractFiles  = displayFiles.filter(f => tagMap[f.name]?.cat === '合同').sort((a, b) => b.lastModified - a.lastModified);
-  const agreementFiles = displayFiles.filter(f => tagMap[f.name]?.cat === '技术协议' || tagMap[f.name]?.cat === '技术方案').sort((a, b) => b.lastModified - a.lastModified);
-  const quoteFiles     = displayFiles.filter(f => tagMap[f.name]?.cat === '报价单' || tagMap[f.name]?.cat === '方案报价').sort((a, b) => b.lastModified - a.lastModified);
-  const otherFiles     = displayFiles.filter(f => !['合同','技术协议','技术方案','报价单','方案报价'].includes(tagMap[f.name]?.cat)).sort((a, b) => b.lastModified - a.lastModified);
+  const agreementFiles = displayFiles.filter(f => tagMap[f.name]?.cat === '技术协议').sort((a, b) => b.lastModified - a.lastModified);
+  const quoteFiles     = displayFiles.filter(f => tagMap[f.name]?.cat === '报价').sort((a, b) => b.lastModified - a.lastModified);
+  const otherFiles     = displayFiles.filter(f => !['合同','技术协议','报价','发票'].includes(tagMap[f.name]?.cat)).sort((a, b) => b.lastModified - a.lastModified);
 
   // 渲染分区 - 不同阶段显示不同分块
   const isNegotiationStage = p.stage === STAGE.NEGOTIATING;
