@@ -8,6 +8,8 @@ window.currentEditProjectId = null;
 window.statsFilter = 'thisYear'; // all 或 thisYear
 window.db = null;
 window.DEBUG = false;
+window.fsRootHandle = null; // 根目录句柄
+window.fsCurrentProjectId = null; // 当前文件操作的项目ID
 
 // 动态导入各个模块
 async function loadModules() {
@@ -67,7 +69,7 @@ async function initApp() {
       if (saved) {
         try {
           const perm = await saved.queryPermission({ mode: 'readwrite' });
-          if (perm === 'granted') { fsRootHandle = saved; updateRootBar(); }
+          if (perm === 'granted') { window.fsRootHandle = saved; updateRootBar(); }
         } catch(e) {}
       }
     } else {

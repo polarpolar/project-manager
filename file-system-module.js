@@ -6,15 +6,15 @@ async function selectRootDir() {
   
   try {
     isFilePickerOpen = true;
-    fsRootHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+    window.fsRootHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
     // 持久化权限（IndexedDB存储句柄）
-    await saveRootHandle(fsRootHandle);
+    await saveRootHandle(window.fsRootHandle);
     updateRootBar();
-    showToast('✅ 根目录已设置：' + fsRootHandle.name);
-    if (fsCurrentProjectId) await loadFilePanel(fsCurrentProjectId);
+    showToast('✅ 根目录已设置：' + window.fsRootHandle.name);
+    if (window.fsCurrentProjectId) await loadFilePanel(window.fsCurrentProjectId);
     // 如果当前在本地文件标签页，更新显示
-    if (currentEditProjectId) {
-      const p = projects.find(x => x.id === currentEditProjectId);
+    if (window.currentEditProjectId) {
+      const p = window.projects.find(x => x.id === window.currentEditProjectId);
       if (p) {
         updateRootBar(getProjectDirName(p));
       }
@@ -60,11 +60,11 @@ function updateRootBar(projectName) {
   // 更新主文件面板的根目录状态栏
   const pathEl = document.getElementById('fsRootPath');
   if (pathEl) {
-    if (fsRootHandle) {
+    if (window.fsRootHandle) {
       if (projectName) {
-        pathEl.textContent = `${fsRootHandle.name} / ${projectName}`;
+        pathEl.textContent = `${window.fsRootHandle.name} / ${projectName}`;
       } else {
-        pathEl.textContent = fsRootHandle.name;
+        pathEl.textContent = window.fsRootHandle.name;
       }
     } else {
       pathEl.textContent = '未选择';
@@ -74,11 +74,11 @@ function updateRootBar(projectName) {
   // 更新项目编辑页面的根目录状态栏
   const modalPathEl = document.getElementById('modalFsRootPath');
   if (modalPathEl) {
-    if (fsRootHandle) {
+    if (window.fsRootHandle) {
       if (projectName) {
         modalPathEl.textContent = projectName;
       } else {
-        modalPathEl.textContent = fsRootHandle.name;
+        modalPathEl.textContent = window.fsRootHandle.name;
       }
       // 根目录已配置，移除点击事件和可点击样式
       modalPathEl.style.cursor = 'default';
@@ -94,10 +94,10 @@ function updateRootBar(projectName) {
 
 // 获取项目目录
 async function getProjectDir(projectName) {
-  if (!fsRootHandle) return null;
+  if (!window.fsRootHandle) return null;
   try {
     const safeName = projectName.replace(/[\\/:*?"<>|]/g, '_');
-    const dirHandle = await fsRootHandle.getDirectoryHandle(safeName, { create: false });
+    const dirHandle = await window.fsRootHandle.getDirectoryHandle(safeName, { create: false });
     return dirHandle;
   } catch(e) {
     return null;
@@ -106,10 +106,10 @@ async function getProjectDir(projectName) {
 
 // 重命名项目目录
 async function renameProjectDir(oldName, newName) {
-  if (!fsRootHandle) return;
+  if (!window.fsRootHandle) return;
   try {
-    const oldDir = await fsRootHandle.getDirectoryHandle(oldName, { create: false });
-    await fsRootHandle.rename(oldDir, newName);
+    const oldDir = await window.fsRootHandle.getDirectoryHandle(oldName, { create: false });
+    await window.fsRootHandle.rename(oldDir, newName);
   } catch(e) {
     if (DEBUG) console.error('重命名目录失败:', e);
   }
@@ -168,9 +168,9 @@ async function deleteFile(projectId, fileNames) {
       return;
     }
     
-    const dir = await getProjectDir(p.name);
+    const dir = await getProjectDir(getProjectDirName(p));
     if (!dir) {
-      showToast('❌ 项目目录不存在');
+      showToast(`❌ 项目目录不存在：${getProjectDirName(p)}`);
       return;
     }
     
@@ -211,9 +211,9 @@ async function previewFile(projectId, fileName) {
       return;
     }
     
-    const dir = await getProjectDir(p.name);
+    const dir = await getProjectDir(getProjectDirName(p));
     if (!dir) {
-      showToast('❌ 项目目录不存在');
+      showToast(`❌ 项目目录不存在：${getProjectDirName(p)}`);
       return;
     }
     

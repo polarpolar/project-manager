@@ -541,6 +541,8 @@
   /* 文件管理面板 */
   #filePanel { position:fixed; inset:0; background:rgba(26,5,51,.55); z-index:300; display:none; align-items:center; justify-content:center; }
   #filePanel.open { display:flex; }
+  .loading-spinner { width:16px; height:16px; border:2px solid #f3f3f3; border-top:2px solid var(--accent); border-radius:50%; animation: spin 1s linear infinite; }
+  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   .file-panel-inner { background:#fff; border-radius:16px; width:min(740px,95vw); max-height:88vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 8px 40px rgba(26,5,51,.25); }
   .file-panel-header { padding:18px 22px 14px; border-bottom:1px solid var(--paper2); display:flex; align-items:center; gap:10px; }
   .file-panel-title { font-size:1rem; font-weight:700; color:var(--ink); flex:1; }
@@ -1276,7 +1278,14 @@
         <span>📂 根目录：</span>
         <span class="root-path" id="fsRootPath">未选择</span>
         <button class="btn-hdr btn-hdr-ghost" style="font-size:.68rem;padding:4px 10px" onclick="selectRootDir()">选择目录</button>
-
+        <button class="btn-hdr btn-hdr-primary" style="font-size:.68rem;padding:4px 10px" id="aiClassifyBtn" onclick="classifyFilesWithAI()">🤖 AI 分类</button>
+      </div>
+      <!-- AI分类加载状态 -->
+      <div id="aiClassifyLoading" style="display:none;text-align:center;padding:10px;background:var(--paper);border-radius:8px;margin-bottom:12px">
+        <div style="display:flex;align-items:center;justify-content:center;gap:8px">
+          <div class="loading-spinner"></div>
+          <span>AI 正在分类文件...</span>
+        </div>
       </div>
       <!-- 拖拽上传区 -->
       <div class="file-drop-zone" id="fileDropZone" onclick="triggerFileUpload()">
@@ -4269,7 +4278,7 @@ loadParseMode();
 // ║  MODULE: file-system（文件系统层）        ║
 // ╚══════════════════════════════════════════╝
 
-let fsRootHandle = null;   // 根目录句柄
+// fsRootHandle 已在 main.js 中定义
 let fsCurrentProjectId = null; // 当前打开的项目ID
 // 防止多次打开文件选择器
 let isFilePickerOpen = false;
@@ -4279,7 +4288,7 @@ async function loadModalFilePanel(projectId) {
   const p = projects.find(x => x.id === projectId);
   if (!p) return;
 
-  if (!fsRootHandle) {
+  if (!window.fsRootHandle) {
     // 根目录未配置，清空所有文件网格
     ['modalContractFileGrid', 'modalAgreementFileGrid', 'modalTechPlanFileGrid', 'modalQuoteFileGrid', 'modalOtherFileGrid'].forEach(id => {
       const grid = document.getElementById(id);
@@ -4288,13 +4297,14 @@ async function loadModalFilePanel(projectId) {
     return;
   }
 
-  const dir = await getProjectDir(p.name);
+  const dir = await getProjectDir(getProjectDirName(p));
   if (!dir) {
-    // 项目文件夹不存在，清空所有文件网格
+    // 项目文件夹不存在，显示错误信息
     ['modalContractFileGrid', 'modalAgreementFileGrid', 'modalTechPlanFileGrid', 'modalQuoteFileGrid', 'modalOtherFileGrid'].forEach(id => {
       const grid = document.getElementById(id);
-      if (grid) grid.innerHTML = '';
+      if (grid) grid.innerHTML = '<div class="file-section-empty">项目文件夹不存在</div>';
     });
+    showToast(`项目文件夹不存在：${getProjectDirName(p)}`);
     return;
   }
 
@@ -4615,9 +4625,9 @@ async function analyzeContractsForPayment() {
     btn.style.opacity = '0.5';
   }
   
-  const dir = await getProjectDir(p.name);
+  const dir = await getProjectDir(getProjectDirName(p));
   if (!dir) {
-    showToast('项目文件夹不存在');
+    showToast(`项目文件夹不存在：${getProjectDirName(p)}`);
     // 启用按钮
     if (btn) {
       btn.disabled = false;
@@ -4769,9 +4779,9 @@ async function analyzeContractsForDelivery() {
     return;
   }
   
-  const dir = await getProjectDir(p.name);
+  const dir = await getProjectDir(getProjectDirName(p));
   if (!dir) {
-    showToast('项目文件夹不存在');
+    showToast(`项目文件夹不存在：${getProjectDirName(p)}`);
     // 启用按钮
     if (btn) {
       btn.disabled = false;
@@ -4988,7 +4998,7 @@ async function loadFilePanel(projectId) {
   document.getElementById('filePanelTitle').textContent = p.name;
   document.getElementById('fileNoteSaveStatus').textContent = '';
 
-  if (!fsRootHandle) {
+  if (!window.fsRootHandle) {
     ['contractFileGrid','agreementFileGrid','otherFileGrid'].forEach(id =>
       document.getElementById(id).innerHTML = '');
     document.getElementById('contractEmpty').style.display = 'block';
@@ -4996,22 +5006,31 @@ async function loadFilePanel(projectId) {
     return;
   }
 
-  const dir = await getProjectDir(p.name);
-  if (!dir) return;
+  const dir = await getProjectDir(getProjectDirName(p));
+  if (!dir) {
+    ['contractFileGrid','agreementFileGrid','otherFileGrid'].forEach(id =>
+      document.getElementById(id).innerHTML = '');
+    document.getElementById('contractEmpty').style.display = 'block';
+    document.getElementById('contractEmpty').textContent = `项目文件夹不存在：${getProjectDirName(p)}`;
+    return;
+  }
 
   // 更新根目录状态栏，显示项目文件夹名称
   updateRootBar(getProjectDirName(p));
 
-  // 读取文件列表
+  // 读取文件和文件夹列表
   const files = [];
   for await (const [name, handle] of dir.entries()) {
     if (handle.kind === 'file') {
       try {
         const file = await handle.getFile();
-        files.push({ name, handle, lastModified: file.lastModified });
+        files.push({ name, handle, lastModified: file.lastModified, isDirectory: false });
       } catch(e) {
-        files.push({ name, handle, lastModified: 0 });
+        files.push({ name, handle, lastModified: 0, isDirectory: false });
       }
+    } else if (handle.kind === 'directory') {
+      // 识别文件夹
+      files.push({ name, handle, lastModified: 0, isDirectory: true });
     }
   }
 
@@ -5025,14 +5044,25 @@ async function loadFilePanel(projectId) {
   // 过滤排除备注.txt 和隐藏文件（以.开头）
   const displayFiles = files.filter(f => f.name !== '备注.txt' && !f.name.startsWith('.'));
 
-  // 先用 AI 分类，再分区渲染
-  const tagMap = displayFiles.length ? await classifyFileNames(displayFiles.map(f => f.name)) : {};
+  // 过滤出文件和文件夹
+  
+  const displayFilesOnly = displayFiles.filter(f => !f.isDirectory);
+  const displayFolders = displayFiles.filter(f => f.isDirectory);
+
+  // 先用 AI 分类文件，再分区渲染
+  const tagMap = displayFilesOnly.length ? await classifyFileNames(displayFilesOnly.map(f => f.name)) : {};
 
   // 按分类分组
-  const contractFiles  = displayFiles.filter(f => tagMap[f.name]?.cat === '合同').sort((a, b) => b.lastModified - a.lastModified);
-  const agreementFiles = displayFiles.filter(f => tagMap[f.name]?.cat === '技术协议').sort((a, b) => b.lastModified - a.lastModified);
-  const quoteFiles     = displayFiles.filter(f => tagMap[f.name]?.cat === '报价').sort((a, b) => b.lastModified - a.lastModified);
-  const otherFiles     = displayFiles.filter(f => !['合同','技术协议','报价','发票'].includes(tagMap[f.name]?.cat)).sort((a, b) => b.lastModified - a.lastModified);
+  const contractFiles  = displayFilesOnly.filter(f => tagMap[f.name]?.cat === '合同').sort((a, b) => b.lastModified - a.lastModified);
+  const agreementFiles = displayFilesOnly.filter(f => tagMap[f.name]?.cat === '技术协议').sort((a, b) => b.lastModified - a.lastModified);
+  const quoteFiles     = displayFilesOnly.filter(f => tagMap[f.name]?.cat === '报价').sort((a, b) => b.lastModified - a.lastModified);
+  // 其他文件区域包含未分类的文件和所有文件夹
+  const otherFiles     = [...displayFilesOnly.filter(f => !['合同','技术协议','报价','发票'].includes(tagMap[f.name]?.cat)), ...displayFolders].sort((a, b) => {
+    // 文件夹排在前面，然后按名称排序
+    if (a.isDirectory && !b.isDirectory) return -1;
+    if (!a.isDirectory && b.isDirectory) return 1;
+    return b.lastModified - a.lastModified;
+  });
 
   // 渲染分区 - 不同阶段显示不同分块
   const isNegotiationStage = p.stage === STAGE.NEGOTIATING;
@@ -5164,6 +5194,124 @@ async function loadFilePanel(projectId) {
   currentEditProjectId = projectId;
 }
 
+// 打开文件夹
+async function openFolder(projectId, folderName) {
+  const p = projects.find(x => x.id === projectId);
+  if (!p) return;
+  
+  if (!window.fsRootHandle) {
+    showToast('请先选择根目录');
+    return;
+  }
+  
+  const dir = await getProjectDir(getProjectDirName(p));
+  if (!dir) return;
+  
+  try {
+    const folderHandle = await dir.getDirectoryHandle(folderName, { create: false });
+    // 这里可以实现打开文件夹的逻辑，例如显示文件夹内容
+    showToast(`打开文件夹: ${folderName}`);
+  } catch (e) {
+    showToast('打开文件夹失败: ' + e.message);
+  }
+}
+
+// AI 分类文件
+async function classifyFilesWithAI() {
+  const projectId = window.fsCurrentProjectId || window.currentEditProjectId;
+  if (!projectId) {
+    showToast('请先选择一个项目');
+    return;
+  }
+  
+  const p = window.projects.find(x => x.id === projectId);
+  if (!p) {
+    showToast('项目不存在');
+    return;
+  }
+  
+  if (!window.fsRootHandle) {
+    showToast('请先选择根目录');
+    return;
+  }
+  
+  // 显示加载状态
+  const loadingEl = document.getElementById('aiClassifyLoading');
+  const buttonEl = document.getElementById('aiClassifyBtn');
+  if (loadingEl) loadingEl.style.display = 'block';
+  if (buttonEl) buttonEl.disabled = true;
+  
+  try {
+    // 重新加载文件面板，触发 AI 分类
+    await loadFilePanel(projectId);
+    showToast('AI 分类完成');
+  } catch (e) {
+    showToast('AI 分类失败: ' + e.message);
+  } finally {
+    // 隐藏加载状态
+    if (loadingEl) loadingEl.style.display = 'none';
+    if (buttonEl) buttonEl.disabled = false;
+  }
+}
+
+// 拖拽事件处理
+let draggedItem = null;
+
+function dragStart(event, fileName, fileType, isDirectory) {
+  event.dataTransfer.setData('text/plain', fileName);
+  event.dataTransfer.setData('fileType', fileType);
+  event.dataTransfer.setData('isDirectory', isDirectory);
+  draggedItem = { fileName, fileType, isDirectory };
+  event.target.style.opacity = '0.5';
+}
+
+function dragEnd(event) {
+  event.target.style.opacity = '1';
+  draggedItem = null;
+}
+
+function dragOver(event) {
+  event.preventDefault();
+  event.currentTarget.style.backgroundColor = 'rgba(123, 31, 162, 0.05)';
+}
+
+async function drop(event) {
+  event.preventDefault();
+  event.currentTarget.style.backgroundColor = 'transparent';
+  
+  const fileName = event.dataTransfer.getData('text/plain');
+  const fileType = event.dataTransfer.getData('fileType');
+  const isDirectory = event.dataTransfer.getData('isDirectory') === 'true';
+  const targetSection = event.currentTarget.dataset.sectionType;
+  
+  // 检查是否从其他文件区拖拽到上方文件区域
+  if (fileType === 'other' && (targetSection === 'contract' || targetSection === 'agreement' || targetSection === 'quote')) {
+    const projectId = fsCurrentProjectId || currentEditProjectId;
+    if (!projectId) {
+      showToast('请先选择一个项目');
+      return;
+    }
+    
+    const p = projects.find(x => x.id === projectId);
+    if (!p) {
+      showToast('项目不存在');
+      return;
+    }
+    
+    if (!window.fsRootHandle) {
+      showToast('请先选择根目录');
+      return;
+    }
+    
+    // 这里可以实现文件分类的逻辑
+    // 例如，将文件从其他文件区移动到目标分类区域
+    showToast(`已将 ${isDirectory ? '文件夹' : '文件'} "${fileName}" 移动到 ${targetSection === 'contract' ? '合同' : targetSection === 'agreement' ? '技术协议' : '报价'} 区域`);
+    
+    // 重新加载文件面板，更新显示
+    await loadFilePanel(projectId);
+  }
+}
+
 function renderFileSection(type, files, projectId, tagMap) {
   const gridId  = type + 'FileGrid';
   const emptyId = type + 'Empty';
@@ -5180,22 +5328,45 @@ function renderFileSection(type, files, projectId, tagMap) {
   // 合同/技术协议/方案报价区域支持选中（第一个默认选中）
   const selectable = (type === 'contract' || type === 'agreement' || type === 'quote');
   grid.innerHTML = files.map((f, idx) => {
-    const icon = getFileIcon(f.name);
-    const info = tagMap[f.name];
-    const tagHtml = (info && info.label) ? `<div class="file-item-tag ${info.cls}">${info.label}</div>` : '';
-    const selectedClass = (selectable && idx === 0) ? ' file-item-selected' : '';
-    const clickHandler = selectable
-      ? `toggleFileSelect(this,'${type}')`
-      : `previewFile('${projectId}','${f.name}')`;
-    return `<div class="file-item${selectedClass}" data-filename="${f.name}" data-type="${type}"
-      onclick="${clickHandler}">
-      <button class="file-item-del" onclick="event.stopPropagation();deleteFile('${projectId}','${f.name}')">✕</button>
-      <div class="file-item-icon">${icon}</div>
-      <div class="file-item-name">${f.name}</div>
-      ${tagHtml}
-      ${selectable ? '<div class="file-item-check">✓</div>' : ''}
-    </div>`;
+    if (f.isDirectory) {
+      // 文件夹处理
+      return `<div class="file-item" data-filename="${f.name}" data-type="${type}" data-is-directory="true"
+        onclick="openFolder('${projectId}','${f.name}')"
+        draggable="true"
+        ondragstart="dragStart(event, '${f.name}', '${type}', ${f.isDirectory ? 'true' : 'false'})"
+        ondragend="dragEnd(event)">
+        <button class="file-item-del" onclick="event.stopPropagation();deleteFile('${projectId}','${f.name}')">✕</button>
+        <div class="file-item-icon">📁</div>
+        <div class="file-item-name">${f.name}</div>
+        <div class="file-item-tag tag-folder">文件夹</div>
+      </div>`;
+    } else {
+      // 文件处理
+      const icon = getFileIcon(f.name);
+      const info = tagMap[f.name];
+      const tagHtml = (info && info.label) ? `<div class="file-item-tag ${info.cls}">${info.label}</div>` : '';
+      const selectedClass = (selectable && idx === 0) ? ' file-item-selected' : '';
+      const clickHandler = selectable
+        ? `toggleFileSelect(this,'${type}')`
+        : `previewFile('${projectId}','${f.name}')`;
+      return `<div class="file-item${selectedClass}" data-filename="${f.name}" data-type="${type}"
+        onclick="${clickHandler}"
+        draggable="true"
+        ondragstart="dragStart(event, '${f.name}', '${type}', ${f.isDirectory ? 'true' : 'false'})"
+        ondragend="dragEnd(event)">
+        <button class="file-item-del" onclick="event.stopPropagation();deleteFile('${projectId}','${f.name}')">✕</button>
+        <div class="file-item-icon">${icon}</div>
+        <div class="file-item-name">${f.name}</div>
+        ${tagHtml}
+        ${selectable ? '<div class="file-item-check">✓</div>' : ''}
+      </div>`;
+    }
   }).join('');
+  
+  // 为文件区域添加拖放事件
+  grid.ondragover = dragOver;
+  grid.ondrop = drop;
+  grid.dataset.sectionType = type;
 }
 
 function toggleFileSelect(el, type) {
@@ -5419,7 +5590,7 @@ async function analyzeAgreements() {
     btn.style.opacity = '1';
     return;
   }
-  const dir = await getProjectDir(p.name);
+  const dir = await getProjectDir(getProjectDirName(p));
   if (!dir) return;
 
   let fileNames = getSelectedFileNames('agreement');

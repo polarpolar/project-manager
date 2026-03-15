@@ -28,16 +28,18 @@ const STORAGE_KEY = {
 // 全局变量：由 main.js 在 window 上初始化
 // 模块内直接使用全局变量（window.projects 等）
 
-// 防抖函数
+// 防抖函数（支持异步函数）
 function debounce(func, wait) {
   let timeout;
   return function executedFunction(...args) {
-    const later = () => {
+    return new Promise((resolve) => {
+      const later = () => {
+        clearTimeout(timeout);
+        resolve(func(...args));
+      };
       clearTimeout(timeout);
-      func(...args);
-    };
-    clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
+      timeout = setTimeout(later, wait);
+    });
   };
 }
 
