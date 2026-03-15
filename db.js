@@ -202,6 +202,22 @@ class Database {
         }
 
         // 保存更新日志
+        // 先删除该项目的所有旧日志
+        const logIndex = stores.logs.index('projectId');
+        const logCursorRequest = logIndex.openCursor(project.id);
+        await new Promise((resolve) => {
+          logCursorRequest.onsuccess = (event) => {
+            const cursor = event.target.result;
+            if (cursor) {
+              stores.logs.delete(cursor.value.id);
+              cursor.continue();
+            } else {
+              resolve();
+            }
+          };
+        });
+
+        // 再添加新的日志
         if (project.logs && project.logs.length) {
           for (const log of project.logs) {
             stores.logs.add({ ...log, projectId: project.id });

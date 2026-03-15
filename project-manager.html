@@ -1245,7 +1245,10 @@
     <!-- Tab 5：更新日志 -->
     <div class="m-tab-body" id="mtab-log">
       <div class="form-group">
-        <label>本次更新内容（保存后自动添加时间戳）</label>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <label>本次更新内容（保存后自动添加时间戳）</label>
+          <button class="btn-sm btn-del" style="font-size:.68rem;padding:3px 10px" onclick="clearProjectLogs()">清空日志</button>
+        </div>
         <textarea id="f-update-log" placeholder="记录本次更新、进展或变化…" style="min-height:72px"></textarea>
       </div>
       <div id="f-log-history"></div>
@@ -3259,6 +3262,30 @@ function renderLogHistory(logs) {
       <div class="log-time">${l.time}</div>
       <div class="log-text">${l.text}</div>
     </div>`).join('');
+}
+
+// 清空项目更新日志
+function clearProjectLogs() {
+  if (!editingId) return;
+  
+  showConfirm({
+    icon: '🗑️',
+    title: '清空更新日志',
+    msg: '确定要清空该项目的所有更新日志吗？此操作需要点击"保存"按钮后生效。',
+    okText: '清空',
+    onOk: () => {
+      const idx = projects.findIndex(p => p.id === editingId);
+      if (idx !== -1) {
+        // 清空日志
+        projects[idx].logs = [];
+        // 标记项目为已修改
+        markProjectModified(editingId);
+        // 更新 UI
+        renderLogHistory([]);
+        showToast('更新日志已清空，请点击"保存"按钮以持久化变更');
+      }
+    }
+  });
 }
 
 // ╔══════════════════════════════════════════╗

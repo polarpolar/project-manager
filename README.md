@@ -152,6 +152,43 @@
 
 ---
 
+## 代码结构
+
+项目采用模块化设计，将功能拆分为多个独立的 JavaScript 模块，通过动态导入实现代码拆分和懒加载：
+
+```
+project-manager/
+├── main.js               # 主入口脚本，动态导入其他模块
+├── project-manager.html  # 主 HTML 文件，引用 main.js
+├── project-module.js     # 项目管理核心模块
+├── render-module.js      # 渲染相关功能模块
+├── ai-module.js          # AI 相关功能模块（包含会话级缓存）
+├── file-system-module.js # 文件系统相关功能模块
+└── db.js                 # IndexedDB 数据库模块
+```
+
+### 模块说明
+
+| 模块 | 职责 |
+|------|------|
+| main.js | 主入口脚本，负责动态导入其他模块并初始化应用 |
+| project-module.js | 项目管理核心模块，包含项目数据管理和业务逻辑 |
+| render-module.js | 渲染相关功能模块，负责页面渲染和视图更新 |
+| ai-module.js | AI 相关功能模块，包含文件分类和会话级缓存 |
+| file-system-module.js | 文件系统相关功能模块，负责文件操作和管理 |
+| db.js | IndexedDB 数据库模块，负责数据存储和持久化 |
+
+### 模块加载流程
+
+1. **页面加载**：`project-manager.html` 加载并执行 `main.js`
+2. **模块加载**：`main.js` 动态导入所有模块
+3. **应用初始化**：`initApp()` 函数被调用
+4. **数据库初始化**：`initDatabase()` 函数被调用
+5. **数据加载**：从 IndexedDB 或 localStorage 加载数据
+6. **页面渲染**：`render()` 函数被调用，显示项目数据
+
+---
+
 ## 数据结构（项目对象）
 
 ```json
