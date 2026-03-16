@@ -271,41 +271,7 @@ function clearFileOperationCache() {
 }
 
 // 设置文件拖拽上传
-function setupFileDrop(dir, projectId) {
-  const dropZone = document.getElementById('fileDropZone');
-  if (!dropZone) return;
-  
-  dropZone.ondragover = (e) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'copy';
-    dropZone.style.borderColor = 'var(--accent)';
-    dropZone.style.backgroundColor = 'rgba(123, 31, 162, 0.05)';
-  };
-  
-  dropZone.ondragleave = () => {
-    dropZone.style.borderColor = 'var(--paper3)';
-    dropZone.style.backgroundColor = 'transparent';
-  };
-  
-  dropZone.ondrop = async (e) => {
-    e.preventDefault();
-    dropZone.style.borderColor = 'var(--paper3)';
-    dropZone.style.backgroundColor = 'transparent';
-    
-    if (e.dataTransfer.files.length) {
-      showToast(`正在上传 ${e.dataTransfer.files.length} 个文件...`);
-      await uploadFiles(Array.from(e.dataTransfer.files), dir, projectId);
-    }
-  };
-  
-  // 添加点击上传功能
-  dropZone.onclick = () => {
-    const fileInput = document.getElementById('fileUploadInput');
-    if (fileInput) {
-      fileInput.click();
-    }
-  };
-}
+
 
 // 读取 docx 文本（动态加载 mammoth）
 async function readDocxText(file) {
@@ -330,10 +296,6 @@ export {
   updateRootBar,
   getProjectDir,
   renameProjectDir,
-  uploadFiles,
-  deleteFile,
-  previewFile,
-  setupFileDrop,
   readDocxText,
   clearFileOperationCache
 };
