@@ -1602,37 +1602,13 @@ document.getElementById('confirmOverlay').addEventListener('click',e=>{if(e.targ
 
 <script>
 // ╔══════════════════════════════════════════╗
-// ║  MODULE: constants                       ║
+// ║  MODULE: constants (defined in project-module.js) ║
 // ╚══════════════════════════════════════════╝
-const DEBUG = false;
-
-// 项目阶段
-const STAGE = { NEGOTIATING: 0, DELIVERING: 1, COMPLETED: 2, TERMINATED: 3 };
-const STAGE_LABEL  = ['洽谈中', '已签单·执行中', '已完结', '已终止'];
-const STAGE_SHORT  = ['洽谈', '交付中', '已完结', '已终止'];
-const STAGE_COLOR  = ['var(--s0)', 'var(--s1)', 'var(--s2)', 'var(--s0)'];
-const STAGE_S_ATTR = ['0', '1', '2', '3'];
-
-// 存储键
-const STORAGE_KEY = {
-  PROJECTS: 'pm_projects_v3',
-  RECYCLE: 'pm_recycle_bin_v1',
-  AI_PROVIDER: 'ai_provider',
-  AI_MODEL: 'ai_model',
-  AI_KEY: 'ai_key',
-  AI_PROXY: 'ai_proxy',
-  AI_LOGS: 'ai_logs',
-  AI_MODEL_POLICY: 'ai_model_policy',
-  AI_MAX_TOKENS: 'ai_max_tokens',
-  YUQUE_PROXY: 'yuque_proxy',
-  YUQUE_TOKEN: 'yuque_token',
-  YUQUE_URL: 'yuque_url',
-  PARSE_MODE: 'parse_mode',
-  SB_COLLAPSED: 'sb_collapsed'
-};
-
-// 存储限制
+// MAX_STORAGE_BYTES 在此定义，DEBUG 从 main.js 导入
 const MAX_STORAGE_BYTES = 5 * 1024 * 1024; // 5MB
+
+// 常量 STAGE, STAGE_LABEL, STORAGE_KEY 等从 project-module.js 导入
+// 通过 main.js 的 Object.assign(window, projectModule) 暴露到 window
 
 //从此处开始补全代码
 
@@ -1640,10 +1616,10 @@ const MAX_STORAGE_BYTES = 5 * 1024 * 1024; // 5MB
 // Render 看板
 // ═══════════════════════════════════════════════════
 
-// 初始化侧边栏状态
-(function initSidebar() {
+// 初始化侧边栏状态（由 main.js 在模块加载完成后调用）
+function initSidebar() {
   try {
-    if (localStorage.getItem(STORAGE_KEY.SB_COLLAPSED) === '1') {
+    if (localStorage.getItem(window.STORAGE_KEY.SB_COLLAPSED) === '1') {
       const sb = document.getElementById('sidebar');
       if (sb) {
         sb.classList.add('collapsed');
@@ -1652,7 +1628,7 @@ const MAX_STORAGE_BYTES = 5 * 1024 * 1024; // 5MB
       }
     }
   } catch(e){}
-})();
+}
 
 // ═══════════════════════════════════════════════════
 // Init

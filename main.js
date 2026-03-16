@@ -75,6 +75,9 @@ async function initApp() {
     if (loadSuccess) {
       // 初始化数据库
       await window.initDatabase();
+      
+      // 初始化侧边栏状态（需要在 STORAGE_KEY 加载后执行）
+      if (typeof initSidebar === 'function') initSidebar();
 
       // 初始化导入模块
       initImportDropZone();
