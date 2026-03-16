@@ -1881,21 +1881,6 @@ function onContractDateChange() {
   }
 }
 
-// Tab页AI识别快捷按钮——从Modal内直接打开文件面板并触发识别
-function openFilePanelFromModal(type) {
-  if (!editingId) { showToast('请先保存项目后再使用AI识别'); return; }
-  openFilePanelTab(editingId, type);
-}
-
-// editProject打开时控制Tab上AI按钮的显隐（有文件面板根目录才显示）
-function updateTabAiBtns() {
-  const hasRoot = !!fsRootHandle;
-  const deliveryBtn = document.getElementById('tab-delivery-ai-btn');
-  const paymentBtn  = document.getElementById('tab-payment-ai-btn');
-  if (deliveryBtn) deliveryBtn.style.display = hasRoot && editingId ? 'inline' : 'none';
-  if (paymentBtn)  paymentBtn.style.display  = hasRoot && editingId ? 'inline' : 'none';
-}
-
 function switchModalTab(tab, el) {
   document.querySelectorAll('.m-tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.m-tab-body').forEach(b => b.classList.remove('active'));
@@ -2486,7 +2471,6 @@ function openModal() {
   const _dsGroup = document.getElementById('f-discuss-status-group');
   if (_dsGroup) _dsGroup.style.display = 'none';
   document.getElementById('overlay').classList.add('show');
-  updateTabAiBtns();
 }
 
 let originalProjectData = null;
@@ -2757,10 +2741,7 @@ function editProject(id) {
       elements.overlay.classList.add('show');
     }
     
-    // 17. 更新AI按钮状态
-    updateTabAiBtns();
-    
-    // 18. 设置当前编辑项目ID并更新本地文件目录显示
+    // 17. 设置当前编辑项目ID并更新本地文件目录显示
     currentEditProjectId = id;
     updateRootBar(getProjectDirName(p));
   });
@@ -4608,9 +4589,11 @@ function addPaymentNodeToProject() {
 
 // 回款节点页面的合同识别
 async function analyzeContractsForPayment() {
-  if (!currentEditProjectId) return;
+  // 优先使用currentEditProjectId，否则使用fsCurrentProjectId
+  const projectId = currentEditProjectId || fsCurrentProjectId;
+  if (!projectId) return;
   
-  const p = projects.find(x => x.id === currentEditProjectId);
+  const p = projects.find(x => x.id === projectId);
   if (!p) return;
   
   if (!fsRootHandle) {
@@ -4750,7 +4733,9 @@ async function analyzeContractsForDelivery() {
     btn.style.opacity = '0.5';
   }
   
-  if (!currentEditProjectId) {
+  // 优先使用currentEditProjectId，否则使用fsCurrentProjectId
+  const projectId = currentEditProjectId || fsCurrentProjectId;
+  if (!projectId) {
     // 启用按钮
     if (btn) {
       btn.disabled = false;
@@ -4759,7 +4744,7 @@ async function analyzeContractsForDelivery() {
     return;
   }
   
-  const p = projects.find(x => x.id === currentEditProjectId);
+  const p = projects.find(x => x.id === projectId);
   if (!p) {
     // 启用按钮
     if (btn) {
@@ -4948,47 +4933,6 @@ function setStatsFilter(filter) {
       btn.style.color = 'rgba(255,255,255,.72)';
     }
   });
-}
-
-// 打开项目文件面板
-// 打开文件面板并在加载完成后自动触发指定识别
-async function openFilePanelTab(projectId, tab) {
-  await openFilePanel(projectId);
-  // 等面板渲染完成后触发识别
-  setTimeout(() => {
-    if (tab === 'agreement') {
-      const btn = document.getElementById('agreementAnalyzeBtn');
-      if (btn && btn.style.display !== 'none') btn.click();
-      else showToast('请先在文件面板上传技术协议文件');
-    } else if (tab === 'contract') {
-      const btn = document.getElementById('contractAnalyzeBtn');
-      if (btn && btn.style.display !== 'none') btn.click();
-      else showToast('请先在文件面板上传合同文件');
-    }
-  }, 600);
-}
-
-async function openFilePanel(projectId) {
-  fsCurrentProjectId = projectId;
-  document.getElementById('filePanel').classList.add('open');
-
-  // 尝试恢复根目录授权
-  if (!fsRootHandle) {
-    const saved = await loadRootHandle();
-    if (saved) {
-      try {
-        const perm = await saved.queryPermission({ mode: 'readwrite' });
-        if (perm === 'granted') {
-          fsRootHandle = saved;
-        } else {
-          const req = await saved.requestPermission({ mode: 'readwrite' });
-          if (req === 'granted') fsRootHandle = saved;
-        }
-      } catch(e) {}
-    }
-  }
-  updateRootBar();
-  await loadFilePanel(projectId);
 }
 
 // 加载文件列表和备注（分区版）
@@ -5415,9 +5359,15 @@ async function analyzeContracts() {
     return;
   }
   
-  // 禁用按钮
+  // 禁用按钮并显示加载提示
   btn.disabled = true;
   btn.style.opacity = '0.5';
+  
+  // 立即显示加载提示
+  if (analysisDiv) {
+    analysisDiv.style.display = 'block';
+    analysisDiv.innerHTML = `<div class="contract-analysis"><div class="ca-loading"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div>&nbsp;正在准备识别合同…</div></div>`;
+  }
   
   // 获取项目ID - 优先使用currentEditProjectId（项目编辑页面），否则使用按钮的data-projectId（主文件面板）
   let projectId = currentEditProjectId || btn.dataset.projectId;
@@ -5444,12 +5394,12 @@ async function analyzeContracts() {
     return;
   }
   
-  const dir = await getProjectDir(p.name);
+  const dir = await getProjectDir(getProjectDirName(p));
   if (DEBUG) console.log('项目目录:', dir);
   
   if (!dir) {
     if (DEBUG) console.log('未找到项目目录');
-    showToast('未找到项目目录');
+    showToast(`未找到项目目录：${getProjectDirName(p)}`);
     // 启用按钮
     btn.disabled = false;
     btn.style.opacity = '1';
@@ -5488,6 +5438,11 @@ async function analyzeContracts() {
       // 启用按钮
       btn.disabled = false;
       btn.style.opacity = '1';
+      // 清除加载提示
+      if (analysisDiv) {
+        analysisDiv.style.display = 'none';
+        analysisDiv.innerHTML = '';
+      }
       return;
     }
     
@@ -5578,9 +5533,15 @@ async function analyzeAgreements() {
   
   if (!btn) return;
   
-  // 禁用按钮
+  // 禁用按钮并显示加载提示
   btn.disabled = true;
   btn.style.opacity = '0.5';
+  
+  // 立即显示加载提示
+  if (analysisDiv) {
+    analysisDiv.style.display = 'block';
+    analysisDiv.innerHTML = `<div class="contract-analysis"><div class="ca-loading"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div>&nbsp;正在准备识别技术协议…</div></div>`;
+  }
   
   const projectId = currentEditProjectId || btn.dataset.projectId;
   const p = projects.find(x => x.id === projectId);
@@ -5588,10 +5549,26 @@ async function analyzeAgreements() {
     // 启用按钮
     btn.disabled = false;
     btn.style.opacity = '1';
+    // 清除加载提示
+    if (analysisDiv) {
+      analysisDiv.style.display = 'none';
+      analysisDiv.innerHTML = '';
+    }
     return;
   }
   const dir = await getProjectDir(getProjectDirName(p));
-  if (!dir) return;
+  if (!dir) {
+    showToast(`未找到项目目录：${getProjectDirName(p)}`);
+    // 启用按钮
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    // 清除加载提示
+    if (analysisDiv) {
+      analysisDiv.style.display = 'none';
+      analysisDiv.innerHTML = '';
+    }
+    return;
+  }
 
   let fileNames = getSelectedFileNames('agreement');
   if (!fileNames.length) { 
@@ -5610,7 +5587,15 @@ async function analyzeAgreements() {
     
     const agreementFiles = files.filter(f => f.name.includes('技术协议') || f.name.includes('技术方案') || f.name.includes('需求文档'));
     if (!agreementFiles.length) {
-      showToast('没有技术协议文件可识别'); 
+      showToast('没有技术协议文件可识别');
+      // 启用按钮
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      // 清除加载提示
+      if (analysisDiv) {
+        analysisDiv.style.display = 'none';
+        analysisDiv.innerHTML = '';
+      }
       return;
     }
     
@@ -5669,9 +5654,16 @@ async function analyzeQuotes() {
   const btn = document.getElementById('quoteAnalyzeBtn');
   if (!btn) return;
   
-  // 禁用按钮
+  // 禁用按钮并显示加载提示
   btn.disabled = true;
   btn.style.opacity = '0.5';
+  
+  // 立即显示加载提示
+  const analysisDiv = document.getElementById('quoteAnalysis');
+  if (analysisDiv) {
+    analysisDiv.style.display = 'block';
+    analysisDiv.innerHTML = `<div class="contract-analysis"><div class="ca-loading"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div>&nbsp;正在准备识别方案报价…</div></div>`;
+  }
   
   const projectId = currentEditProjectId || btn.dataset.projectId;
   const p = projects.find(x => x.id === projectId);
@@ -5679,22 +5671,45 @@ async function analyzeQuotes() {
     // 启用按钮
     btn.disabled = false;
     btn.style.opacity = '1';
+    // 清除加载提示
+    if (analysisDiv) {
+      analysisDiv.style.display = 'none';
+      analysisDiv.innerHTML = '';
+    }
     return;
   }
-  const dir = await getProjectDir(p.name);
+  const dir = await getProjectDir(getProjectDirName(p));
   if (!dir) {
+    showToast(`未找到项目目录：${getProjectDirName(p)}`);
     // 启用按钮
     btn.disabled = false;
     btn.style.opacity = '1';
+    // 清除加载提示
+    if (analysisDiv) {
+      analysisDiv.style.display = 'none';
+      analysisDiv.innerHTML = '';
+    }
     return;
   }
 
   const fileNames = getSelectedFileNames('quote');
-  if (!fileNames.length) { showToast('没有方案报价文件可识别'); return; }
+  if (!fileNames.length) { 
+    showToast('没有方案报价文件可识别'); 
+    // 启用按钮
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    // 清除加载提示
+    if (analysisDiv) {
+      analysisDiv.style.display = 'none';
+      analysisDiv.innerHTML = '';
+    }
+    return; 
+  }
 
-  const analysisDiv = document.getElementById('quoteAnalysis');
-  analysisDiv.style.display = 'block';
-  analysisDiv.innerHTML = `<div class="contract-analysis"><div class="ca-loading"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div>&nbsp;正在读取方案报价…</div></div>`;
+  if (analysisDiv) {
+    analysisDiv.style.display = 'block';
+    analysisDiv.innerHTML = `<div class="contract-analysis"><div class="ca-loading"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div>&nbsp;正在读取方案报价…</div></div>`;
+  }
   btn.disabled = true;
 
   try {
