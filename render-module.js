@@ -237,6 +237,18 @@ function refreshView() {
   if (document.getElementById('ledgerPanel').classList.contains('open')) renderLedger();
 }
 
+// 设置统计筛选器
+function setStatsFilter(filter) {
+  statsFilter = filter;
+  render();
+  const buttons = document.querySelectorAll('.sb-stats-title button');
+  buttons.forEach(btn => {
+    const isActive = btn.onclick.toString().includes(filter);
+    btn.style.background = isActive ? 'var(--gold)' : 'none';
+    btn.style.color      = isActive ? 'var(--ink)'  : 'rgba(255,255,255,.72)';
+  });
+}
+
 // ── 导出 ──────────────────────────────────────────
 export {
   render,
@@ -245,5 +257,6 @@ export {
   toggleSidebar,
   initSidebar,
   clearRenderCache,
-  refreshView
+  refreshView,
+  setStatsFilter
 };

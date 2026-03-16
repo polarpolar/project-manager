@@ -45,6 +45,10 @@ async function loadModules() {
     // 加载 AI 界面控制模块
     const aiUiModule = await import('./ai-ui.js');
     Object.assign(window, aiUiModule);
+
+    // 加载导入模块
+    const importModule = await import('./import-module.js');
+    Object.assign(window, importModule);
     
     console.log('模块加载成功');
     return true;
@@ -63,6 +67,12 @@ async function initApp() {
     if (loadSuccess) {
       // 初始化数据库
       await window.initDatabase();
+
+      // 初始化导入模块
+      initImportDropZone();
+      loadYuqueSettings();
+      loadParseMode();
+      document.getElementById('importOverlay').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeImport(); });
 
       // 尝试恢复根目录
       const saved = await loadRootHandle();

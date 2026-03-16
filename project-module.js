@@ -705,6 +705,107 @@ function closeRecycleBin() {
   if (backdrop) backdrop.remove();
 }
 
+// ═══════════════════════════════════════════════════
+// 项目编号生成
+// ═══════════════════════════════════════════════════
+
+// 生成随机4位数字作为项目编号
+function genIdCode() {
+  let code = '';
+  for (let i = 0; i < 4; i++) code += Math.floor(Math.random() * 10);
+  return code;
+}
+
+// 生成项目编号
+function genProjectCode(stage, contractDate) {
+  const now = new Date();
+  let ym;
+  if (stage === STAGE.NEGOTIATING) {
+    ym = String(now.getFullYear()).slice(2) + String(now.getMonth()+1).padStart(2,'0');
+  } else {
+    const d = contractDate ? new Date(contractDate) : now;
+    ym = String(d.getFullYear()).slice(2) + String(d.getMonth()+1).padStart(2,'0');
+  }
+  const prefix = stage === STAGE.NEGOTIATING ? 'C' : 'P';
+  const existingCodes = new Set(projects.map(p => p.projectCode).filter(Boolean));
+  let code, attempt = 0;
+  do { code = prefix + ym + genIdCode(); attempt++; } while (existingCodes.has(code) && attempt < 100);
+  return code;
+}
+
+// 更新项目编号前缀（合同阶段变更时）
+function updateCodePrefix(code, newStage, contractDate) {
+  if (!code) return null;
+  if (!code.startsWith('C') && !code.startsWith('P')) return code;
+  const newPrefix = newStage === STAGE.NEGOTIATING ? 'C' : 'P';
+  const body = code.slice(5);
+  let ym = code.slice(1, 5);
+  if (newStage !== STAGE.NEGOTIATING && contractDate) {
+    const d = new Date(contractDate);
+    ym = String(d.getFullYear()).slice(2) + String(d.getMonth()+1).padStart(2,'0');
+  }
+  return newPrefix + ym + body;
+}
+
+// 获取项目目录名（包含项目编号）
+function getProjectDirName(p) {
+  const safeName = (p.name||'未命名').replace(/[\\/:*?"<>|]/g, '_');
+  return p.projectCode ? p.projectCode + '-' + safeName : safeName;
+}
+
+// 变更项目合同阶段
+function moveStage(id, newStage) {
+  const p = projects.find(x => x.id === id);
+  if (!p) return;
+  const oldStage   = p.stage;
+  const oldDirName = getProjectDirName(p);
+  p.stage = newStage;
+  const ts = new Date();
+  p.updatedAt = `${ts.getFullYear()}-${String(ts.getMonth()+1).padStart(2,'0')}-${String(ts.getDate()).padStart(2,'0')} ${String(ts.getHours()).padStart(2,'0')}:${String(ts.getMinutes()).padStart(2,'0')}`;
+  if (p.projectCode) {
+    const newCode = updateCodePrefix(p.projectCode, newStage, p.contractDate);
+    if (newCode !== p.projectCode) {
+      p.projectCode = newCode;
+      renameProjectDir(oldDirName, getProjectDirName(p));
+    }
+  }
+  if (oldStage === STAGE.NEGOTIATING && newStage === STAGE.DELIVERING) {
+    organizeFilesForProjectStart(p.id);
+  }
+  markProjectModified(id);
+  save();
+  refreshView();
+  if (newStage !== STAGE.NEGOTIATING && !p.contractDate) {
+    showToast('⚠️ 请补填合同签署日期（点击卡片→基本信息Tab）');
+  }
+}
+
+// 删除项目（移动至回收站）
+function deleteProject(id) {
+  const p = projects.find(x => x.id === id);
+  if (!p) return;
+  showConfirm({ icon:'🗑', title:'删除项目', msg:`确认将「${p.name}」移至回收站？您可以在回收站中恢复此项目。`, okText:'移至回收站',
+    onOk: async () => { await moveToRecycleBin(id); }
+  });
+}
+
+// 清空所有项目（包括回收站）
+async function clearAll() {
+  showConfirm({ icon:'🗑', title:'清空所有项目', msg:'将删除全部项目数据，不可撤销。', okText:'全部清空',
+    onOk: async () => {
+      projects = [];
+      recycleBin = [];
+      await db.clearRecycleBin();
+      const allProjects = await db.getProjects();
+      for (const project of allProjects) await db.deleteProject(project.id);
+      saveToLocalStorage();
+      save();
+      refreshView();
+      showToast('已清空');
+    }
+  });
+}
+
 // 导出模块
 export {
   STAGE,
@@ -738,5 +839,12 @@ export {
   emptyRecycleBin,
   renderRecycleBin,
   openRecycleBin,
-  closeRecycleBin
+  closeRecycleBin,
+  genIdCode,
+  genProjectCode,
+  updateCodePrefix,
+  getProjectDirName,
+  moveStage,
+  deleteProject,
+  clearAll,
 };

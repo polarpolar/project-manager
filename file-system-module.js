@@ -288,6 +288,11 @@ async function readDocxText(file) {
   return result.value;
 }
 
+// 打开文件系统根目录
+async function openFsRoot() {
+  await selectRootDir();
+}
+
 // 导出模块
 export {
   selectRootDir,
@@ -297,5 +302,8 @@ export {
   getProjectDir,
   renameProjectDir,
   readDocxText,
-  clearFileOperationCache
+  clearFileOperationCache,
+  previewFile,
+  deleteFile,
+  openFsRoot
 };
