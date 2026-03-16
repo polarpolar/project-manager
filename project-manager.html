@@ -5059,42 +5059,7 @@ async function openFolder(projectId, folderName) {
 }
 
 // AI 分类文件
-async function classifyFilesWithAI() {
-  const projectId = window.fsCurrentProjectId || window.currentEditProjectId;
-  if (!projectId) {
-    showToast('请先选择一个项目');
-    return;
-  }
-  
-  const p = window.projects.find(x => x.id === projectId);
-  if (!p) {
-    showToast('项目不存在');
-    return;
-  }
-  
-  if (!window.fsRootHandle) {
-    showToast('请先选择根目录');
-    return;
-  }
-  
-  // 显示加载状态
-  const loadingEl = document.getElementById('aiClassifyLoading');
-  const buttonEl = document.getElementById('aiClassifyBtn');
-  if (loadingEl) loadingEl.style.display = 'block';
-  if (buttonEl) buttonEl.disabled = true;
-  
-  try {
-    // 重新加载文件面板，触发 AI 分类
-    await loadFilePanel(projectId);
-    showToast('AI 分类完成');
-  } catch (e) {
-    showToast('AI 分类失败: ' + e.message);
-  } finally {
-    // 隐藏加载状态
-    if (loadingEl) loadingEl.style.display = 'none';
-    if (buttonEl) buttonEl.disabled = false;
-  }
-}
+
 
 // 拖拽事件处理
 let draggedItem = null;
