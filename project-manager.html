@@ -5099,60 +5099,7 @@ async function classifyFilesWithAI() {
 // 拖拽事件处理
 let draggedItem = null;
 
-function dragStart(event, fileName, fileType, isDirectory) {
-  event.dataTransfer.setData('text/plain', fileName);
-  event.dataTransfer.setData('fileType', fileType);
-  event.dataTransfer.setData('isDirectory', isDirectory);
-  draggedItem = { fileName, fileType, isDirectory };
-  event.target.style.opacity = '0.5';
-}
 
-function dragEnd(event) {
-  event.target.style.opacity = '1';
-  draggedItem = null;
-}
-
-function dragOver(event) {
-  event.preventDefault();
-  event.currentTarget.style.backgroundColor = 'rgba(123, 31, 162, 0.05)';
-}
-
-async function drop(event) {
-  event.preventDefault();
-  event.currentTarget.style.backgroundColor = 'transparent';
-  
-  const fileName = event.dataTransfer.getData('text/plain');
-  const fileType = event.dataTransfer.getData('fileType');
-  const isDirectory = event.dataTransfer.getData('isDirectory') === 'true';
-  const targetSection = event.currentTarget.dataset.sectionType;
-  
-  // 检查是否从其他文件区拖拽到上方文件区域
-  if (fileType === 'other' && (targetSection === 'contract' || targetSection === 'agreement' || targetSection === 'quote')) {
-    const projectId = fsCurrentProjectId || currentEditProjectId;
-    if (!projectId) {
-      showToast('请先选择一个项目');
-      return;
-    }
-    
-    const p = projects.find(x => x.id === projectId);
-    if (!p) {
-      showToast('项目不存在');
-      return;
-    }
-    
-    if (!window.fsRootHandle) {
-      showToast('请先选择根目录');
-      return;
-    }
-    
-    // 这里可以实现文件分类的逻辑
-    // 例如，将文件从其他文件区移动到目标分类区域
-    showToast(`已将 ${isDirectory ? '文件夹' : '文件'} "${fileName}" 移动到 ${targetSection === 'contract' ? '合同' : targetSection === 'agreement' ? '技术协议' : '报价'} 区域`);
-    
-    // 重新加载文件面板，更新显示
-    await loadFilePanel(projectId);
-  }
-}
 
 function renderFileSection(type, files, projectId, tagMap) {
   const gridId  = type + 'FileGrid';
@@ -6386,10 +6333,7 @@ async function openFsRoot() {
   await selectRootDir();
 }
 
-// 点击背景关闭文件面板
-document.getElementById('filePanel').addEventListener('click', e => {
-  if (e.target === e.currentTarget) closeFilePanel();
-});
+
 
 // ═══════════════════════════════════════════════════
 // Init
