@@ -49,6 +49,14 @@ async function loadModules() {
     // 加载导入模块
     const importModule = await import('./import-module.js');
     Object.assign(window, importModule);
+
+    // 加载 Modal 表单模块
+    const modalModule = await import('./modal-form.js');
+    Object.assign(window, modalModule);
+
+    // 加载文件识别分析模块
+    const fileAnalysisModule = await import('./file-analysis.js');
+    Object.assign(window, fileAnalysisModule);
     
     console.log('模块加载成功');
     return true;
@@ -73,6 +81,7 @@ async function initApp() {
       loadYuqueSettings();
       loadParseMode();
       document.getElementById('importOverlay').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeImport(); });
+      document.getElementById('overlay').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeModal(); });
 
       // 尝试恢复根目录
       const saved = await loadRootHandle();
