@@ -11,7 +11,7 @@ async function selectRootDir() {
     await saveRootHandle(window.fsRootHandle);
     updateRootBar();
     showToast('✅ 根目录已设置：' + window.fsRootHandle.name);
-    if (window.fsCurrentProjectId) await loadFilePanel(window.fsCurrentProjectId);
+    // if (window.fsCurrentProjectId) await loadFilePanel(window.fsCurrentProjectId);
     // 如果当前在本地文件标签页，更新显示
     if (window.currentEditProjectId) {
       const p = window.projects.find(x => x.id === window.currentEditProjectId);
@@ -150,7 +150,7 @@ async function uploadFiles(files, dir, projectId) {
     if (DEBUG) console.error('上传文件失败:', e);
     showToast('❌ 文件上传失败：' + e.message);
   } finally {
-    await loadFilePanel(projectId);
+    // await loadFilePanel(projectId);
   }
 }
 
@@ -198,7 +198,7 @@ async function deleteFile(projectId, fileNames) {
     if (DEBUG) console.error('删除文件失败:', e);
     showToast('❌ 文件删除失败：' + e.message);
   } finally {
-    await loadFilePanel(projectId);
+    // await loadFilePanel(projectId);
   }
 }
 
