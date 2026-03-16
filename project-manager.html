@@ -2956,6 +2956,10 @@ function saveProject() {
   }
 }
 
+// 从 header「📁 项目文件」入口：选择根目录
+async function openFsRoot() {
+  await selectRootDir();
+}
 
 // ═══════════════════════════════════════════════════
 // 项目编号生成
@@ -5037,26 +5041,7 @@ async function loadFilePanel(projectId) {
 }
 
 // 打开文件夹
-async function openFolder(projectId, folderName) {
-  const p = projects.find(x => x.id === projectId);
-  if (!p) return;
-  
-  if (!window.fsRootHandle) {
-    showToast('请先选择根目录');
-    return;
-  }
-  
-  const dir = await getProjectDir(getProjectDirName(p));
-  if (!dir) return;
-  
-  try {
-    const folderHandle = await dir.getDirectoryHandle(folderName, { create: false });
-    // 这里可以实现打开文件夹的逻辑，例如显示文件夹内容
-    showToast(`打开文件夹: ${folderName}`);
-  } catch (e) {
-    showToast('打开文件夹失败: ' + e.message);
-  }
-}
+
 
 // AI 分类文件
 
@@ -6191,25 +6176,7 @@ function getFileIcon(name) {
 }
 
 // 触发文件上传
-function triggerFileUpload() {
-  document.getElementById('fileUploadInput').click();
-}
 
-// 保存备注
-async function saveNote() {
-  const p = projects.find(x => x.id === fsCurrentProjectId);
-  if (!p) return;
-  const dir = await getProjectDir(p.name);
-  if (!dir) { showToast('❌ 请先选择根目录'); return; }
-  try {
-    const fh = await dir.getFileHandle('备注.txt', { create: true });
-    const writable = await fh.createWritable();
-    await writable.write(document.getElementById('fileNoteText').value);
-    await writable.close();
-    document.getElementById('fileNoteSaveStatus').textContent = '✅ 已保存 ' + new Date().toLocaleTimeString();
-    showToast('备注已保存');
-  } catch(e) { showToast('❌ 保存失败：' + e.message); }
-}
 
 function closePreview() {
   document.getElementById('filePreview').classList.remove('open');
@@ -6288,17 +6255,10 @@ async function organizeFilesForProjectStart(projectId) {
   }
 }
 
-function closeFilePanel() {
-  document.getElementById('filePanel').classList.remove('open');
-  fsCurrentProjectId = null;
-}
-
 // 从 header「📁 项目文件」入口：选择根目录
 async function openFsRoot() {
   await selectRootDir();
 }
-
-
 
 // ═══════════════════════════════════════════════════
 // Init
