@@ -4,6 +4,8 @@
 
 // ── 常量 ──────────────────────────────────
 
+const DEBUG = false;
+
 const STAGE_MAP_IMPORT = {
   '洽谈推进中':0,'洽谈中':0,'跟进中':0,
   '已签单·执行中':1,'已签单执行中':1,'已签单·回款中':1,'已执行·回款中':1,'已执行·汇款中':1,
@@ -124,7 +126,6 @@ async function parseExcel(buf, filename) {
     const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
     if (rows.length < 2) { showImportError('文件为空'); return; }
     const headers = rows[0].map(h => String(h).trim());
-    if (DEBUG) console.log('Excel解析开始:', { filename, rows: rows.length, headers });
 
     let colIdx = {};
     if (getParseMode() === 'ai') {
@@ -133,7 +134,6 @@ async function parseExcel(buf, filename) {
         const prompt = generateTablePrompt(headers, rows.slice(1, 4));
         const data = await claudeCall({ task: 'Excel列名识别', max_tokens: 1000, messages: [{ role: 'user', content: prompt }] });
         const text = data._parsed?.text || data.content?.[0]?.text || '';
-        if (DEBUG) console.log('AI响应:', text);
         const firstBrace = text.indexOf('{'), lastBrace = text.lastIndexOf('}');
         if (firstBrace !== -1 && lastBrace > firstBrace) {
           const mapping = JSON.parse(text.substring(firstBrace, lastBrace + 1));
@@ -143,7 +143,6 @@ async function parseExcel(buf, filename) {
           if (cb) { const mapping = JSON.parse(cb[0].replace(/```json|```/g, '').trim()); headers.forEach((h,i) => { if (mapping[h]) colIdx[mapping[h]] = i; }); }
         }
       } catch(e) {
-        if (DEBUG) console.log('AI识别失败，回退到固定映射:', e.message);
         headers.forEach((h, i) => { if (COL_MAP[h]) colIdx[COL_MAP[h]] = i; });
       }
     } else {
@@ -151,7 +150,6 @@ async function parseExcel(buf, filename) {
     }
 
     _findNameColIdx(headers, colIdx);
-    if (DEBUG) console.log('列映射结果:', colIdx);
 
     const filteredRows = rows.slice(1).filter(r => r.some(c => c !== ''));
     pendingImport = filteredRows.map(r => {
@@ -167,11 +165,8 @@ async function parseExcel(buf, filename) {
       });
       return _parseRowObj(obj);
     }).filter(p => p.name);
-
-    if (DEBUG) console.log('最终解析结果:', pendingImport.length, pendingImport);
     _renderImportPreview(filename);
   } catch(err) {
-    if (DEBUG) console.error('解析失败:', err);
     showImportError('解析失败：' + err.message);
   }
 }
@@ -229,6 +224,20 @@ function downloadTemplate() {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, '项目导入模板');
   XLSX.writeFile(wb, '项目导入模板.xlsx');
+}
+
+// 导出带项目编号的项目列表
+function exportExcelWithProjectCodes() {
+  if (!yuquePendingImport.length) { showToast('请先读取语雀文档'); return; }
+  const data = yuquePendingImport.map(p => ({
+    '项目名称': p.name,
+    '项目编号': p.projectCode || ''
+  }));
+  const ws = XLSX.utils.json_to_sheet(data);
+  ws['!cols'] = [{ wch: 30 }, { wch: 20 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '项目编号');
+  XLSX.writeFile(wb, '项目编号.xlsx');
 }
 
 function switchImportTab(tab) {
@@ -383,14 +392,17 @@ async function fetchYuqueDoc() {
     if (!content) throw new Error('文档正文为空，可能无权限或文档没有内容');
 
     let rawProjects;
+    
     if (doc.body_sheet) {
       if (getParseMode() === 'ai') {
         setYuqueStatus(`已读取「${docTitle}」，🤖 AI 正在解析…`, true);
         const sheetData = JSON.parse(doc.body_sheet);
-        rawProjects = await parseTableWithClaude(sheetData?.data?.[0]?.table || [], docTitle);
+        const result = await parseTableWithClaude(sheetData?.data?.[0]?.table || [], docTitle);
+        rawProjects = result.projects;
       } else {
         setYuqueStatus(`已读取「${docTitle}」，正在解析表格…`, true);
-        rawProjects = parseBodySheet(doc.body_sheet, docTitle);
+        const result = parseBodySheet(doc.body_sheet, docTitle);
+        rawProjects = result.projects;
       }
     } else {
       setYuqueStatus(`已读取「${docTitle}」，🤖 AI 正在解析…`, true);
@@ -405,6 +417,8 @@ async function fetchYuqueDoc() {
       todos: [], collectTasks: [], logs: [], active: 'active',
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
     }));
+    
+
 
     renderYuquePreview(docTitle);
   } catch(e) {
@@ -419,7 +433,11 @@ async function parseTableWithClaude(table, docTitle) {
   if (!table.length) throw new Error('表格为空');
   const headers    = table[0];
   const sampleRows = table.slice(1, 4);
-  if (DEBUG) console.log('语雀表格解析开始:', { headers, rows: table.length });
+
+  // 检查是否有项目编号列（保留供外部判断，暂不使用）
+  for (const h of headers) {
+    if (h?.includes('项目编号') || h?.includes('编号')) break;
+  }
 
   const prompt = `以下是项目管理表格的列名：\n${JSON.stringify(headers)}\n\n样本数据：\n${JSON.stringify(sampleRows)}\n\n请将列名映射到字段（不匹配跳过）：\n\n基本信息：\n- name: 项目名称\n- source: 项目来源/客户\n- owner: 负责人/销售\n- product: 产品选型/方案\n- desc: 项目简介/描述\n- stageLabel: 项目阶段/状态\n- active: 项目状态（active或inactive）\n- projectCode: 项目编号\n- contractDate: 合同签署日期\n\n财务信息：\n- quote: 报价金额（万元）\n- quote_yuan: 报价金额（元）\n- contract: 合同金额（万元）\n- contract_yuan: 合同金额（元）\n- cost: 成本评估（万元）\n- collected: 已回款（万元）\n\n只返回JSON对象，key是列名，value是字段名。`;
 
@@ -427,7 +445,6 @@ async function parseTableWithClaude(table, docTitle) {
   try {
     const data = await claudeCall({ task: '语雀表格列名识别', max_tokens: 1000, messages: [{ role: 'user', content: prompt }] });
     const text = data._parsed?.text || data.content?.[0]?.text || '';
-    if (DEBUG) console.log('AI响应:', text);
     const firstBrace = text.indexOf('{'), lastBrace = text.lastIndexOf('}');
     if (firstBrace !== -1 && lastBrace > firstBrace) {
       try { mapping = JSON.parse(text.substring(firstBrace, lastBrace + 1)); }
@@ -436,11 +453,10 @@ async function parseTableWithClaude(table, docTitle) {
         if (cb) try { mapping = JSON.parse(cb[0].replace(/```json|```/g,'').trim()); } catch(e2) {}
       }
     }
-  } catch(e) { if (DEBUG) console.error('AI调用失败:', e); }
+  } catch(e) {}
 
   // 回退到固定映射
   if (!Object.keys(mapping).length) {
-    if (DEBUG) console.log('使用固定映射');
     headers.forEach((h, i) => { if (COL_MAP[h?.trim()]) mapping[h] = COL_MAP[h.trim()]; });
     if (!Object.values(mapping).includes('name')) {
       const nameCol = headers.find(h => h?.includes('项目') && h?.includes('名称'))
@@ -451,7 +467,11 @@ async function parseTableWithClaude(table, docTitle) {
     }
   }
 
-  if (DEBUG) console.log('最终映射结果:', mapping);
+  // 确保项目编号列映射
+  if (!Object.values(mapping).includes('projectCode')) {
+    const codeCol = headers.find(h => h?.includes('项目编号') || h?.includes('编号'));
+    if (codeCol) mapping[codeCol] = 'projectCode';
+  }
 
   const result = table.slice(1).map(row => {
     const obj = {};
@@ -468,8 +488,7 @@ async function parseTableWithClaude(table, docTitle) {
   }).filter(p => p.name);
 
   if (!result.length) throw new Error('未能从表格中识别到项目数据，请确保表格包含项目名称列');
-  if (DEBUG) console.log('语雀表格解析结果:', result.length);
-  return result;
+  return { projects: result };
 }
 
 // 模板模式解析 lakesheet body_sheet
@@ -479,6 +498,7 @@ function parseBodySheet(bodySheetStr, docTitle) {
   const results   = [];
   const LOCAL_COL_MAP = {
     '项目名称': 'name', '名称': 'name',
+    '项目编号': 'projectCode', '编号': 'projectCode',
     '项目来源': 'channel', '来源': 'channel', '客户来源': 'channel',
     '客户名称': 'source', '客户': 'source',
     '负责人': 'owner', '销售': 'owner', '业务员': 'owner',
@@ -502,7 +522,14 @@ function parseBodySheet(bodySheetStr, docTitle) {
     if (table.length < 2) continue;
     const headers  = table[0];
     const colIndex = {};
-    headers.forEach((h, i) => { const key = LOCAL_COL_MAP[h?.trim()]; if (key) colIndex[key] = i; });
+    
+    headers.forEach((h, i) => { 
+      const key = LOCAL_COL_MAP[h?.trim()]; 
+      if (key) {
+        colIndex[key] = i;
+      }
+    });
+    
     if (!colIndex.name) continue;
 
     for (let r = 1; r < table.length; r++) {
@@ -527,7 +554,7 @@ function parseBodySheet(bodySheetStr, docTitle) {
     }
   }
   if (!results.length) throw new Error(`未在「${docTitle}」中找到项目数据`);
-  return results;
+  return { projects: results };
 }
 
 // AI 解析普通语雀文档
@@ -565,16 +592,32 @@ function renderYuquePreview(docTitle) {
   document.getElementById('btnConfirmYuque').style.display   = 'inline-block';
 }
 
-function confirmYuqueImport() {
+async function confirmYuqueImport() {
   if (!yuquePendingImport.length) return;
   let added = 0, updated = 0;
+
   yuquePendingImport.forEach(p => {
-    const idx = projects.findIndex(x => x.name === p.name);
-    if (idx >= 0) { projects[idx] = { ...projects[idx], ...p, id: projects[idx].id }; updated++; }
-    else { if (!p.projectCode) p.projectCode = genProjectCode(p.stage || 0, p.contractDate || ''); projects.push(p); added++; }
+    let idx = -1;
+    if (p.projectCode) {
+      idx = projects.findIndex(x => x.projectCode === p.projectCode);
+    }
+    if (idx === -1) {
+      idx = projects.findIndex(x => x.name === p.name);
+    }
+    if (idx >= 0) {
+      projects[idx] = { ...projects[idx], ...p, id: projects[idx].id };
+      updated++;
+    } else {
+      if (!p.projectCode) p.projectCode = genProjectCode(p.stage || 0, p.contractDate || '');
+      projects.push(p);
+      added++;
+    }
   });
-  closeImport(); save(); refreshView();
+
+  document.getElementById('btnExportProjectCodes').style.display = 'inline-block';
   showToast(`语雀导入：新增 ${added} 个，更新 ${updated} 个`);
+  exportExcelWithProjectCodes(); // 自动触发下载
+  closeImport(); save(); refreshView();
 }
 
 // ── Excel 文本读取（供文件识别模块使用）──
@@ -592,7 +635,6 @@ async function readExcelText(file) {
     });
     return text;
   } catch(e) {
-    if (DEBUG) console.error('读取Excel失败:', e);
     return '【Excel读取失败】';
   }
 }
@@ -607,6 +649,7 @@ export {
   showImportError,
   confirmImport,
   downloadTemplate,
+  exportExcelWithProjectCodes,
   switchImportTab,
   // 解析模式
   getParseMode,

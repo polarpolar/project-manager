@@ -93,7 +93,8 @@
   .sb-sep { height:1px; background:rgba(255,255,255,.07); margin:5px 8px; }
 
   /* 旧 header btn 兼容（不再用，保留防报错） */
-  .btn-hdr, .btn-hdr-primary, .btn-hdr-ghost, .btn-hdr-danger { display:none; }
+  /* .btn-hdr, .btn-hdr-primary, .btn-hdr-danger { display:none; } */
+  .btn-hdr-ghost { display:none; }
 
   /* ── 右侧内容区 ── */
   #content { flex:1; min-width:0; display:flex; flex-direction:column; background:var(--paper); }
@@ -329,6 +330,8 @@
   .btn-cancel:hover { border-color:#aaa; }
   .btn-save { padding:9px 28px; background:var(--accent); color:#fff; border:none; border-radius:7px; cursor:pointer; font-size:.82rem; font-family:inherit; font-weight:600; transition:all .2s; }
   .btn-save:hover { background:var(--accent2); }
+  .btn-export { padding:9px 22px; background:var(--s1); color:#fff; border:none; border-radius:7px; cursor:pointer; font-size:.82rem; font-family:inherit; font-weight:600; transition:all .2s; }
+  .btn-export:hover { background:var(--s2); }
 
   /* ── 确认弹窗 ── */
   .confirm-overlay { display:none; position:fixed; inset:0; background:rgba(10,5,20,.6); z-index:500; align-items:center; justify-content:center; padding:20px; }
@@ -916,6 +919,7 @@
 
       <div class="import-footer">
         <button class="btn-cancel" onclick="closeImport()">关闭</button>
+        <button class="btn-export btn-hdr-ghost" id="btnExportProjectCodes" style="display:none;padding:8px 16px" onclick="exportExcelWithProjectCodes()">📤 下载项目编号</button>
         <button class="btn-save" id="btnConfirmYuque" style="display:none;background:var(--s2)" onclick="confirmYuqueImport()">✅ 确认导入</button>
       </div>
     </div>
