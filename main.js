@@ -55,7 +55,7 @@ async function loadModules() {
     Object.assign(window, modalModule);
 
     // 加载文件识别分析模块
-    const fileAnalysisModule = await import('./file-analysis.js');
+    const fileAnalysisModule = await import('./file-analysis.js?v=2');
     Object.assign(window, fileAnalysisModule);
     
     console.log('模块加载成功');
@@ -91,7 +91,7 @@ async function initApp() {
       if (saved) {
         try {
           const perm = await saved.queryPermission({ mode: 'readwrite' });
-          if (perm === 'granted') { window.fsRootHandle = saved; updateRootBar(); }
+          if (perm === 'granted') { window.fsRootHandle = saved; updateRootBar(); await initProjectDirMap(); }
         } catch(e) {}
       }
     } else {

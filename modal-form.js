@@ -126,6 +126,7 @@ function onContractDateChange() {
 }
 
 function switchModalTab(tab, el) {
+  console.log('switchModalTab called:', tab, 'currentEditProjectId:', currentEditProjectId);
   document.querySelectorAll('.m-tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.m-tab-body').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
@@ -133,33 +134,34 @@ function switchModalTab(tab, el) {
   
   // 切换到本地文件标签页时更新目录显示和模块显示
   if (tab === 'files' && currentEditProjectId) {
+    console.log('切换到文件标签页，准备加载文件面板');
+    updateRootBar(currentEditProjectId);
+    
     const p = projects.find(x => x.id === currentEditProjectId);
-    if (p) {
-      updateRootBar(getProjectDirName(p));
-      
-      // 根据项目阶段显示或隐藏不同的文件模块
-      const contractSection = document.getElementById('modalContractSection');
-      const agreementSection = document.getElementById('modalAgreementSection');
-      const techPlanSection = document.getElementById('modalTechPlanSection');
-      const quoteSection = document.getElementById('modalQuoteSection');
-      
-      if (p.stage === STAGE.NEGOTIATING || p.stage === STAGE.TERMINATED) {
-        // 洽谈中项目和已终止项目：显示技术方案、方案报价和其他文件模块
-        if (contractSection) contractSection.style.display = 'none';
-        if (agreementSection) agreementSection.style.display = 'none';
-        if (techPlanSection) techPlanSection.style.display = 'block';
-        if (quoteSection) quoteSection.style.display = 'block';
-      } else if (p.stage === STAGE.DELIVERING || p.stage === STAGE.COMPLETED) {
-        // 执行中项目和已完结项目：显示合同、技术协议和其他文件模块
-        if (contractSection) contractSection.style.display = 'block';
-        if (agreementSection) agreementSection.style.display = 'block';
-        if (techPlanSection) techPlanSection.style.display = 'none';
-        if (quoteSection) quoteSection.style.display = 'none';
-      }
-      
-      // 加载项目文件
-      loadModalFilePanel(p.id);
+    if (!p) return;
+    
+    // 根据项目阶段显示或隐藏不同的文件模块
+    const contractSection = document.getElementById('modalContractSection');
+    const agreementSection = document.getElementById('modalAgreementSection');
+    const techPlanSection = document.getElementById('modalTechPlanSection');
+    const quoteSection = document.getElementById('modalQuoteSection');
+    
+    if (p.stage === STAGE.NEGOTIATING || p.stage === STAGE.TERMINATED) {
+      // 洽谈中项目和已终止项目：显示技术方案、方案报价和其他文件模块
+      if (contractSection) contractSection.style.display = 'none';
+      if (agreementSection) agreementSection.style.display = 'none';
+      if (techPlanSection) techPlanSection.style.display = 'block';
+      if (quoteSection) quoteSection.style.display = 'block';
+    } else if (p.stage === STAGE.DELIVERING || p.stage === STAGE.COMPLETED) {
+      // 执行中项目和已完结项目：显示合同、技术协议和其他文件模块
+      if (contractSection) contractSection.style.display = 'block';
+      if (agreementSection) agreementSection.style.display = 'block';
+      if (techPlanSection) techPlanSection.style.display = 'none';
+      if (quoteSection) quoteSection.style.display = 'none';
     }
+    
+    // 加载项目文件
+    loadModalFilePanel(p.id);
   }
 }
 
@@ -987,7 +989,7 @@ function editProject(id) {
     
     // 17. 设置当前编辑项目ID并更新本地文件目录显示
     currentEditProjectId = id;
-    updateRootBar(getProjectDirName(p));
+    updateRootBar(currentEditProjectId);
   });
 }
 
@@ -997,7 +999,7 @@ function closeModal() {
   currentEditProjectId = null; 
 }
 
-function saveProject() {
+async function saveProject() {
   // 显示加载状态
   const saveBtn = document.getElementById('btn-save');
   if (saveBtn) {
@@ -1149,13 +1151,32 @@ function saveProject() {
     const newDirName = getProjectDirName(projects[idx]);
     if (oldDirName !== newDirName) renameProjectDir(oldDirName, newDirName);
   } else {
-    data.id   = Date.now().toString(36)+Math.random().toString(36).slice(2,6);
     data.logs = logText ? [{time:ts,text:logText}] : [];
     data.projectCode  = genProjectCode(stage, contractDate);
     data.contractDate = contractDate;
+    // 使用唯一代码作为项目 id
+    data.id = data.projectCode.slice(-4);
     projects.push(data);
     // 标记新项目为已修改
     markProjectModified(data.id);
+
+    // 新建项目时自动创建或关联文件夹
+    if (window.fsRootHandle) {
+      // 先尝试匹配已有文件夹
+      const candidates = await matchExistingDirs(data.name, data.channel);
+      if (candidates.length > 0) {
+        // 有匹配的文件夹，询问用户
+        const choice = confirm(`检测到可能匹配的文件夹「${candidates[0].dirName}」，是否关联？\n\n确定：关联现有文件夹\n取消：新建文件夹`);
+        if (choice) {
+          await linkProjectDir(data.id, candidates[0].dirHandle);
+        } else {
+          await createProjectDir(data);
+        }
+      } else {
+        // 没有匹配的文件夹，直接创建
+        await createProjectDir(data);
+      }
+    }
   }
   
   const isEditing = !!editingId;
@@ -1301,10 +1322,6 @@ function saveProject() {
     saveBtn.innerHTML = '保存';
   }
 }
-
-
-
-
 
 
 // ══════════════════════════════════════════

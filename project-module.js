@@ -714,10 +714,27 @@ function updateCodePrefix(code, newStage, contractDate) {
   return newPrefix + ym + uniqueCode;
 }
 
-// 获取项目目录名（包含项目编号）
+// 获取项目目录名（文件夹命名规则：{项目来源}{日期}-{项目名称}）
 function getProjectDirName(p) {
-  const safeName = (p.name||'未命名').replace(/[\\/:*?"<>|]/g, '_');
-  return p.projectCode ? p.projectCode + '-' + safeName : safeName;
+  const channel = p.channel || '';
+  let dateStr = '';
+
+  if (p.contractDate) {
+    const d = new Date(p.contractDate);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    dateStr = `${yyyy}${mm}${dd}`;
+  } else {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    dateStr = `${yyyy}${mm}${dd}`;
+  }
+
+  const name = (p.name || '未命名').replace(/[\\/:*?"<>|]/g, '_');
+  return channel + dateStr + '-' + name;
 }
 
 // 变更项目合同阶段

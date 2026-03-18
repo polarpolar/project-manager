@@ -49,10 +49,15 @@ let fsCurrentProjectId = null; // 当前打开的项目ID
 
 // 加载项目编辑页面的文件
 async function loadModalFilePanel(projectId) {
+  console.log('loadModalFilePanel called with projectId:', projectId);
   const p = projects.find(x => x.id === projectId);
-  if (!p) return;
+  if (!p) {
+    console.log('项目未找到');
+    return;
+  }
 
   if (!window.fsRootHandle) {
+    console.log('根目录未配置');
     // 根目录未配置，清空所有文件网格
     ['modalContractFileGrid', 'modalAgreementFileGrid', 'modalTechPlanFileGrid', 'modalQuoteFileGrid', 'modalOtherFileGrid'].forEach(id => {
       const grid = document.getElementById(id);
@@ -61,14 +66,16 @@ async function loadModalFilePanel(projectId) {
     return;
   }
 
-  const dir = await getProjectDir(getProjectDirName(p));
+  const dir = await getProjectDirById(p.id);
+  console.log('getProjectDirById result:', dir);
   if (!dir) {
     // 项目文件夹不存在，显示错误信息
+    const dirName = await getProjectDirNameById(p.id);
     ['modalContractFileGrid', 'modalAgreementFileGrid', 'modalTechPlanFileGrid', 'modalQuoteFileGrid', 'modalOtherFileGrid'].forEach(id => {
       const grid = document.getElementById(id);
       if (grid) grid.innerHTML = '<div class="file-section-empty">项目文件夹不存在</div>';
     });
-    showToast(`项目文件夹不存在：${getProjectDirName(p)}`);
+    showToast(`项目文件夹不存在`);
     return;
   }
 
@@ -391,9 +398,9 @@ async function analyzeContractsForPayment() {
     btn.style.opacity = '0.5';
   }
   
-  const dir = await getProjectDir(getProjectDirName(p));
+  const dir = await getProjectDirById(p.id);
   if (!dir) {
-    showToast(`项目文件夹不存在：${getProjectDirName(p)}`);
+    showToast('项目文件夹不存在');
     // 启用按钮
     if (btn) {
       btn.disabled = false;
@@ -547,9 +554,9 @@ async function analyzeContractsForDelivery() {
     return;
   }
   
-  const dir = await getProjectDir(getProjectDirName(p));
+  const dir = await getProjectDirById(p.id);
   if (!dir) {
-    showToast(`项目文件夹不存在：${getProjectDirName(p)}`);
+    showToast('项目文件夹不存在');
     // 启用按钮
     if (btn) {
       btn.disabled = false;
@@ -788,12 +795,12 @@ async function analyzeContracts() {
     return;
   }
   
-  const dir = await getProjectDir(getProjectDirName(p));
+  const dir = await getProjectDirById(p.id);
   if (DEBUG) console.log('项目目录:', dir);
   
   if (!dir) {
     if (DEBUG) console.log('未找到项目目录');
-    showToast(`未找到项目目录：${getProjectDirName(p)}`);
+    showToast('项目文件夹不存在');
     // 启用按钮
     btn.disabled = false;
     btn.style.opacity = '1';
@@ -950,9 +957,9 @@ async function analyzeAgreements() {
     }
     return;
   }
-  const dir = await getProjectDir(getProjectDirName(p));
+  const dir = await getProjectDirById(p.id);
   if (!dir) {
-    showToast(`未找到项目目录：${getProjectDirName(p)}`);
+    showToast('项目文件夹不存在');
     // 启用按钮
     btn.disabled = false;
     btn.style.opacity = '1';
@@ -1072,9 +1079,9 @@ async function analyzeQuotes() {
     }
     return;
   }
-  const dir = await getProjectDir(getProjectDirName(p));
+  const dir = await getProjectDirById(p.id);
   if (!dir) {
-    showToast(`未找到项目目录：${getProjectDirName(p)}`);
+    showToast('项目文件夹不存在');
     // 启用按钮
     btn.disabled = false;
     btn.style.opacity = '1';
@@ -1726,7 +1733,7 @@ async function organizeFilesForProjectStart(projectId) {
   if (!p) return;
   
   try {
-    const dir = await getProjectDir(p.name);
+    const dir = await getProjectDirById(p.id);
     if (!dir) return;
     
     // 创建立项材料子文件夹

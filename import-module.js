@@ -44,7 +44,9 @@ let yuquePendingImport = [];
 
 // ── Excel 导入 ────────────────────────────
 
-function openImport()  { document.getElementById('importOverlay').classList.add('show'); }
+function openImport()  { 
+  document.getElementById('importOverlay').classList.add('show'); 
+}
 function closeImport() { document.getElementById('importOverlay').classList.remove('show'); pendingImport = []; }
 
 function initImportDropZone() {
@@ -114,7 +116,6 @@ function _parseRowObj(obj) {
     : [];
 
   delete obj.stageLabel;
-  obj.id     = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   obj.active = obj.active || 'active';
   return obj;
 }
@@ -245,7 +246,7 @@ function showImportError(msg) {
   document.getElementById('dropText').innerHTML = `<span style="color:var(--sc)">⚠️ ${msg}</span>`;
 }
 
-function confirmImport() {
+async function confirmImport() {
   if (!pendingImport.length) return;
   let added = 0, updated = 0;
   let hasNewCodeGenerated = false; // 是否有新生成的唯一代码
@@ -308,9 +309,13 @@ function confirmImport() {
         }
 
         p.projectCode = prefix + ym + uniqueCode;
+        // 使用唯一代码作为项目 id
+        p.id = uniqueCode;
       } else if (p.uniqueCode && !usedCodesInThisImport.has(p.projectCode)) {
         // 有 uniqueCode 但没有完整 projectCode 的情况（使用已有代码）
         usedCodesInThisImport.add(p.projectCode);
+        // 使用唯一代码作为项目 id
+        p.id = p.uniqueCode;
       }
 
       projects.push(p);
@@ -318,6 +323,33 @@ function confirmImport() {
     }
   });
   closeImport(); save(); refreshView();
+
+  // 导入完成后自动关联文件夹
+  if (window.fsRootHandle && added > 0) {
+    // 从 projects 中获取实际保存的项目
+    const newlyAdded = projects.slice(-added);
+    if (DEBUG) console.log('准备关联文件夹，新增项目数：', added, newlyAdded);
+    for (const p of newlyAdded) {
+      if (DEBUG) console.log('处理项目：', p.name, 'id:', p.id);
+      // 检查是否已有关联
+      const existingDir = await getProjectDirById(p.id);
+      if (existingDir) continue;
+
+      // 尝试匹配文件夹
+      const candidates = await matchExistingDirs(p.name, p.channel);
+      if (candidates.length > 0) {
+        const choice = confirm(`项目「${p.name}」检测到可能匹配的文件夹「${candidates[0].dirName}」，是否关联？\n\n确定：关联现有文件夹\n取消：新建文件夹`);
+        if (choice) {
+          await linkProjectDir(p.id, candidates[0].dirHandle);
+        } else {
+          await createProjectDir(p);
+        }
+      } else {
+        await createProjectDir(p);
+      }
+    }
+  }
+
   showToast(`导入完成：新增 ${added} 个，更新 ${updated} 个`);
 
   // 有新生成的唯一代码时导出
@@ -526,8 +558,7 @@ async function fetchYuqueDoc() {
     yuquePendingImport = rawProjects.filter(p => p.name).map(p => ({
       ...p,
       stage: typeof p.stage === 'number' ? p.stage : (STAGE_MAP_YUQUE[p.stage] ?? 0),
-      todos: [], collectTasks: [], logs: [], active: 'active',
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
+      todos: [], collectTasks: [], logs: [], active: 'active'
     }));
     
 
@@ -810,8 +841,10 @@ async function confirmYuqueImport() {
         usedCodesInThisImport.add(p.projectCode);
       }
 
+      // 使用唯一代码作为项目 id
+      p.id = p.projectCode.slice(-4);
       projects.push(p);
-      importedNames.push({ name: p.name, projectCode: p.projectCode });
+      importedNames.push({ name: p.name, projectCode: p.projectCode, id: p.id });
       added++;
     }
   });
@@ -824,6 +857,33 @@ async function confirmYuqueImport() {
       '唯一代码': item.projectCode ? item.projectCode.slice(-4) : ''
     }));
     exportExcelWithProjectCodes(exportData);
+  }
+
+  // 导入完成后自动关联文件夹
+  if (window.fsRootHandle) {
+    // 用 projectCode 查找 projects 中的项目
+    const importedProjects = yuquePendingImport.map(p =>
+      projects.find(x => x.projectCode === p.projectCode)
+    ).filter(Boolean);
+
+    for (const p of importedProjects) {  
+      // 检查是否已有关联
+      const existingDir = await getProjectDirById(p.id);
+      if (existingDir) continue;
+
+      // 尝试匹配文件夹
+      const candidates = await matchExistingDirs(p.name, p.channel);
+      if (candidates.length > 0) {
+        const choice = confirm(`项目「${p.name}」检测到可能匹配的文件夹「${candidates[0].dirName}」，是否关联？\n\n确定：关联现有文件夹\n取消：新建文件夹`);
+        if (choice) {
+          await linkProjectDir(p.id, candidates[0].dirHandle);
+        } else {
+          await createProjectDir(p);
+        }
+      } else {
+        await createProjectDir(p);
+      }
+    }
   }
 
   showToast(`语雀导入：新增 ${added} 个，更新 ${updated} 个`);
