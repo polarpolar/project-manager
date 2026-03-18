@@ -23,7 +23,7 @@ const COL_MAP = {
   '合同金额':     'contract','合同金额(万元)':'contract','合同金额(元)':'contract_yuan','合同金额/元':'contract_yuan',
   '成本评估':     'cost',  '成本评估(万元)':'cost','成本评估(元)':'cost_yuan',
   '已回款金额(万元)':'collected','已回款金额':'collected',
-  '合同签署日期': 'contractDate', '合同日期': 'contractDate', '签署日期': 'contractDate',
+  '合同签署日期': 'contractDate', '合同日期': 'contractDate', '签署日期': 'contractDate', '合同时间': 'contractDate', '签单时间': 'contractDate', '签约日期': 'contractDate',
   '待办事项':     'todosRaw','待办事项(用|分隔)':'todosRaw'
 };
 
@@ -171,10 +171,33 @@ async function parseExcel(buf, filename) {
   }
 }
 
+// 判断项目数据是否有实质性的变化（排除空值和无关字段）
+function hasProjectChanged(existing, incoming) {
+  const importantFields = ['name', 'source', 'owner', 'product', 'desc', 'stage', 'quote', 'contract', 'cost', 'collected', 'channel', 'contractDate'];
+
+  for (const field of importantFields) {
+    const existingVal = existing[field];
+    const incomingVal = incoming[field];
+
+    // 如果两边都有值且不相等，说明有变化
+    if (existingVal && incomingVal && String(existingVal).trim() !== String(incomingVal).trim()) {
+      return true;
+    }
+    // 如果一边有值一边没值，也算变化
+    if ((existingVal && !incomingVal) || (!existingVal && incomingVal)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function _renderImportPreview(filename) {
-  const existNames  = new Set(projects.map(p => p.name));
+  // 判断项目是新增还是更新：通过唯一代码或项目编号匹配
+  const existCodes = new Set(projects.map(p => p.projectCode).filter(Boolean));
+  const existUniqueCodes = new Set(projects.map(p => p.projectCode ? p.projectCode.slice(-4) : null).filter(Boolean));
+
   const stageNames  = ['洽谈中','已签单·执行中','已完结'];
-  const fieldLabels = { name:'项目名称', stage:'阶段', channel:'项目来源', source:'客户名称', owner:'负责人', product:'产品选型', desc:'项目简介', quote:'报价（万）', contract:'合同（万）', cost:'成本（万）', collected:'已回款（万）', projectCode:'项目编号', contractDate:'合同日期', deliveryBrief:'交付内容', deliveryNote:'交付详情' };
+  const fieldLabels = { name:'项目名称', stage:'阶段', channel:'项目来源', source:'客户名称', owner:'负责人', product:'产品选型', desc:'项目简介', quote:'报价（万）', contract:'合同（万）', cost:'成本（万）', collected:'已回款（万）', projectCode:'项目编号', uniqueCode:'唯一代码', contractDate:'合同日期', deliveryBrief:'交付内容', deliveryNote:'交付详情' };
   const SKIP = new Set(['id','todos','collectTasks','logs','active']);
 
   const fieldStats = {};
@@ -187,7 +210,25 @@ function _renderImportPreview(filename) {
   document.getElementById('importHead').innerHTML = '<tr><th>状态</th>' + visibleFields.map(f => `<th>${fieldLabels[f] || f}</th>`).join('') + '</tr>';
 
   let bodyHtml = pendingImport.slice(0, 10).map(p => {
-    return '<tr><td>' + (existNames.has(p.name) ? '<span class="tag-update">↻ 更新</span>' : '<span class="tag-new">＋ 新增</span>') + '</td>'
+    // 通过唯一代码判断是否已存在
+    let isExisting = (p.uniqueCode && existUniqueCodes.has(p.uniqueCode)) ||
+                     (p.projectCode && existCodes.has(p.projectCode));
+    let statusTag = '<span class="tag-new">＋ 新增</span>';
+
+    if (isExisting) {
+      // 找到现有项目，判断是否有实质变化
+      const existingProject = projects.find(x =>
+        (p.uniqueCode && x.projectCode && x.projectCode.endsWith(p.uniqueCode)) ||
+        (p.projectCode && x.projectCode === p.projectCode)
+      );
+      if (existingProject && hasProjectChanged(existingProject, p)) {
+        statusTag = '<span class="tag-update">↻ 更新</span>';
+      } else {
+        statusTag = '<span class="tag-unchanged">＝ 无变化</span>';
+      }
+    }
+
+    return '<tr><td>' + statusTag + '</td>'
       + visibleFields.map(f => `<td>${f === 'stage' ? (stageNames[p.stage] || '-') : (String(p[f] || '').trim() || '-')}</td>`).join('') + '</tr>';
   }).join('');
   if (pendingImport.length > 10) bodyHtml += `<tr><td colspan="${visibleFields.length + 1}" style="text-align:center;color:#aaa">…还有${pendingImport.length - 10}条</td></tr>`;
@@ -207,13 +248,85 @@ function showImportError(msg) {
 function confirmImport() {
   if (!pendingImport.length) return;
   let added = 0, updated = 0;
+  let hasNewCodeGenerated = false; // 是否有新生成的唯一代码
+
+  // 本次导入中已生成的唯一代码集合
+  const usedCodesInThisImport = new Set();
+
   pendingImport.forEach(p => {
-    const idx = projects.findIndex(x => x.name === p.name);
-    if (idx >= 0) { projects[idx] = { ...projects[idx], ...p, id: projects[idx].id }; updated++; }
-    else { if (!p.projectCode) p.projectCode = genProjectCode(p.stage || 0, p.contractDate || ''); projects.push(p); added++; }
+    let idx = -1;
+    // 优先通过唯一代码匹配
+    if (p.uniqueCode) {
+      idx = projects.findIndex(x => x.projectCode && x.projectCode.endsWith(p.uniqueCode));
+    }
+    // 其次通过完整项目编号匹配
+    if (idx === -1 && p.projectCode) {
+      idx = projects.findIndex(x => x.projectCode === p.projectCode);
+    }
+    // 注意：没有唯一代码的项目视为新项目，不通过项目名称匹配
+
+    if (idx >= 0) {
+      // 更新时保留原有唯一代码
+      const oldCode = projects[idx].projectCode || '';
+      const oldUniqueCode = oldCode.slice(-4);
+      if (p.projectCode && !p.projectCode.endsWith(oldUniqueCode)) {
+        p.projectCode = p.projectCode.slice(0, -4) + oldUniqueCode;
+      }
+      projects[idx] = { ...projects[idx], ...p, id: projects[idx].id };
+      updated++;
+    } else {
+      // 新项目：如果有 uniqueCode 则使用它，否则生成新的
+      if (!p.projectCode) {
+        const stage = p.stage || 0;
+        const contractDate = p.contractDate || '';
+        const now = new Date();
+        let ym;
+        if (stage === 0) {
+          ym = String(now.getFullYear()).slice(2) + String(now.getMonth()+1).padStart(2,'0');
+        } else {
+          const d = contractDate ? new Date(contractDate) : now;
+          ym = String(d.getFullYear()).slice(2) + String(d.getMonth()+1).padStart(2,'0');
+        }
+        const prefix = stage === 0 ? 'C' : 'P';
+
+        // 如果有 uniqueCode 则使用它，否则生成新的
+        let uniqueCode = p.uniqueCode;
+        if (!uniqueCode) {
+          // 生成新代码
+          hasNewCodeGenerated = true;
+          // 检查系统中和本次导入中是否已存在相同代码
+          let attempt = 0;
+          do {
+            uniqueCode = genIdCode();
+            attempt++;
+          } while (
+            (projects.some(x => x.projectCode === prefix + ym + uniqueCode) ||
+             usedCodesInThisImport.has(prefix + ym + uniqueCode)) &&
+            attempt < 100
+          );
+          usedCodesInThisImport.add(prefix + ym + uniqueCode);
+        }
+
+        p.projectCode = prefix + ym + uniqueCode;
+      } else if (p.uniqueCode && !usedCodesInThisImport.has(p.projectCode)) {
+        // 有 uniqueCode 但没有完整 projectCode 的情况（使用已有代码）
+        usedCodesInThisImport.add(p.projectCode);
+      }
+
+      projects.push(p);
+      added++;
+    }
   });
   closeImport(); save(); refreshView();
   showToast(`导入完成：新增 ${added} 个，更新 ${updated} 个`);
+
+  // 有新生成的唯一代码时导出
+  if (hasNewCodeGenerated) {
+    exportExcelWithProjectCodes(pendingImport.map(p => ({
+      '项目名称': p.name,
+      '唯一代码': p.projectCode ? p.projectCode.slice(-4) : ''
+    })));
+  }
 }
 
 function downloadTemplate() {
@@ -226,18 +339,17 @@ function downloadTemplate() {
   XLSX.writeFile(wb, '项目导入模板.xlsx');
 }
 
-// 导出带项目编号的项目列表
-function exportExcelWithProjectCodes() {
-  if (!yuquePendingImport.length) { showToast('请先读取语雀文档'); return; }
-  const data = yuquePendingImport.map(p => ({
+// 导出带项目唯一代码的项目列表
+function exportExcelWithProjectCodes(data) {
+  const exportData = data || yuquePendingImport.map(p => ({
     '项目名称': p.name,
-    '项目编号': p.projectCode || ''
+    '唯一代码': p.projectCode ? p.projectCode.slice(-4) : ''
   }));
-  const ws = XLSX.utils.json_to_sheet(data);
+  const ws = XLSX.utils.json_to_sheet(exportData);
   ws['!cols'] = [{ wch: 30 }, { wch: 20 }];
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, '项目编号');
-  XLSX.writeFile(wb, '项目编号.xlsx');
+  XLSX.utils.book_append_sheet(wb, ws, '唯一代码');
+  XLSX.writeFile(wb, '项目唯一代码.xlsx');
 }
 
 function switchImportTab(tab) {
@@ -439,7 +551,7 @@ async function parseTableWithClaude(table, docTitle) {
     if (h?.includes('项目编号') || h?.includes('编号')) break;
   }
 
-  const prompt = `以下是项目管理表格的列名：\n${JSON.stringify(headers)}\n\n样本数据：\n${JSON.stringify(sampleRows)}\n\n请将列名映射到字段（不匹配跳过）：\n\n基本信息：\n- name: 项目名称\n- source: 项目来源/客户\n- owner: 负责人/销售\n- product: 产品选型/方案\n- desc: 项目简介/描述\n- stageLabel: 项目阶段/状态\n- active: 项目状态（active或inactive）\n- projectCode: 项目编号\n- contractDate: 合同签署日期\n\n财务信息：\n- quote: 报价金额（万元）\n- quote_yuan: 报价金额（元）\n- contract: 合同金额（万元）\n- contract_yuan: 合同金额（元）\n- cost: 成本评估（万元）\n- collected: 已回款（万元）\n\n只返回JSON对象，key是列名，value是字段名。`;
+  const prompt = `以下是项目管理表格的列名：\n${JSON.stringify(headers)}\n\n样本数据：\n${JSON.stringify(sampleRows)}\n\n请将列名映射到字段（不匹配跳过）：\n\n基本信息：\n- name: 项目名称\n- source: 项目来源/客户\n- owner: 负责人/销售\n- product: 产品选型/方案\n- desc: 项目简介/描述\n- stageLabel: 项目阶段/状态\n- active: 项目状态（active或inactive）\n- projectCode: 项目编号\n- uniqueCode: 项目唯一代码/唯一代码\n- contractDate: 合同签署日期/合同时间/签单时间/签约日期（注意：不是对接时间、交付时间、开始时间等）\n\n财务信息：\n- quote: 报价金额（万元）\n- quote_yuan: 报价金额（元）\n- contract: 合同金额（万元）\n- contract_yuan: 合同金额（元）\n- cost: 成本评估（万元）\n- cost_yuan: 成本评估（元）\n- collected: 已回款（万元）\n\n只返回JSON对象，key是列名，value是字段名。`;
 
   let mapping = {};
   try {
@@ -473,6 +585,12 @@ async function parseTableWithClaude(table, docTitle) {
     if (codeCol) mapping[codeCol] = 'projectCode';
   }
 
+  // 确保唯一代码列映射
+  if (!Object.values(mapping).includes('uniqueCode')) {
+    const uniqueCol = headers.find(h => h?.includes('唯一代码') || h?.includes('项目唯一代码'));
+    if (uniqueCol) mapping[uniqueCol] = 'uniqueCode';
+  }
+
   const result = table.slice(1).map(row => {
     const obj = {};
     headers.forEach((h, i) => {
@@ -499,13 +617,14 @@ function parseBodySheet(bodySheetStr, docTitle) {
   const LOCAL_COL_MAP = {
     '项目名称': 'name', '名称': 'name',
     '项目编号': 'projectCode', '编号': 'projectCode',
+    '唯一代码': 'uniqueCode', '项目唯一代码': 'uniqueCode', '代码': 'uniqueCode',
     '项目来源': 'channel', '来源': 'channel', '客户来源': 'channel',
     '客户名称': 'source', '客户': 'source',
     '负责人': 'owner', '销售': 'owner', '业务员': 'owner',
     '产品选型': 'product', '产品': 'product', '方案': 'product',
     '项目简介': 'desc', '简介': 'desc', '描述': 'desc', '备注': 'desc',
     '项目阶段': 'stage', '阶段': 'stage', '状态': 'stage',
-    '合同签署日期': 'contractDate', '合同日期': 'contractDate', '签署日期': 'contractDate',
+    '合同签署日期': 'contractDate', '合同日期': 'contractDate', '签署日期': 'contractDate', '合同时间': 'contractDate', '签单时间': 'contractDate', '签约日期': 'contractDate',
     '报价金额': 'quote', '报价': 'quote', '报价金额(万元)': 'quote', '报价金额（万元）': 'quote',
     '合同金额': 'contract', '合同': 'contract', '合同金额(万元)': 'contract', '合同金额（万元）': 'contract',
     '成本评估': 'cost', '成本': 'cost', '成本评估(万元)': 'cost', '成本评估（万元）': 'cost',
@@ -573,9 +692,12 @@ function renderYuquePreview(docTitle) {
   if (!yuquePendingImport.length) { setYuqueStatus('⚠️ 未识别到项目数据', false, true); return; }
   setYuqueStatus(`✅ 从「${docTitle}」识别到 <b>${yuquePendingImport.length}</b> 个项目`, false);
 
-  const existNames  = new Set(projects.map(p => p.name));
+  // 判断项目是新增还是更新：通过唯一代码或项目编号匹配
+  const existCodes = new Set(projects.map(p => p.projectCode).filter(Boolean));
+  const existUniqueCodes = new Set(projects.map(p => p.projectCode ? p.projectCode.slice(-4) : null).filter(Boolean));
+
   const stageNames  = ['洽谈中','已签单·执行中','已完结'];
-  const fieldLabels = { name:'项目名称', stage:'阶段', channel:'项目来源', source:'客户名称', owner:'负责人', product:'产品选型', desc:'项目简介', quote:'报价（万）', contract:'合同（万）', cost:'成本（万）', collected:'已回款（万）', projectCode:'项目编号', contractDate:'合同日期', deliveryBrief:'交付内容', deliveryNote:'交付详情' };
+  const fieldLabels = { name:'项目名称', stage:'阶段', channel:'项目来源', source:'客户名称', owner:'负责人', product:'产品选型', desc:'项目简介', quote:'报价（万）', contract:'合同（万）', cost:'成本（万）', collected:'已回款（万）', projectCode:'项目编号', uniqueCode:'唯一代码', contractDate:'合同日期', deliveryBrief:'交付内容', deliveryNote:'交付详情' };
   const SKIP = new Set(['id','todos','collectTasks','logs','active']);
 
   const fieldStats = {};
@@ -584,10 +706,28 @@ function renderYuquePreview(docTitle) {
   if (visibleFields.includes('name')) { visibleFields.splice(visibleFields.indexOf('name'), 1); visibleFields.unshift('name'); }
 
   document.getElementById('yuqueHead').innerHTML = '<tr><th>状态</th>' + visibleFields.map(f => `<th>${fieldLabels[f] || f}</th>`).join('') + '</tr>';
-  document.getElementById('yuqueBody').innerHTML = yuquePendingImport.map(p =>
-    '<tr><td>' + (existNames.has(p.name) ? '<span class="tag-update">↻ 更新</span>' : '<span class="tag-new">＋ 新增</span>') + '</td>'
-    + visibleFields.map(f => `<td>${f === 'stage' ? (stageNames[p.stage] || '-') : (String(p[f] || '').trim() || '-')}</td>`).join('') + '</tr>'
-  ).join('');
+  document.getElementById('yuqueBody').innerHTML = yuquePendingImport.map(p => {
+    // 通过唯一代码判断是否已存在
+    let isExisting = (p.uniqueCode && existUniqueCodes.has(p.uniqueCode)) ||
+                     (p.projectCode && existCodes.has(p.projectCode));
+    let statusTag = '<span class="tag-new">＋ 新增</span>';
+
+    if (isExisting) {
+      // 找到现有项目，判断是否有实质变化
+      const existingProject = projects.find(x =>
+        (p.uniqueCode && x.projectCode && x.projectCode.endsWith(p.uniqueCode)) ||
+        (p.projectCode && x.projectCode === p.projectCode)
+      );
+      if (existingProject && hasProjectChanged(existingProject, p)) {
+        statusTag = '<span class="tag-update">↻ 更新</span>';
+      } else {
+        statusTag = '<span class="tag-unchanged">＝ 无变化</span>';
+      }
+    }
+
+    return '<tr><td>' + statusTag + '</td>'
+      + visibleFields.map(f => `<td>${f === 'stage' ? (stageNames[p.stage] || '-') : (String(p[f] || '').trim() || '-')}</td>`).join('') + '</tr>';
+  }).join('');
   document.getElementById('yuquePreview').style.display      = 'block';
   document.getElementById('btnConfirmYuque').style.display   = 'inline-block';
 }
@@ -595,28 +735,98 @@ function renderYuquePreview(docTitle) {
 async function confirmYuqueImport() {
   if (!yuquePendingImport.length) return;
   let added = 0, updated = 0;
+  let hasNewCodeGenerated = false; // 是否有新生成的唯一代码
+  const importedNames = [];
+
+  // 获取现有系统中已存在的项目（副本）
+  const originalProjects = [...projects];
+
+  // 本次导入中已生成的唯一代码集合（避免同一批次导入中重复）
+  const usedCodesInThisImport = new Set();
 
   yuquePendingImport.forEach(p => {
     let idx = -1;
-    if (p.projectCode) {
-      idx = projects.findIndex(x => x.projectCode === p.projectCode);
+
+    // 优先通过唯一代码匹配
+    if (p.uniqueCode) {
+      idx = originalProjects.findIndex(x => x.projectCode && x.projectCode.endsWith(p.uniqueCode));
     }
-    if (idx === -1) {
-      idx = projects.findIndex(x => x.name === p.name);
+    // 其次通过完整项目编号匹配
+    if (idx === -1 && p.projectCode) {
+      idx = originalProjects.findIndex(x => x.projectCode === p.projectCode);
     }
+
+    // 注意：没有唯一代码的项目视为新项目，不通过项目名称匹配
     if (idx >= 0) {
-      projects[idx] = { ...projects[idx], ...p, id: projects[idx].id };
+      // 更新时保留原有唯一代码
+      const oldCode = originalProjects[idx].projectCode || '';
+      const oldUniqueCode = oldCode.slice(-4);
+      if (p.projectCode && !p.projectCode.endsWith(oldUniqueCode)) {
+        p.projectCode = p.projectCode.slice(0, -4) + oldUniqueCode;
+      }
+      // 找到当前系统中对应的项目进行更新
+      const currentIdx = projects.findIndex(x => x.name === originalProjects[idx].name);
+      if (currentIdx >= 0) {
+        projects[currentIdx] = { ...projects[currentIdx], ...p, id: projects[currentIdx].id };
+        importedNames.push({ name: p.name, projectCode: projects[currentIdx].projectCode });
+      }
       updated++;
     } else {
-      if (!p.projectCode) p.projectCode = genProjectCode(p.stage || 0, p.contractDate || '');
+      // 新项目：如果有 uniqueCode 则使用它，否则生成新的
+      if (!p.projectCode) {
+        const stage = p.stage || 0;
+        const contractDate = p.contractDate || '';
+        const now = new Date();
+        let ym;
+        if (stage === 0) {
+          ym = String(now.getFullYear()).slice(2) + String(now.getMonth()+1).padStart(2,'0');
+        } else {
+          const d = contractDate ? new Date(contractDate) : now;
+          ym = String(d.getFullYear()).slice(2) + String(d.getMonth()+1).padStart(2,'0');
+        }
+        const prefix = stage === 0 ? 'C' : 'P';
+
+        // 如果有 uniqueCode 则使用它，否则生成新的
+        let uniqueCode = p.uniqueCode;
+        if (!uniqueCode) {
+          // 生成新代码
+          hasNewCodeGenerated = true;
+          // 检查系统中和本次导入中是否已存在相同代码
+          let attempt = 0;
+          do {
+            uniqueCode = genIdCode();
+            attempt++;
+          } while (
+            (projects.some(x => x.projectCode === prefix + ym + uniqueCode) ||
+             usedCodesInThisImport.has(prefix + ym + uniqueCode)) &&
+            attempt < 100
+          );
+          usedCodesInThisImport.add(prefix + ym + uniqueCode);
+        }
+
+        p.projectCode = prefix + ym + uniqueCode;
+      } else if (p.uniqueCode && !usedCodesInThisImport.has(p.projectCode)) {
+        // 有 uniqueCode 但没有完整 projectCode 的情况（使用已有代码）
+        usedCodesInThisImport.add(p.projectCode);
+      }
+
       projects.push(p);
+      importedNames.push({ name: p.name, projectCode: p.projectCode });
       added++;
     }
   });
 
-  document.getElementById('btnExportProjectCodes').style.display = 'inline-block';
+  // 导入完成后，如果有新生成的唯一代码则导出
+  if (hasNewCodeGenerated) {
+    document.getElementById('btnExportProjectCodes').style.display = 'inline-block';
+    const exportData = importedNames.map(item => ({
+      '项目名称': item.name,
+      '唯一代码': item.projectCode ? item.projectCode.slice(-4) : ''
+    }));
+    exportExcelWithProjectCodes(exportData);
+  }
+
   showToast(`语雀导入：新增 ${added} 个，更新 ${updated} 个`);
-  exportExcelWithProjectCodes(); // 自动触发下载
   closeImport(); save(); refreshView();
 }
 

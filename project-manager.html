@@ -369,6 +369,7 @@
   .import-footer { display:flex; gap:10px; justify-content:flex-end; }
   .tag-new { color:#2e7d32; font-weight:700; }
   .tag-update { color:#e65100; font-weight:700; }
+  .tag-unchanged { color:#888; font-weight:700; }
 
   /* ── 侧边栏通用 ── */
   .side-backdrop { display:none; position:fixed; inset:0; background:rgba(10,5,20,.45); z-index:400; }
@@ -698,7 +699,7 @@
       <span class="sb-icon">📤</span><span class="sb-label">导入数据</span>
     </button>
     <button class="sb-btn" onclick="importFromLocalStorage()">
-      <span class="sb-icon">🔄</span><span class="sb-label">从缓存导入数据</span>
+      <span class="sb-icon">💾</span><span class="sb-label">存入缓存</span>
     </button>
     <button class="sb-btn danger" onclick="clearAll()">
       <span class="sb-icon">🗑</span><span class="sb-label">清空数据</span>
@@ -919,7 +920,7 @@
 
       <div class="import-footer">
         <button class="btn-cancel" onclick="closeImport()">关闭</button>
-        <button class="btn-export btn-hdr-ghost" id="btnExportProjectCodes" style="display:none;padding:8px 16px" onclick="exportExcelWithProjectCodes()">📤 下载项目编号</button>
+        <button class="btn-export btn-hdr-ghost" id="btnExportProjectCodes" style="display:none;padding:8px 16px" onclick="exportExcelWithProjectCodes()">📤 下载项目唯一代码</button>
         <button class="btn-save" id="btnConfirmYuque" style="display:none;background:var(--s2)" onclick="confirmYuqueImport()">✅ 确认导入</button>
       </div>
     </div>

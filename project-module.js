@@ -384,68 +384,28 @@ function importData() {
   input.click();
 }
 
-// 从localStorage导入数据到数据库
-async function importFromLocalStorage() {
+// 存入缓存（将当前数据保存到localStorage）
+function importFromLocalStorage() {
   try {
     showConfirm({ 
-      icon: '📤', 
-      title: '从缓存导入数据', 
-      msg: '确定要从localStorage缓存中导入数据到数据库吗？这将会覆盖当前数据库中的数据。', 
-      okText: '导入',
-      onOk: async () => {
-        // 从localStorage读取数据
-        const raw = localStorage.getItem(STORAGE_KEY.PROJECTS);
-        const recycleRaw = localStorage.getItem(STORAGE_KEY.RECYCLE);
-        
-        if (raw) {
-          try {
-            const localStorageProjects = JSON.parse(raw);
-            if (DEBUG) console.log('从localStorage导入项目数据，数量：', localStorageProjects.length);
-            
-            // 清空当前数据库
-            const allProjects = await db.getProjects();
-            for (const project of allProjects) {
-              await db.deleteProject(project.id);
-            }
-            await db.clearRecycleBin();
-            
-            // 保存项目数据到数据库
-            for (const project of localStorageProjects) {
-              await db.saveProject(project);
-            }
-            
-            // 保存回收站数据到数据库
-            if (recycleRaw) {
-              try {
-                const localStorageRecycleBin = JSON.parse(recycleRaw);
-                if (DEBUG) console.log('从localStorage导入回收站数据，数量：', localStorageRecycleBin.length);
-                for (const item of localStorageRecycleBin) {
-                  await db.saveToRecycleBin(item);
-                }
-                recycleBin = localStorageRecycleBin;
-              } catch (recycleParseError) {
-                if (DEBUG) console.error('解析回收站数据失败：', recycleParseError);
-              }
-            }
-            
-            // 更新内存中的数据
-            projects = localStorageProjects;
-            
-            // 重新渲染页面
-            render();
-            showToast('数据导入成功');
-          } catch (parseError) {
-            if (DEBUG) console.error('解析项目数据失败：', parseError);
-            showToast('导入失败：数据格式错误');
-          }
-        } else {
-          showToast('没有找到缓存数据');
+      icon: '💾', 
+      title: '存入缓存', 
+      msg: '确定要将当前数据保存到localStorage缓存吗？这将覆盖原有的缓存数据。', 
+      okText: '保存',
+      onOk: () => {
+        try {
+          localStorage.setItem(STORAGE_KEY.PROJECTS, JSON.stringify(projects));
+          localStorage.setItem(STORAGE_KEY.RECYCLE, JSON.stringify(recycleBin));
+          showToast('数据已存入缓存');
+        } catch (saveError) {
+          if (DEBUG) console.error('存入缓存失败：', saveError);
+          showToast('存入缓存失败：' + saveError.message);
         }
       }
     });
   } catch (error) {
-    if (DEBUG) console.error('导入数据失败：', error);
-    showToast('导入失败：' + error.message);
+    if (DEBUG) console.error('存入缓存失败：', error);
+    showToast('存入缓存失败：' + error.message);
   }
 }
 
@@ -709,10 +669,11 @@ function closeRecycleBin() {
 // 项目编号生成
 // ═══════════════════════════════════════════════════
 
-// 生成随机4位数字作为项目编号
+// 生成4位随机字符（数字0-9 + 大写字母A-Z）
 function genIdCode() {
+  const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   let code = '';
-  for (let i = 0; i < 4; i++) code += Math.floor(Math.random() * 10);
+  for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
   return code;
 }
 
@@ -727,24 +688,30 @@ function genProjectCode(stage, contractDate) {
     ym = String(d.getFullYear()).slice(2) + String(d.getMonth()+1).padStart(2,'0');
   }
   const prefix = stage === STAGE.NEGOTIATING ? 'C' : 'P';
+
+  // 检查是否已存在相同代码，存在则重新生成
   const existingCodes = new Set(projects.map(p => p.projectCode).filter(Boolean));
-  let code, attempt = 0;
-  do { code = prefix + ym + genIdCode(); attempt++; } while (existingCodes.has(code) && attempt < 100);
-  return code;
+  let uniqueCode, attempt = 0;
+  do {
+    uniqueCode = genIdCode();
+    attempt++;
+  } while (existingCodes.has(prefix + ym + uniqueCode) && attempt < 100);
+
+  return prefix + ym + uniqueCode;
 }
 
-// 更新项目编号前缀（合同阶段变更时）
+// 更新项目编号前缀（合同阶段变更时，唯一代码保持不变）
 function updateCodePrefix(code, newStage, contractDate) {
   if (!code) return null;
   if (!code.startsWith('C') && !code.startsWith('P')) return code;
   const newPrefix = newStage === STAGE.NEGOTIATING ? 'C' : 'P';
-  const body = code.slice(5);
+  const uniqueCode = code.slice(-4);
   let ym = code.slice(1, 5);
   if (newStage !== STAGE.NEGOTIATING && contractDate) {
     const d = new Date(contractDate);
     ym = String(d.getFullYear()).slice(2) + String(d.getMonth()+1).padStart(2,'0');
   }
-  return newPrefix + ym + body;
+  return newPrefix + ym + uniqueCode;
 }
 
 // 获取项目目录名（包含项目编号）
