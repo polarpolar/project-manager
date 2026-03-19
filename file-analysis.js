@@ -1881,6 +1881,8 @@ export {
   confirmAgreementAIAnalysis,
   cancelAgreementAIAnalysis,
   renderQuoteAnalysis,
+  confirmQuoteAIAnalysis,
+  cancelQuoteAIAnalysis,
   switchToDeliveryTab,
   // 工具函数
   getFileIcon,
