@@ -23,7 +23,7 @@ async function loadModules() {
     Object.assign(window, projectModule);
     
     // 加载渲染模块
-    const renderModule = await import('./render-module.js');
+    const renderModule = await import('./render-module.js?v=2');
     Object.assign(window, renderModule);
     
     // 加载AI模块

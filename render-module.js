@@ -104,14 +104,22 @@ function cardHTML(p, colKey) {
       ${p.cost     ? `<div class="amount-item"><div class="alabel">成本</div><div class="aval cost">¥${fmtWanShort(p.cost)}万</div></div>`         : ''}
     </div>` : '';
 
-  // 交付中/已完结：合同信息
+  // 交付中/已完结：合同签单信息（签单日期 + 合同金额）
   let contractInfoHtml = '';
   if ((p.stage === STAGE.DELIVERING || p.stage === STAGE.COMPLETED) && p.contract) {
-    const contractDateStr = p.contractDate ? new Date(p.contractDate).toLocaleDateString('zh-CN', { year: 'numeric', month: 'short', day: 'numeric' }) : '未填写';
+    const contractDateStr = p.contractDate 
+      ? new Date(p.contractDate).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }) 
+      : '未填写';
+    const isDelivering = p.stage === STAGE.DELIVERING;
+    const collected = p.collected || (p.paymentNodes || []).reduce((sum, n) => sum + (parseFloat(n.actualAmount) || 0), 0);
+    const pct = p.paymentPct || Math.round((collected / p.contract) * 100) || 0;
+    
     contractInfoHtml = `
       <div class="card-amounts" style="margin-top:6px">
         <div class="amount-item"><div class="alabel">📅 签单</div><div class="aval">${contractDateStr}</div></div>
-        <div class="amount-item"><div class="alabel">合同</div><div class="aval contract">¥${fmtWanShort(p.contract)}万</div></div>
+        <div class="amount-item"><div class="alabel">合同额</div><div class="aval contract">¥${fmtWanShort(p.contract)}万</div></div>
+        ${isDelivering ? `<div class="amount-item"><div class="alabel">已回款</div><div class="aval" style="color:var(--sc)">¥${fmtWanShort(collected)}万</div></div>` : ''}
+        ${isDelivering ? `<div class="amount-item"><div class="alabel">回款率</div><div class="aval" style="color:${pct >= 100 ? 'var(--sc)' : '#e65100'}">${pct}%</div></div>` : ''}
       </div>`;
   }
 
@@ -133,12 +141,11 @@ function cardHTML(p, colKey) {
       ${!hasDelivery ? `<div style="font-size:.65rem;color:#bbb">暂无交付信息，可通过文件面板识别技术协议自动提取</div>` : ''}
     </div>` : '';
 
-  // 回款进度 + 节点摘要
+  // 回款进度条 + 付款节点详情（仅交付中/已完结显示）
   let paymentHtml = '';
-  const collected = p.collected || (p.paymentNodes || []).reduce((sum, n) => sum + (parseFloat(n.actualAmount) || 0), 0);
-  if ((p.stage === STAGE.DELIVERING || p.stage === STAGE.COMPLETED) && p.contract) {
-    const pct       = p.paymentPct || 0;
-    const nodes     = p.paymentNodes || [];
+  const nodes = p.paymentNodes || [];
+  if ((p.stage === STAGE.DELIVERING || p.stage === STAGE.COMPLETED) && p.contract && nodes.length > 0) {
+    const pct = p.paymentPct || 0;
     const doneCount = nodes.filter(n => n.done).length;
     const nodePreview = nodes.slice(0, 3).map(n => `
       <div style="display:flex;align-items:flex-start;gap:5px;padding:3px 0;border-bottom:1px solid var(--paper2);flex-wrap:wrap">
@@ -154,12 +161,11 @@ function cardHTML(p, colKey) {
     paymentHtml = `
     <div class="card-payment">
       <div class="card-payment-label">
-        <span>💰 回款进度</span>
-        <span>${pct}%${nodes.length ? ` · ${doneCount}/${nodes.length}节点` : ''}</span>
+        <span>💰 回款进度 · ${doneCount}/${nodes.length}节点</span>
+        <span>${pct}%</span>
       </div>
-      <div style="font-size:.62rem;color:#888;margin:4px 0">合同 ¥${fmtWanShort(p.contract)}万 · 已回款 ¥${fmtWanShort(collected)}万</div>
       <div class="pbar-wrap"><div class="pbar-fill" style="width:${pct}%"></div></div>
-      ${nodes.length ? `<div style="margin-top:5px">${nodePreview}${nodes.length > 3 ? `<div style="font-size:.6rem;color:#bbb;text-align:center;padding-top:3px">…还有${nodes.length - 3}个节点</div>` : ''}</div>` : ''}
+      <div style="margin-top:5px">${nodePreview}${nodes.length > 3 ? `<div style="font-size:.6rem;color:#bbb;text-align:center;padding-top:3px">…还有${nodes.length - 3}个节点</div>` : ''}</div>
     </div>`;
   }
 

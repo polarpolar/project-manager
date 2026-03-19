@@ -1259,7 +1259,8 @@ function renderAgreementAnalysis(data, analysisDiv, projectId) {
       // 存储识别结果到全局变量，供确认按钮使用
       window.aiAgreementAnalysisResult = {
         result: result,
-        projectId: projectId
+        projectId: projectId,
+        analysisDivId: analysisDiv.id
       };
       
       analysisDiv.innerHTML = `
@@ -1293,7 +1294,7 @@ ${rawText.slice(0,500) || '（空）'}
 function confirmAgreementAIAnalysis() {
   if (!window.aiAgreementAnalysisResult) return;
   
-  const { result, projectId } = window.aiAgreementAnalysisResult;
+  const { result, projectId, analysisDivId } = window.aiAgreementAnalysisResult;
   
   if (projectId) {
     const idx = projects.findIndex(p => p.id === projectId);
@@ -1321,6 +1322,15 @@ function confirmAgreementAIAnalysis() {
       save();
       refreshView();
       showToast('✅ 技术协议识别完成，交付内容已写入项目');
+    }
+  }
+  
+  // 清除当前识别结果的UI（只清除自己的容器）
+  if (analysisDivId) {
+    const analysisDiv = document.getElementById(analysisDivId);
+    if (analysisDiv) {
+      analysisDiv.style.display = 'none';
+      analysisDiv.innerHTML = '';
     }
   }
   
@@ -1552,7 +1562,8 @@ function renderContractAnalysis(data, analysisDiv) {
       // 存储识别结果到全局变量，供确认按钮使用
       window.aiAnalysisResult = {
         result: result,
-        projectId: currentEditProjectId || fsCurrentProjectId
+        projectId: currentEditProjectId || fsCurrentProjectId,
+        analysisDivId: analysisDiv.id
       };
       
       analysisDiv.innerHTML = `
@@ -1590,7 +1601,7 @@ function renderContractAnalysis(data, analysisDiv) {
 function confirmAIAnalysis() {
   if (!window.aiAnalysisResult) return;
   
-  const { result, projectId } = window.aiAnalysisResult;
+  const { result, projectId, analysisDivId } = window.aiAnalysisResult;
   const d = result.delivery || {};
   const payments = result.payment || [];
   const contractAmountYuan = (result.contractAmount != null) ? Number(result.contractAmount) : null;
@@ -1726,6 +1737,15 @@ function confirmAIAnalysis() {
         ? `✅ 合同识别完成，合同金额已更新为 ${contractAmountWan}万元`
         : '✅ 合同识别完成，数据已写入项目';
       showToast(toastMsg);
+    }
+  }
+  
+  // 清除当前识别结果的UI（只清除自己的容器）
+  if (analysisDivId) {
+    const analysisDiv = document.getElementById(analysisDivId);
+    if (analysisDiv) {
+      analysisDiv.style.display = 'none';
+      analysisDiv.innerHTML = '';
     }
   }
   
