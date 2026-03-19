@@ -1324,16 +1324,7 @@ function confirmAgreementAIAnalysis() {
     }
   }
   
-  // 清除全局变量
   delete window.aiAgreementAnalysisResult;
-  
-  // 清除临时分析结果显示区域
-  const analysisDiv = document.getElementById('f-delivery-analysis') || 
-                      document.getElementById('agreementAnalysis') || 
-                      document.getElementById('modalAgreementAnalysis');
-  if (analysisDiv) {
-    analysisDiv.innerHTML = '';
-  }
 }
 
 // 取消技术协议AI分析结果
@@ -1726,16 +1717,7 @@ function confirmAIAnalysis() {
     }
   }
   
-  // 清除全局变量
   delete window.aiAnalysisResult;
-  
-  // 清除临时分析结果显示区域
-  const analysisDiv = document.getElementById('f-contract-analysis') || 
-                      document.getElementById('contractAnalysis') || 
-                      document.getElementById('modalContractAnalysis');
-  if (analysisDiv) {
-    analysisDiv.innerHTML = '';
-  }
 }
 
 // 取消AI分析结果
