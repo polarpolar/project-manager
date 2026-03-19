@@ -1246,7 +1246,7 @@ function renderAgreementAnalysis(data, analysisDiv, projectId) {
     );
     const text = rawText.replace(/```json|```/g,'').trim();
 
-    if (!text) throw new Error(`AI 返回空响应${data._parsed?.error ? '，错误：' + data._parsed.error : ''}`);
+    if (!text) throw new Error(`AI 返回空响应${data._parsed?.error ? '，错误：' + data._parsed.error : ''}，当前max_tokens: 1000`);
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) throw new Error('未找到JSON，原始响应：\n' + text.slice(0,300));
     const result = JSON.parse(match[0]);
