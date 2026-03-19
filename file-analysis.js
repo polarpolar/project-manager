@@ -1424,8 +1424,17 @@ function confirmQuoteAIAnalysis(projectId, encodedData) {
   if (idx !== -1) {
     projects[idx].quote = data.quote;
     projects[idx].deliveryTags = { ...data.deliveryTags, _fromAi: true };
+    if (data.deliveryTags.brief) {
+      projects[idx].deliveryBrief = data.deliveryTags.brief;
+    }
+    
     const quoteEl = document.getElementById('f-quote');
     if (quoteEl && editingId === projectId) quoteEl.value = data.quote;
+    if (editingId === projectId) {
+      setDtags(projects[idx].deliveryTags);
+      const briefEl = document.getElementById('f-delivery-brief');
+      if (briefEl && data.deliveryTags.brief) briefEl.value = data.deliveryTags.brief;
+    }
     save();
     refreshView();
     showToast('✅ 方案报价识别完成，报价和交付内容已写入项目');
