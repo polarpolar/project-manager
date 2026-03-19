@@ -93,7 +93,7 @@ function _parseRowObj(obj) {
   const numPrefix = slRaw.match(/^(\d+)/)?.[1];
   const sl = slRaw.replace(/^\d+/, '').replace(/\s/g, '');
   if      (numPrefix === '1') obj.stage = STAGE.NEGOTIATING;
-  else if (numPrefix === '2') obj.stage = STAGE.DELIVERING;
+  else if (numPrefix === '2') { obj.stage = STAGE.DELIVERING; addDefaultPaymentNode(obj); }
   else if (numPrefix === '3') obj.stage = STAGE.COMPLETED;
   else obj.stage = STAGE_MAP_IMPORT[sl] ?? STAGE.NEGOTIATING;
 
@@ -838,6 +838,12 @@ async function confirmYuqueImport() {
 
       // 使用唯一代码作为项目 id
       p.id = p.projectCode.slice(-4);
+      
+      // 如果是执行中阶段，添加默认回款节点
+      if (p.stage === 1) {
+        addDefaultPaymentNode(p);
+      }
+      
       projects.push(p);
       importedNames.push({ name: p.name, projectCode: p.projectCode, id: p.id });
       added++;

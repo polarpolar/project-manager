@@ -737,6 +737,20 @@ function getProjectDirName(p) {
   return channel + dateStr + '-' + name;
 }
 
+// 添加默认回款节点（验收后100%回款）
+function addDefaultPaymentNode(p) {
+  if (!p.paymentNodes || p.paymentNodes.length === 0) {
+    p.paymentNodes = [{
+      condition: '验收后结清',
+      ratio: '100%',
+      amount: '',
+      actualAmount: '',
+      done: false,
+      deliverDone: false
+    }];
+  }
+}
+
 // 变更项目合同阶段
 function moveStage(id, newStage) {
   const p = projects.find(x => x.id === id);
@@ -755,6 +769,7 @@ function moveStage(id, newStage) {
   }
   if (oldStage === STAGE.NEGOTIATING && newStage === STAGE.DELIVERING) {
     organizeFilesForProjectStart(p.id);
+    addDefaultPaymentNode(p);
   }
   markProjectModified(id);
   save();
@@ -829,6 +844,7 @@ export {
   updateCodePrefix,
   getProjectDirName,
   moveStage,
+  addDefaultPaymentNode,
   deleteProject,
   clearAll,
 };
