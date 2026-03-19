@@ -124,6 +124,7 @@ function cardHTML(p, colKey) {
 
   // 回款进度 + 节点摘要
   let paymentHtml = '';
+  const collected = p.collected || (p.paymentNodes || []).reduce((sum, n) => sum + (parseFloat(n.actualAmount) || 0), 0);
   if ((p.stage === STAGE.DELIVERING || p.stage === STAGE.COMPLETED) && p.contract) {
     const pct       = p.paymentPct || 0;
     const nodes     = p.paymentNodes || [];
@@ -145,6 +146,7 @@ function cardHTML(p, colKey) {
         <span>💰 回款进度</span>
         <span>${pct}%${nodes.length ? ` · ${doneCount}/${nodes.length}节点` : ''}</span>
       </div>
+      <div style="font-size:.62rem;color:#888;margin:4px 0">合同 ¥${fmtWanShort(p.contract)}万 · 已回款 ¥${fmtWanShort(collected)}万</div>
       <div class="pbar-wrap"><div class="pbar-fill" style="width:${pct}%"></div></div>
       ${nodes.length ? `<div style="margin-top:5px">${nodePreview}${nodes.length > 3 ? `<div style="font-size:.6rem;color:#bbb;text-align:center;padding-top:3px">…还有${nodes.length - 3}个节点</div>` : ''}</div>` : ''}
     </div>`;
