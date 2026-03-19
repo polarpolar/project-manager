@@ -135,6 +135,12 @@ async function loadModalFilePanel(projectId) {
     modalAgreementAnalyzeBtn.dataset.projectId = p.id;
   }
   
+  const modalQuoteAnalyzeBtn = document.getElementById('modalQuoteAnalyzeBtn');
+  if (modalQuoteAnalyzeBtn) {
+    modalQuoteAnalyzeBtn.style.display = quoteFiles.length ? 'inline-block' : 'none';
+    modalQuoteAnalyzeBtn.dataset.projectId = p.id;
+  }
+  
   // 显示多选提示
   const modalContractSelectHint = document.getElementById('modalContractSelectHint');
   const modalAgreementSelectHint = document.getElementById('modalAgreementSelectHint');
