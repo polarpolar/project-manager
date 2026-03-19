@@ -326,27 +326,22 @@ async function confirmImport() {
 
   // 导入完成后自动关联文件夹
   if (window.fsRootHandle && added > 0) {
-    // 从 projects 中获取实际保存的项目
     const newlyAdded = projects.slice(-added);
-    if (DEBUG) console.log('准备关联文件夹，新增项目数：', added, newlyAdded);
+    const matches = [];
+    
     for (const p of newlyAdded) {
-      if (DEBUG) console.log('处理项目：', p.name, 'id:', p.id);
-      // 检查是否已有关联
       const existingDir = await getProjectDirById(p.id);
       if (existingDir) continue;
-
-      // 尝试匹配文件夹
       const candidates = await matchExistingDirs(p.name, p.channel);
       if (candidates.length > 0) {
-        const choice = confirm(`项目「${p.name}」检测到可能匹配的文件夹「${candidates[0].dirName}」，是否关联？\n\n确定：关联现有文件夹\n取消：新建文件夹`);
-        if (choice) {
-          await linkProjectDir(p.id, candidates[0].dirHandle);
-        } else {
-          await createProjectDir(p);
-        }
+        matches.push({ projectId: p.id, projectName: p.name, candidates });
       } else {
         await createProjectDir(p);
       }
+    }
+    
+    if (matches.length > 0) {
+      openFolderMatch(matches);
     }
   }
 
@@ -861,28 +856,24 @@ async function confirmYuqueImport() {
 
   // 导入完成后自动关联文件夹
   if (window.fsRootHandle) {
-    // 用 projectCode 查找 projects 中的项目
     const importedProjects = yuquePendingImport.map(p =>
       projects.find(x => x.projectCode === p.projectCode)
     ).filter(Boolean);
 
+    const matches = [];
     for (const p of importedProjects) {  
-      // 检查是否已有关联
       const existingDir = await getProjectDirById(p.id);
       if (existingDir) continue;
-
-      // 尝试匹配文件夹
       const candidates = await matchExistingDirs(p.name, p.channel);
       if (candidates.length > 0) {
-        const choice = confirm(`项目「${p.name}」检测到可能匹配的文件夹「${candidates[0].dirName}」，是否关联？\n\n确定：关联现有文件夹\n取消：新建文件夹`);
-        if (choice) {
-          await linkProjectDir(p.id, candidates[0].dirHandle);
-        } else {
-          await createProjectDir(p);
-        }
+        matches.push({ projectId: p.id, projectName: p.name, candidates });
       } else {
         await createProjectDir(p);
       }
+    }
+    
+    if (matches.length > 0) {
+      openFolderMatch(matches);
     }
   }
 

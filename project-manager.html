@@ -1643,5 +1643,20 @@ if (typeof render === 'function') render();
 </script>
 <script type="module" src="./main.js"></script>
 </div><!-- /#content -->
+
+<!-- 批量文件夹关联弹窗 -->
+<div class="overlay" id="folderMatchOverlay" style="display:none;z-index:9999">
+  <div class="modal" style="max-width:600px;max-height:80vh;overflow:hidden;display:flex;flex-direction:column">
+    <h2 style="margin-bottom:12px">📁 批量关联文件夹</h2>
+    <p style="color:#888;font-size:.78rem;margin-bottom:16px">检测到以下项目可以关联现有文件夹，请逐一确认：</p>
+    <div id="folderMatchList" style="flex:1;overflow-y:auto;margin-bottom:16px;border:1px solid var(--paper2);border-radius:8px;padding:8px;max-height:300px"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn-cancel" onclick="closeFolderMatch()">取消</button>
+      <button class="btn-hdr" onclick="acceptAllFolderMatches()" style="background:#4caf50">全部同意</button>
+      <button class="btn-save" onclick="confirmFolderMatches()">确认</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

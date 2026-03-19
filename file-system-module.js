@@ -705,6 +705,59 @@ async function openFsRoot() {
   await selectRootDir();
 }
 
+// 批量文件夹关联相关
+let pendingFolderMatches = [];
+let folderMatchResults = [];
+
+function openFolderMatch(matches) {
+  pendingFolderMatches = matches;
+  folderMatchResults = matches.map(m => ({ projectId: m.projectId, dirHandle: m.candidates[0].dirHandle, accepted: false }));
+  
+  const list = document.getElementById('folderMatchList');
+  list.innerHTML = matches.map((m, i) => `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--paper);border-radius:6px;margin-bottom:8px">
+      <input type="checkbox" id="match-chk-${i}" ${m.candidates[0] ? 'checked' : ''} onchange="toggleFolderMatch(${i}, this.checked)">
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:.82rem">${m.projectName}</div>
+        <div style="font-size:.72rem;color:#888">匹配文件夹：<span style="color:#4caf50">${m.candidates[0]?.dirName || '无匹配'}</span></div>
+      </div>
+    </div>
+  `).join('');
+  
+  document.getElementById('folderMatchOverlay').style.display = 'flex';
+}
+
+function toggleFolderMatch(index, checked) {
+  folderMatchResults[index].accepted = checked;
+}
+
+function closeFolderMatch() {
+  document.getElementById('folderMatchOverlay').style.display = 'none';
+  pendingFolderMatches = [];
+  folderMatchResults = [];
+}
+
+function acceptAllFolderMatches() {
+  folderMatchResults.forEach((r, i) => r.accepted = true);
+  document.querySelectorAll('[id^="match-chk-"]').forEach(chk => chk.checked = true);
+}
+
+async function confirmFolderMatches() {
+  const results = [];
+  for (let i = 0; i < folderMatchResults.length; i++) {
+    const r = folderMatchResults[i];
+    const m = pendingFolderMatches[i];
+    if (r.accepted && r.dirHandle) {
+      await linkProjectDir(m.projectId, r.dirHandle);
+    } else {
+      const p = window.projects.find(x => x.id === m.projectId);
+      if (p) await createProjectDir(p);
+    }
+  }
+  closeFolderMatch();
+  showToast('文件夹关联完成');
+}
+
 // 导出模块
 export {
   selectRootDir,
