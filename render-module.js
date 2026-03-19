@@ -104,6 +104,17 @@ function cardHTML(p, colKey) {
       ${p.cost     ? `<div class="amount-item"><div class="alabel">成本</div><div class="aval cost">¥${fmtWanShort(p.cost)}万</div></div>`         : ''}
     </div>` : '';
 
+  // 交付中/已完结：合同信息
+  let contractInfoHtml = '';
+  if ((p.stage === STAGE.DELIVERING || p.stage === STAGE.COMPLETED) && p.contract) {
+    const contractDateStr = p.contractDate ? new Date(p.contractDate).toLocaleDateString('zh-CN', { year: 'numeric', month: 'short', day: 'numeric' }) : '未填写';
+    contractInfoHtml = `
+      <div class="card-amounts" style="margin-top:6px">
+        <div class="amount-item"><div class="alabel">📅 签单</div><div class="aval">${contractDateStr}</div></div>
+        <div class="amount-item"><div class="alabel">合同</div><div class="aval contract">¥${fmtWanShort(p.contract)}万</div></div>
+      </div>`;
+  }
+
   // 交付标签（交付中/已完结显示）
   const tags = p.deliveryTags || {};
   const tagItems = [
@@ -195,7 +206,7 @@ function cardHTML(p, colKey) {
       <div class="card-name" onclick="editProject('${p.id}')">${esc(p.name)}</div>
       <span class="card-active ${p.active === 'inactive' ? 'off' : 'on'}">${p.active === 'inactive' ? '🔴 不活跃' : '🟢 活跃'}</span>
     </div>
-    ${updatedHtml}${logHtml}${metaHtml}${amtHtml}${deliveryHtml}${paymentHtml}${descHtml}${todoHtml}
+    ${updatedHtml}${logHtml}${metaHtml}${amtHtml}${contractInfoHtml}${deliveryHtml}${paymentHtml}${descHtml}${todoHtml}
     <div class="card-actions">${actionBtns}</div>
   </div>`;
 
