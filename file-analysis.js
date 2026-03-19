@@ -1433,7 +1433,10 @@ function confirmQuoteAIAnalysis(projectId, encodedData) {
     if (editingId === projectId) {
       setDtags(projects[idx].deliveryTags);
       const briefEl = document.getElementById('f-delivery-brief');
-      if (briefEl && data.deliveryTags.brief) briefEl.value = data.deliveryTags.brief;
+      if (briefEl && data.deliveryTags.brief) {
+        briefEl.value = data.deliveryTags.brief;
+        syncDeliveryBrief(data.deliveryTags.brief);
+      }
     }
     save();
     refreshView();
