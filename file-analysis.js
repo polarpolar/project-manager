@@ -1059,7 +1059,16 @@ async function analyzeAgreements() {
 
 // 识别方案报价（报价金额）
 async function analyzeQuotes() {
-  const btn = document.getElementById('quoteAnalyzeBtn');
+  // 检查是在主文件面板还是项目编辑页面
+  let btn = document.getElementById('quoteAnalyzeBtn');
+  let analysisDiv = document.getElementById('quoteAnalysis');
+  
+  // 如果在项目编辑页面
+  if (!btn) {
+    btn = document.getElementById('modalQuoteAnalyzeBtn');
+    analysisDiv = document.getElementById('modalQuoteAnalysis');
+  }
+  
   if (!btn) return;
   
   // 禁用按钮并显示加载提示
@@ -1067,7 +1076,6 @@ async function analyzeQuotes() {
   btn.style.opacity = '0.5';
   
   // 立即显示加载提示
-  const analysisDiv = document.getElementById('quoteAnalysis');
   if (analysisDiv) {
     analysisDiv.style.display = 'block';
     analysisDiv.innerHTML = `<div class="contract-analysis"><div class="ca-loading"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div>&nbsp;正在准备识别方案报价…</div></div>`;
