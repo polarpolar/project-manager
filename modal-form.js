@@ -60,17 +60,17 @@ function onStageChange() {
     if (DEBUG) console.log('报价/预算金额字段显示状态:', (stage === STAGE.NEGOTIATING || stage === STAGE.TERMINATED) ? 'block' : 'none');
   }
   
-  // 显示/隐藏交付内容和内容简介字段（洽谈中和已终止项目不显示）
+  // 显示/隐藏交付内容和内容简介字段（已终止项目不显示）
   if (deliveryContentGroup) {
-    deliveryContentGroup.style.display = (stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'block' : 'none';
-    if (DEBUG) console.log('交付内容字段显示状态:', (stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'block' : 'none');
+    deliveryContentGroup.style.display = (stage === STAGE.NEGOTIATING || stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'block' : 'none';
+    if (DEBUG) console.log('交付内容字段显示状态:', (stage === STAGE.NEGOTIATING || stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'block' : 'none');
   }
   if (deliveryBriefGroup) {
-    deliveryBriefGroup.style.display = (stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'block' : 'none';
-    if (DEBUG) console.log('内容简介字段显示状态:', (stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'block' : 'none');
+    deliveryBriefGroup.style.display = (stage === STAGE.NEGOTIATING || stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'block' : 'none';
+    if (DEBUG) console.log('内容简介字段显示状态:', (stage === STAGE.NEGOTIATING || stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'block' : 'none');
   }
   
-  // 显示/隐藏回款管理、交付情况tab页（洽谈中和已终止项目不显示）
+  // 显示/隐藏回款管理、交付情况tab页（洽谈中和已终止项目显示交付情况，不显示回款管理）
   const paymentTab = document.querySelector('.m-tab[onclick="switchModalTab(\'payment\',this)"]');
   const deliveryTab = document.querySelector('.m-tab[onclick="switchModalTab(\'delivery\',this)"]');
   
@@ -79,8 +79,8 @@ function onStageChange() {
     if (DEBUG) console.log('回款管理tab显示状态:', (stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'flex' : 'none');
   }
   if (deliveryTab) {
-    deliveryTab.style.display = (stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'flex' : 'none';
-    if (DEBUG) console.log('交付情况tab显示状态:', (stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'flex' : 'none');
+    deliveryTab.style.display = (stage === STAGE.NEGOTIATING || stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'flex' : 'none';
+    if (DEBUG) console.log('交付情况tab显示状态:', (stage === STAGE.NEGOTIATING || stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'flex' : 'none');
   }
 }
 
