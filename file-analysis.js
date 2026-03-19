@@ -49,15 +49,12 @@ let fsCurrentProjectId = null; // 当前打开的项目ID
 
 // 加载项目编辑页面的文件
 async function loadModalFilePanel(projectId) {
-  console.log('loadModalFilePanel called with projectId:', projectId);
   const p = projects.find(x => x.id === projectId);
   if (!p) {
-    console.log('项目未找到');
     return;
   }
 
   if (!window.fsRootHandle) {
-    console.log('根目录未配置');
     // 根目录未配置，清空所有文件网格
     ['modalContractFileGrid', 'modalAgreementFileGrid', 'modalTechPlanFileGrid', 'modalQuoteFileGrid', 'modalOtherFileGrid'].forEach(id => {
       const grid = document.getElementById(id);
@@ -67,7 +64,6 @@ async function loadModalFilePanel(projectId) {
   }
 
   const dir = await getProjectDirById(p.id);
-  console.log('getProjectDirById result:', dir);
   if (!dir) {
     // 项目文件夹不存在，显示错误信息
     const dirName = await getProjectDirNameById(p.id);

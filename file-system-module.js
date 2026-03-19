@@ -7,6 +7,27 @@
 // 防止多次打开文件选择器
 let isFilePickerOpen = false;
 
+// 缓存根目录文件夹列表（用于性能优化）
+let cachedDirEntries = null;
+
+// 扫描根目录文件夹（带缓存）
+async function scanRootDirs() {
+  if (cachedDirEntries) return cachedDirEntries;
+  const entries = [];
+  for await (const entry of window.fsRootHandle.values()) {
+    if (entry.kind === 'directory' && !entry.name.startsWith('.')) {
+      entries.push(entry);
+    }
+  }
+  cachedDirEntries = entries;
+  return entries;
+}
+
+// 清除根目录文件夹缓存
+function clearDirCache() {
+  cachedDirEntries = null;
+}
+
 // 选择根目录
 async function selectRootDir() {
   if (isFilePickerOpen) return;
@@ -203,9 +224,13 @@ async function syncProjectDirMapping(projectId, dirHandle, dirName) {
 async function initProjectDirMap() {
   if (!window.fsRootHandle) return;
 
+  // 清除缓存，确保重新扫描
+  clearDirCache();
+
   // 第一层：从 localStorage 读取
   const storageMap = getDirMapFromStorage();
   window.projectDirMap = {};
+  let missCount = 0;
 
   // 逐个验证 localStorage 中的映射
   for (const [projectId, dirName] of Object.entries(storageMap)) {
@@ -213,8 +238,8 @@ async function initProjectDirMap() {
       const dir = await window.fsRootHandle.getDirectoryHandle(dirName);
       window.projectDirMap[projectId] = dir;
     } catch (e) {
-      // 目录不存在或名称已更改，继续下一层查找
-      if (DEBUG) console.log(`localStorage 中找不到目录：${dirName}`);
+      // 目录不存在或名称已更改
+      missCount++;
     }
   }
 
@@ -228,29 +253,50 @@ async function initProjectDirMap() {
       // 修复 localStorage
       storageMap[projectId] = dirName;
     } catch (e) {
-      if (DEBUG) console.log(`索引中找不到目录：${dirName}`);
+      missCount++;
     }
   }
 
+  // 只有前两层有失败项时才执行第三层扫描
+  if (missCount === 0) {
+    if (DEBUG) console.log('前两层无失败项，跳过第三层扫描');
+    return;
+  }
+
   // 第三层：扫描根目录下的所有文件夹，查找 .pm-project.json
+  // 优化：先收集所有 entry，再并行读取
   try {
+    // 1. 先收集所有目录 entry
+    const dirEntries = [];
     for await (const entry of window.fsRootHandle.values()) {
-      if (entry.kind !== 'directory') continue;
+      if (entry.kind === 'directory') {
+        dirEntries.push(entry);
+      }
+    }
+
+    // 2. 并行读取每个目录的标记文件
+    const readPromises = dirEntries.map(async (entry) => {
       try {
         const markerFile = await entry.getFileHandle('.pm-project.json');
         const content = await markerFile.getFile().then(f => f.text());
         const marker = JSON.parse(content);
-        const projectId = marker.projectId;
-        if (projectId && !window.projectDirMap[projectId]) {
-          window.projectDirMap[projectId] = entry;
-          // 修复两层存储
-          storageMap[projectId] = entry.name;
-          indexMap[projectId] = entry.name;
-        }
+        return { entry, projectId: marker.projectId };
       } catch (e) {
-        // 没有 .pm-project.json 或无法读取，跳过
+        return null;
+      }
+    });
+
+    const results = await Promise.all(readPromises);
+
+    // 3. 处理结果
+    for (const result of results) {
+      if (result && result.projectId && !window.projectDirMap[result.projectId]) {
+        window.projectDirMap[result.projectId] = result.entry;
+        storageMap[result.projectId] = result.entry.name;
+        indexMap[result.projectId] = result.entry.name;
       }
     }
+
     // 保存修复后的映射
     saveDirMapToStorage(storageMap);
     await saveIndexToRoot(indexMap);
@@ -267,6 +313,9 @@ async function createProjectDir(project) {
     showToast('请先配置根目录');
     return null;
   }
+
+  // 清除缓存
+  clearDirCache();
 
   const dirName = getProjectDirName(project);
   const projectId = project.id;
@@ -359,42 +408,36 @@ async function getProjectDirNameById(projectId) {
 async function matchExistingDirs(projectName, channel) {
   if (!window.fsRootHandle) return [];
 
+  const entries = await scanRootDirs(); // 使用缓存
   const candidates = [];
   const nameLower = projectName.toLowerCase();
 
-  try {
-    for await (const entry of window.fsRootHandle.values()) {
-      if (entry.kind !== 'directory') continue;
-      if (entry.name.startsWith('.')) continue; // 跳过隐藏文件夹
+  for (const entry of entries) {
+    const dirName = entry.name;
+    const dirNameLower = dirName.toLowerCase();
 
-      const dirName = entry.name;
-      const dirNameLower = dirName.toLowerCase();
+    // 检查是否已关联（通过映射表）
+    const isLinked = Object.values(window.projectDirMap).some(h => h.name === dirName);
+    if (isLinked) continue;
 
-      // 检查是否已关联（通过映射表）
-      const isLinked = Object.values(window.projectDirMap).some(h => h.name === dirName);
-      if (isLinked) continue;
-
-      // 模糊匹配规则
-      let score = 0;
-      if (dirNameLower === nameLower) {
-        score = 100; // 完全匹配
-      } else if (dirNameLower.includes(nameLower)) {
-        score = 80; // 文件夹名包含项目名
-      } else if (nameLower.includes(dirNameLower)) {
-        score = 70; // 项目名包含文件夹名
-      } else {
-        // 计算字符重叠
-        const overlap = [...dirNameLower].filter(c => nameLower.includes(c)).length;
-        const ratio = overlap / Math.max(dirNameLower.length, nameLower.length);
-        if (ratio > 0.5) score = 50 * ratio;
-      }
-
-      if (score > 30) {
-        candidates.push({ dirHandle: entry, dirName, score });
-      }
+    // 模糊匹配规则
+    let score = 0;
+    if (dirNameLower === nameLower) {
+      score = 100; // 完全匹配
+    } else if (dirNameLower.includes(nameLower)) {
+      score = 80; // 文件夹名包含项目名
+    } else if (nameLower.includes(dirNameLower)) {
+      score = 70; // 项目名包含文件夹名
+    } else {
+      // 计算字符重叠
+      const overlap = [...dirNameLower].filter(c => nameLower.includes(c)).length;
+      const ratio = overlap / Math.max(dirNameLower.length, nameLower.length);
+      if (ratio > 0.5) score = 50 * ratio;
     }
-  } catch (e) {
-    if (DEBUG) console.error('匹配文件夹失败：', e);
+
+    if (score > 30) {
+      candidates.push({ dirHandle: entry, dirName, score });
+    }
   }
 
   // 按匹配度排序
@@ -404,6 +447,9 @@ async function matchExistingDirs(projectName, channel) {
 
 // 手动关联项目文件夹
 async function linkProjectDir(projectId, dirHandle) {
+  // 清除缓存
+  clearDirCache();
+
   const dirName = dirHandle.name;
 
   // 写入 .pm-project.json 标记文件
@@ -659,6 +705,7 @@ export {
   getProjectDir,
   getProjectDirById,
   getProjectDirNameById,
+  scanRootDirs,
   createProjectDir,
   linkProjectDir,
   matchExistingDirs,
