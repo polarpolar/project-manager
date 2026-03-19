@@ -1163,7 +1163,6 @@ async function analyzeAgreementFile(name, b64, analysisDiv, btn) {
   try {
     const data = await claudeCall({
       task: '技术协议PDF解析',
-      max_tokens: 1000,
       messages: [{
         role: 'user',
         content: [
@@ -1183,7 +1182,6 @@ async function analyzeQuoteFile(name, b64, analysisDiv, btn) {
   try {
     const data = await claudeCall({
       task: '方案报价PDF解析',
-      max_tokens: 1000,
       messages: [{
         role: 'user',
         content: [
@@ -1227,7 +1225,6 @@ async function analyzeQuoteText(text, projectId, analysisDiv) {
   try {
     const data = await claudeCall({
       task: '方案报价解析',
-      max_tokens: 1000,
       messages: [{ role: 'user', content: QUOTE_ANALYZE_PROMPT + '\n\n以下是方案报价内容：\n' + text.slice(0, 12000) }]
     });
     renderQuoteAnalysis(data, analysisDiv, projectId);
@@ -1246,7 +1243,7 @@ function renderAgreementAnalysis(data, analysisDiv, projectId) {
     );
     const text = rawText.replace(/```json|```/g,'').trim();
 
-    if (!text) throw new Error(`AI 返回空响应${data._parsed?.error ? '，错误：' + data._parsed.error : ''}，当前max_tokens: 1000`);
+    if (!text) throw new Error(`AI 返回空响应${data._parsed?.error ? '，错误：' + data._parsed.error : ''}，请在AI监控中调整max_tokens配置`);
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) throw new Error('未找到JSON，原始响应：\n' + text.slice(0,300));
     const result = JSON.parse(match[0]);
