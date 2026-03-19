@@ -385,14 +385,23 @@ async function getProjectDirById(projectId) {
   }
 
   // 兜底：扫描所有文件夹，查找 .pm-project.json
-  const foundDir = await findProjectDirById(projectId);
-  if (foundDir) {
-    // 修复映射
-    storageMap[projectId] = foundDir.name;
-    saveDirMapToStorage(storageMap);
-    indexMap[projectId] = foundDir.name;
-    await saveIndexToRoot(indexMap);
-    return foundDir.dir;
+  const entries = await scanRootDirs();
+  for (const entry of entries) {
+    try {
+      const markerFile = await entry.getFileHandle('.pm-project.json');
+      const content = await markerFile.getFile().then(f => f.text());
+      const marker = JSON.parse(content);
+      if (marker.projectId === projectId) {
+        // 修复映射
+        storageMap[projectId] = entry.name;
+        saveDirMapToStorage(storageMap);
+        const indexMap2 = await loadIndexFromRoot();
+        indexMap2[projectId] = entry.name;
+        await saveIndexToRoot(indexMap2);
+        window.projectDirMap[projectId] = entry;
+        return entry;
+      }
+    } catch (e) {}
   }
 
   return null;
