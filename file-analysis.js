@@ -1059,15 +1059,8 @@ async function analyzeAgreements() {
 
 // 识别方案报价（报价金额）
 async function analyzeQuotes() {
-  // 检查是在主文件面板还是项目编辑页面
-  let btn = document.getElementById('quoteAnalyzeBtn');
-  let analysisDiv = document.getElementById('quoteAnalysis');
-  
-  // 如果在项目编辑页面
-  if (!btn) {
-    btn = document.getElementById('modalQuoteAnalyzeBtn');
-    analysisDiv = document.getElementById('modalQuoteAnalysis');
-  }
+  const btn = document.getElementById('modalQuoteAnalyzeBtn');
+  const analysisDiv = document.getElementById('modalQuoteAnalysis');
   
   if (!btn) return;
   
@@ -1449,13 +1442,13 @@ function confirmQuoteAIAnalysis(projectId, encodedData) {
     refreshView();
     showToast('✅ 方案报价识别完成，报价和交付内容已写入项目');
   }
-  const analysisDiv = document.getElementById('quoteAnalysis') || document.getElementById('modalQuoteAnalysis');
+  const analysisDiv = document.getElementById('modalQuoteAnalysis');
   if (analysisDiv) analysisDiv.innerHTML = '';
 }
 
 function cancelQuoteAIAnalysis() {
   delete window.aiQuoteAnalysisResult;
-  const analysisDiv = document.getElementById('quoteAnalysis') || document.getElementById('modalQuoteAnalysis');
+  const analysisDiv = document.getElementById('modalQuoteAnalysis');
   if (analysisDiv) analysisDiv.innerHTML = '';
 }
 
