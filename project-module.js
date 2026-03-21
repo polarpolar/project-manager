@@ -195,6 +195,11 @@ function loadFromLocalStorage() {
     if (raw) {
       try {
         projects = JSON.parse(raw);
+        // 确保每个项目都有 monthlyProgress 字段
+        projects = projects.map(p => ({
+          monthlyProgress: [],
+          ...p
+        }));
         if (DEBUG) console.log('loadFromLocalStorage: 项目数据加载成功，数量：', projects.length);
         hasData = true;
       } catch (parseError) {

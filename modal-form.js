@@ -73,6 +73,7 @@ function onStageChange() {
   // 显示/隐藏回款管理、交付情况tab页（洽谈中和已终止项目显示交付情况，不显示回款管理）
   const paymentTab = document.querySelector('.m-tab[onclick="switchModalTab(\'payment\',this)"]');
   const deliveryTab = document.querySelector('.m-tab[onclick="switchModalTab(\'delivery\',this)"]');
+  const progressTab = document.querySelector('.m-tab[onclick="switchModalTab(\'progress\',this)"]');
   
   if (paymentTab) {
     paymentTab.style.display = (stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'flex' : 'none';
@@ -81,6 +82,58 @@ function onStageChange() {
   if (deliveryTab) {
     deliveryTab.style.display = (stage === STAGE.NEGOTIATING || stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'flex' : 'none';
     if (DEBUG) console.log('交付情况tab显示状态:', (stage === STAGE.NEGOTIATING || stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'flex' : 'none');
+  }
+  if (progressTab) {
+    progressTab.style.display = 'flex'; // 项目进度Tab在所有阶段都显示
+    if (DEBUG) console.log('项目进度tab显示状态: flex');
+  }
+  
+  // 根据项目阶段调整Tab顺序
+  const modalTabs = document.querySelector('.modal-tabs');
+  if (modalTabs) {
+    const basicTab = document.querySelector('.m-tab[onclick="switchModalTab(\'basic\',this)"]');
+    const paymentTab = document.querySelector('.m-tab[onclick="switchModalTab(\'payment\',this)"]');
+    const deliveryTab = document.querySelector('.m-tab[onclick="switchModalTab(\'delivery\',this)"]');
+    const progressTab = document.querySelector('.m-tab[onclick="switchModalTab(\'progress\',this)"]');
+    const filesTab = document.querySelector('.m-tab[onclick="switchModalTab(\'files\',this)"]');
+    const logTab = document.querySelector('.m-tab[onclick="switchModalTab(\'log\',this)"]');
+    
+    if (basicTab && deliveryTab && progressTab && filesTab && logTab) {
+      // 移除所有Tab
+      modalTabs.innerHTML = '';
+      
+      if (stage === STAGE.NEGOTIATING) {
+        // 洽谈中：基本信息 / 交付情况 / 项目进度 / 本地文件 / 更新日志
+        modalTabs.appendChild(basicTab);
+        modalTabs.appendChild(deliveryTab);
+        modalTabs.appendChild(progressTab);
+        modalTabs.appendChild(filesTab);
+        modalTabs.appendChild(logTab);
+      } else if (stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) {
+        // 执行中/已完结：基本信息 / 回款管理 / 交付情况 / 项目进度 / 本地文件 / 更新日志
+        if (paymentTab) {
+          modalTabs.appendChild(basicTab);
+          modalTabs.appendChild(paymentTab);
+          modalTabs.appendChild(deliveryTab);
+          modalTabs.appendChild(progressTab);
+          modalTabs.appendChild(filesTab);
+          modalTabs.appendChild(logTab);
+        }
+      } else {
+        // 已终止：基本信息 / 交付情况 / 项目进度 / 本地文件 / 更新日志
+        modalTabs.appendChild(basicTab);
+        modalTabs.appendChild(deliveryTab);
+        modalTabs.appendChild(progressTab);
+        modalTabs.appendChild(filesTab);
+        modalTabs.appendChild(logTab);
+      }
+      
+      // 激活第一个Tab
+      const firstTab = modalTabs.querySelector('.m-tab');
+      if (firstTab) {
+        firstTab.classList.add('active');
+      }
+    }
   }
 }
 
@@ -168,11 +221,79 @@ function switchModalTab(tab, el) {
 function switchModalTabById(tab) {
   const tabs = document.querySelectorAll('.m-tab');
   const bodies = document.querySelectorAll('.m-tab-body');
-  const tabMap = ['basic','payment','delivery','files','log'];
+  const tabMap = ['basic','payment','delivery','progress','files','log'];
   const i = tabMap.indexOf(tab);
   if (i < 0) return;
   tabs.forEach((t,j) => t.classList.toggle('active', j===i));
   bodies.forEach((b,j) => b.classList.toggle('active', j===i));
+  
+  // 如果切换到进度标签页，渲染进度内容
+  if (tab === 'progress' && currentEditProjectId) {
+    const p = projects.find(x => x.id === currentEditProjectId);
+    if (p) {
+      renderMonthlyProgress(p);
+    }
+  }
+}
+
+// 渲染项目进度
+function renderMonthlyProgress(project) {
+  const container = document.getElementById('project-progress-content');
+  if (!container) return;
+  
+  const progress = project.monthlyProgress || [];
+  
+  if (progress.length === 0) {
+    container.innerHTML = `
+      <div style="text-align:center;padding:40px 20px;color:#999;font-size:.8rem">
+        暂无进度记录，请从语雀导入
+      </div>
+    `;
+    return;
+  }
+  
+  // 按月份倒序排列（最新的在前面）
+  const sortedProgress = [...progress].sort((a, b) => {
+    const [yearA, monthA] = a.month.match(/(\d{4})年(\d+)月/).slice(1).map(Number);
+    const [yearB, monthB] = b.month.match(/(\d{4})年(\d+)月/).slice(1).map(Number);
+    return yearB - yearA || monthB - monthA;
+  });
+  
+  container.innerHTML = sortedProgress.map((item, index) => {
+    const contentLines = item.content.split('\n');
+    const isLong = contentLines.length > 3;
+    const displayContent = isLong ? contentLines.slice(0, 3).join('\n') + '\n...' : item.content;
+    
+    return `
+      <div style="border-bottom:1px solid var(--paper2);padding:12px 0${index === 0 ? ' margin-top:0' : ''}">
+        <div style="font-size:.85rem;font-weight:600;color:var(--ink);margin-bottom:6px">${item.month}</div>
+        <div class="progress-content" style="font-size:.78rem;line-height:1.4;color:#555;white-space:pre-wrap">
+          ${item.content}
+        </div>
+        ${isLong ? `
+          <div class="progress-toggle" style="margin-top:6px;font-size:.7rem;color:var(--accent);cursor:pointer;display:inline-block" onclick="toggleProgress(this)">
+            展开 ↓
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+// 切换进度内容的展开/收起
+function toggleProgress(element) {
+  const content = element.previousElementSibling;
+  const isExpanded = content.style.maxHeight;
+  
+  if (isExpanded) {
+    content.style.maxHeight = '';
+    content.style.overflow = '';
+    element.textContent = '展开 ↓';
+  } else {
+    content.style.maxHeight = content.scrollHeight + 'px';
+    content.style.overflow = 'hidden';
+    element.textContent = '收起 ↑';
+  }
 }
 
 // 同步镜像字段（基本信息Tab中的合同金额/回款总金额 ↔ 金额Tab）
@@ -1154,6 +1275,7 @@ async function saveProject() {
     data.logs = logText ? [{time:ts,text:logText}] : [];
     data.projectCode  = genProjectCode(stage, contractDate);
     data.contractDate = contractDate;
+    data.monthlyProgress = [];
     // 使用唯一代码作为项目 id
     data.id = data.projectCode.slice(-4);
     projects.push(data);

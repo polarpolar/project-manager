@@ -937,6 +937,7 @@
       <div class="m-tab active" onclick="switchModalTab('basic',this)">📋 基本信息</div>
       <div class="m-tab" onclick="switchModalTab('payment',this)">💰 回款管理</div>
       <div class="m-tab" onclick="switchModalTab('delivery',this)">📦 交付情况</div>
+      <div class="m-tab" onclick="switchModalTab('progress',this)">📋 项目进度</div>
       <div class="m-tab" onclick="switchModalTab('files',this)">📁 本地文件</div>
       <div class="m-tab" onclick="switchModalTab('payment',this)" style="display:none" id="tab-contract-ai-wrap">
       </div>
@@ -1259,6 +1260,17 @@
         <textarea id="f-update-log" placeholder="记录本次更新、进展或变化…" style="min-height:72px"></textarea>
       </div>
       <div id="f-log-history"></div>
+    </div>
+
+    <!-- Tab 6：项目进度 -->
+    <div class="m-tab-body" id="mtab-progress">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <h3 style="margin:0;font-size:.9rem;font-weight:600;color:var(--ink)">📋 项目进度</h3>
+        <span style="font-size:.7rem;color:#888">从语雀同步</span>
+      </div>
+      <div id="project-progress-content" style="min-height:200px;">
+        <!-- 进度内容将通过 JavaScript 动态渲染 -->
+      </div>
     </div>
 
     <div class="modal-footer">
