@@ -4,7 +4,7 @@
 
 // ── 常量 ──────────────────────────────────
 
-const DEBUG = false;
+const DEBUG = true;
 
 const STAGE_MAP_IMPORT = {
   '洽谈推进中':0,'洽谈中':0,'跟进中':0,
@@ -155,6 +155,9 @@ async function parseExcel(buf, filename) {
 
     // 识别进度列
     const progressColMap = await identifyProgressColumns(headers);
+    if (DEBUG) {
+      console.log('识别到的进度列:', progressColMap);
+    }
 
     const filteredRows = rows.slice(1).filter(r => r.some(c => c !== ''));
     pendingImport = filteredRows.map(r => {
@@ -172,9 +175,19 @@ async function parseExcel(buf, filename) {
       const progress = extractProgressFromRow(r, headers, progressColMap);
       if (progress.length > 0) {
         obj.monthlyProgress = progress;
+        if (DEBUG) {
+          console.log('提取到的进度数据:', progress);
+        }
       }
-      return _parseRowObj(obj);
+      const result = _parseRowObj(obj);
+      if (DEBUG && result.monthlyProgress) {
+        console.log('处理后的进度数据:', result.monthlyProgress);
+      }
+      return result;
     }).filter(p => p.name);
+    if (DEBUG) {
+      console.log('导入预览数据:', pendingImport);
+    }
     _renderImportPreview(filename);
   } catch(err) {
     showImportError('解析失败：' + err.message);
@@ -232,12 +245,22 @@ function _renderImportPreview(filename) {
   const existNames = new Set(projects.map(p => p.name).filter(Boolean));
 
   const stageNames  = ['洽谈中','已签单·执行中','已完结'];
-  const fieldLabels = { name:'项目名称', stage:'阶段', channel:'项目来源', source:'客户名称', owner:'负责人', product:'产品选型', desc:'项目简介', quote:'报价（万）', contract:'合同（万）', cost:'成本（万）', collected:'已回款（万）', projectCode:'项目编号', uniqueCode:'唯一代码', contractDate:'合同日期', deliveryBrief:'交付内容', deliveryNote:'交付详情', monthlyProgress:'项目进度' };
+  const fieldLabels = { name:'项目名称', stage:'阶段', channel:'项目来源', source:'客户名称', owner:'负责人', product:'产品选型', desc:'项目简介', quote:'报价（万）', contract:'合同（万）', cost:'成本（万）', collected:'已回款（万）', projectCode:'项目编号', uniqueCode:'唯一代码', contractDate:'合同日期', deliveryBrief:'交付内容', deliveryNote:'交付详情', monthlyProgress:'项目进度', paymentNodes:'回款节点' };
   const SKIP = new Set(['id','todos','collectTasks','logs','active']);
 
   const fieldStats = {};
   pendingImport.forEach(p => {
-    Object.keys(p).forEach(f => { if (!SKIP.has(f) && p[f] && String(p[f]).trim()) fieldStats[f] = (fieldStats[f] || 0) + 1; });
+    Object.keys(p).forEach(f => {
+      if (!SKIP.has(f)) {
+        if (f === 'monthlyProgress') {
+          if (p[f] && p[f].length > 0) {
+            fieldStats[f] = (fieldStats[f] || 0) + 1;
+          }
+        } else if (p[f] && String(p[f]).trim()) {
+          fieldStats[f] = (fieldStats[f] || 0) + 1;
+        }
+      }
+    });
   });
   const visibleFields = Object.keys(fieldStats).filter(f => fieldStats[f] > 0);
   if (visibleFields.includes('name')) { visibleFields.splice(visibleFields.indexOf('name'), 1); visibleFields.unshift('name'); }
@@ -611,6 +634,9 @@ async function fetchYuqueDoc() {
         // 缓存进度列映射
         if (result.progressColMap) {
           window.yuqueProgressColMap = result.progressColMap;
+          if (DEBUG) {
+            console.log('语雀AI解析识别到的进度列:', result.progressColMap);
+          }
         }
       } else {
         setYuqueStatus(`已读取「${docTitle}」，正在解析表格…`, true);
@@ -623,21 +649,76 @@ async function fetchYuqueDoc() {
         if (headers) {
           const progressColMap = await identifyProgressColumns(headers);
           window.yuqueProgressColMap = progressColMap;
+          if (DEBUG) {
+            console.log('语雀模板解析识别到的进度列:', progressColMap);
+          }
         }
       }
     } else {
       setYuqueStatus(`已读取「${docTitle}」，🤖 AI 正在解析…`, true);
       rawProjects = await parseYuqueDocWithClaude(doc.body_html || doc.body || '', docTitle);
+      // 对于非表格文档，无法提取进度数据，重置相关变量
+      yuqueRawTableData = null;
+      window.yuqueProgressColMap = null;
     }
 
     if (!Array.isArray(rawProjects) || !rawProjects.length) throw new Error('未识别到项目数据，请确认文档包含项目列表表格');
 
-    yuquePendingImport = rawProjects.filter(p => p.name).map(p => ({
-      ...p,
-      stage: typeof p.stage === 'number' ? p.stage : (STAGE_MAP_YUQUE[p.stage] ?? 0),
-      todos: [], collectTasks: [], logs: [], active: 'active',
-      monthlyProgress: [] // 初始化进度数据
-    }));
+    yuquePendingImport = rawProjects.filter(p => p.name).map(p => {
+      const project = {
+        ...p,
+        stage: typeof p.stage === 'number' ? p.stage : (STAGE_MAP_YUQUE[p.stage] ?? 0),
+        todos: [], collectTasks: [], logs: [], active: 'active',
+        monthlyProgress: p.monthlyProgress || [] // 使用从AI解析中获取的进度数据
+      };
+      
+      // 为表格文档提取进度数据
+      if (window.yuqueProgressColMap && yuqueRawTableData) {
+        const headers = yuqueRawTableData[0];
+        // 动态找到项目名称列的索引
+        const nameColIndex = headers.findIndex(h => h?.includes('项目') && h?.includes('名称'))
+          || headers.findIndex(h => h?.includes('项目'))
+          || headers.findIndex(h => h?.includes('名称'))
+          || 0;
+        
+        // 找到当前项目在原始表格中的行
+        for (let r = 1; r < yuqueRawTableData.length; r++) {
+          const row = yuqueRawTableData[r];
+          
+          // 优先使用唯一代码匹配，其次使用项目名称匹配
+          let isMatch = false;
+          if (p.uniqueCode) {
+            // 查找唯一代码列
+            const uniqueCodeColIndex = headers.findIndex(h => h?.includes('唯一代码'));
+            if (uniqueCodeColIndex !== -1) {
+              const rowUniqueCode = row[uniqueCodeColIndex]?.trim();
+              isMatch = rowUniqueCode === p.uniqueCode;
+            }
+          }
+          // 如果唯一代码匹配失败，使用项目名称匹配
+          if (!isMatch) {
+            const rowName = row[nameColIndex]?.trim();
+            isMatch = rowName === p.name;
+          }
+          
+          if (isMatch) {
+            const incomingProgress = extractProgressFromRow(row, headers, window.yuqueProgressColMap);
+            if (incomingProgress.length > 0) {
+              project.monthlyProgress = incomingProgress;
+            }
+            break;
+          }
+        }
+      }
+      
+      if (DEBUG) {
+        console.log('语雀项目原始数据:', p);
+      }
+      return project;
+    });
+    if (DEBUG) {
+      console.log('语雀导入预览数据（处理前）:', yuquePendingImport);
+    }
     
 
 
@@ -875,16 +956,34 @@ async function parseYuqueDocWithClaude(content, title) {
   const data = await claudeCall({
     task: '语雀文档解析',
     max_tokens: 4000,
-    messages: [{ role: 'user', content: `你是项目数据提取助手。从语雀文档内容中提取项目列表表格，返回 JSON 数组。\n字段：name, source, owner, product, desc, stage(洽谈中/已签单·执行中/已完结), quote(万元), contract(万元), cost(万元), collected(万元)。只返回JSON数组。\n\n文档：${title}\n\n${content.slice(0, 14000)}` }]
+    messages: [{ role: 'user', content: `你是项目数据提取助手。从语雀文档内容中提取项目列表表格，返回 JSON 数组。\n字段：name, source, owner, product, desc, stage(洽谈中/已签单·执行中/已完结), quote(万元), contract(万元), cost(万元), collected(万元), monthlyProgress(项目进度，数组格式，每个元素包含month和content字段)。只返回JSON数组。\n\n文档：${title}\n\n${content.slice(0, 14000)}` }]
   });
   if (data.error) throw new Error('AI 解析失败：' + data.error.message);
   const text = (data._parsed?.text || data.content?.filter(b => b.type === 'text').map(b => b.text).join('') || '').replace(/```json|```/g, '').trim();
-  return JSON.parse(text);
+  const projects = JSON.parse(text);
+  // 确保每个项目都有monthlyProgress字段
+  return projects.map(p => ({
+    ...p,
+    monthlyProgress: p.monthlyProgress || []
+  }));
 }
 
 function renderYuquePreview(docTitle) {
   if (!yuquePendingImport.length) { setYuqueStatus('⚠️ 未识别到项目数据', false, true); return; }
   setYuqueStatus(`✅ 从「${docTitle}」识别到 <b>${yuquePendingImport.length}</b> 个项目`, false);
+  
+  // 直接在页面上显示调试信息
+  if (DEBUG) {
+    console.log('语雀导入预览数据:', yuquePendingImport);
+    console.log('语雀进度列映射:', window.yuqueProgressColMap);
+    
+    // 检查是否有项目包含进度数据
+    const projectsWithProgress = yuquePendingImport.filter(p => p.monthlyProgress && p.monthlyProgress.length > 0);
+    console.log('包含进度数据的项目数量:', projectsWithProgress.length);
+    if (projectsWithProgress.length > 0) {
+      console.log('第一个包含进度数据的项目:', projectsWithProgress[0]);
+    }
+  }
 
   // 判断项目是新增还是更新：通过唯一代码或项目编号匹配
   const existCodes = new Set(projects.map(p => p.projectCode).filter(Boolean));
@@ -892,18 +991,22 @@ function renderYuquePreview(docTitle) {
   const existNames = new Set(projects.map(p => p.name).filter(Boolean));
 
   const stageNames  = ['洽谈中','已签单·执行中','已完结'];
-  const fieldLabels = { name:'项目名称', stage:'阶段', channel:'项目来源', source:'客户名称', owner:'负责人', product:'产品选型', desc:'项目简介', quote:'报价（万）', contract:'合同（万）', cost:'成本（万）', collected:'已回款（万）', projectCode:'项目编号', uniqueCode:'唯一代码', contractDate:'合同日期', deliveryBrief:'交付内容', deliveryNote:'交付详情', monthlyProgress:'项目进度' };
+  const fieldLabels = { name:'项目名称', stage:'阶段', channel:'项目来源', source:'客户名称', owner:'负责人', product:'产品选型', desc:'项目简介', quote:'报价（万）', contract:'合同（万）', cost:'成本（万）', collected:'已回款（万）', projectCode:'项目编号', uniqueCode:'唯一代码', contractDate:'合同日期', deliveryBrief:'交付内容', deliveryNote:'交付详情', monthlyProgress:'项目进度', paymentNodes:'回款节点' };
   const SKIP = new Set(['id','todos','collectTasks','logs','active']);
 
   const fieldStats = {};
   yuquePendingImport.forEach(p => { 
     Object.keys(p).forEach(f => { 
-      if (!SKIP.has(f) && p[f] && String(p[f]).trim()) fieldStats[f] = (fieldStats[f] || 0) + 1; 
+      if (!SKIP.has(f)) {
+        if (f === 'monthlyProgress') {
+          if (p[f] && p[f].length > 0) {
+            fieldStats[f] = (fieldStats[f] || 0) + 1;
+          }
+        } else if (p[f] && String(p[f]).trim()) {
+          fieldStats[f] = (fieldStats[f] || 0) + 1;
+        }
+      }
     }); 
-    // 检查进度数据
-    if (p.monthlyProgress && p.monthlyProgress.length > 0) {
-      fieldStats.monthlyProgress = (fieldStats.monthlyProgress || 0) + 1;
-    }
   });
   const visibleFields = Object.keys(fieldStats).filter(f => fieldStats[f] > 0);
   if (visibleFields.includes('name')) { visibleFields.splice(visibleFields.indexOf('name'), 1); visibleFields.unshift('name'); }
@@ -990,24 +1093,52 @@ async function confirmYuqueImport() {
             p.projectCode = p.projectCode.slice(0, -4) + oldUniqueCode;
           }
           // 提取并合并进度数据
-          if (window.yuqueProgressColMap && yuqueRawTableData) {
-            const headers = yuqueRawTableData[0];
-            // 找到当前项目在原始表格中的行
-            for (let r = 1; r < yuqueRawTableData.length; r++) {
-              const row = yuqueRawTableData[r];
-              const rowName = row[0]?.trim();
-              if (rowName === p.name) {
-                const incomingProgress = extractProgressFromRow(row, headers, window.yuqueProgressColMap);
-                if (incomingProgress.length > 0) {
-                  const existingProgress = existingProject.monthlyProgress || [];
-                  const mergedProgress = mergeMonthlyProgress(existingProgress, incomingProgress);
-                  p.monthlyProgress = mergedProgress;
-                  progressUpdated++;
-                }
-                break;
+        if (window.yuqueProgressColMap && yuqueRawTableData) {
+          const headers = yuqueRawTableData[0];
+          // 动态找到项目名称列的索引
+          const nameColIndex = headers.findIndex(h => h?.includes('项目') && h?.includes('名称'))
+            || headers.findIndex(h => h?.includes('项目'))
+            || headers.findIndex(h => h?.includes('名称'))
+            || 0;
+          
+          // 找到当前项目在原始表格中的行
+          for (let r = 1; r < yuqueRawTableData.length; r++) {
+            const row = yuqueRawTableData[r];
+            const rowName = row[nameColIndex]?.trim();
+            
+            // 优先使用唯一代码匹配，其次使用项目名称匹配
+            let isMatch = false;
+            if (p.uniqueCode) {
+              // 查找唯一代码列
+              const uniqueCodeColIndex = headers.findIndex(h => h?.includes('唯一代码'));
+              if (uniqueCodeColIndex !== -1) {
+                const rowUniqueCode = row[uniqueCodeColIndex]?.trim();
+                isMatch = rowUniqueCode === p.uniqueCode;
               }
             }
+            // 如果唯一代码匹配失败，使用项目名称匹配
+            if (!isMatch) {
+              isMatch = rowName === p.name;
+            }
+            
+            if (isMatch) {
+              const incomingProgress = extractProgressFromRow(row, headers, window.yuqueProgressColMap);
+              if (DEBUG) {
+                console.log('为项目「' + p.name + '」提取到的进度数据:', incomingProgress);
+              }
+              if (incomingProgress.length > 0) {
+                const existingProgress = existingProject.monthlyProgress || [];
+                const mergedProgress = mergeMonthlyProgress(existingProgress, incomingProgress);
+                p.monthlyProgress = mergedProgress;
+                if (DEBUG) {
+                  console.log('合并后的进度数据:', mergedProgress);
+                }
+                progressUpdated++;
+              }
+              break;
+            }
           }
+        }
           projects[currentIdx] = { ...projects[currentIdx], ...p, id: projects[currentIdx].id };
           importedNames.push({ name: p.name, projectCode: projects[currentIdx].projectCode });
           updated++;
@@ -1058,11 +1189,32 @@ async function confirmYuqueImport() {
       // 提取并合并进度数据
       if (window.yuqueProgressColMap && yuqueRawTableData) {
         const headers = yuqueRawTableData[0];
+        // 动态找到项目名称列的索引
+        const nameColIndex = headers.findIndex(h => h?.includes('项目') && h?.includes('名称'))
+          || headers.findIndex(h => h?.includes('项目'))
+          || headers.findIndex(h => h?.includes('名称'))
+          || 0;
         // 找到当前项目在原始表格中的行
         for (let r = 1; r < yuqueRawTableData.length; r++) {
           const row = yuqueRawTableData[r];
-          const rowName = row[0]?.trim();
-          if (rowName === p.name) {
+          
+          // 优先使用唯一代码匹配，其次使用项目名称匹配
+          let isMatch = false;
+          if (p.uniqueCode) {
+            // 查找唯一代码列
+            const uniqueCodeColIndex = headers.findIndex(h => h?.includes('唯一代码'));
+            if (uniqueCodeColIndex !== -1) {
+              const rowUniqueCode = row[uniqueCodeColIndex]?.trim();
+              isMatch = rowUniqueCode === p.uniqueCode;
+            }
+          }
+          // 如果唯一代码匹配失败，使用项目名称匹配
+          if (!isMatch) {
+            const rowName = row[nameColIndex]?.trim();
+            isMatch = rowName === p.name;
+          }
+          
+          if (isMatch) {
             const incomingProgress = extractProgressFromRow(row, headers, window.yuqueProgressColMap);
             if (incomingProgress.length > 0) {
               p.monthlyProgress = incomingProgress;
@@ -1071,6 +1223,9 @@ async function confirmYuqueImport() {
             break;
           }
         }
+      } else if (p.monthlyProgress && p.monthlyProgress.length > 0) {
+        // 非表格文档中已经提取了进度数据
+        progressUpdated++;
       }
       
       // 初始化进度数据（如果没有提取到）

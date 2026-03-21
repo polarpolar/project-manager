@@ -91,6 +91,7 @@ function onStageChange() {
   // 根据项目阶段调整Tab顺序
   const modalTabs = document.querySelector('.modal-tabs');
   if (modalTabs) {
+    // 先获取所有标签页元素
     const basicTab = document.querySelector('.m-tab[onclick="switchModalTab(\'basic\',this)"]');
     const paymentTab = document.querySelector('.m-tab[onclick="switchModalTab(\'payment\',this)"]');
     const deliveryTab = document.querySelector('.m-tab[onclick="switchModalTab(\'delivery\',this)"]');
@@ -100,7 +101,9 @@ function onStageChange() {
     
     if (basicTab && deliveryTab && progressTab && filesTab && logTab) {
       // 移除所有Tab
-      modalTabs.innerHTML = '';
+      while (modalTabs.firstChild) {
+        modalTabs.removeChild(modalTabs.firstChild);
+      }
       
       if (stage === STAGE.NEGOTIATING) {
         // 洽谈中：基本信息 / 交付情况 / 项目进度 / 本地文件 / 更新日志
@@ -215,6 +218,13 @@ function switchModalTab(tab, el) {
     
     // 加载项目文件
     loadModalFilePanel(p.id);
+  } else if (tab === 'progress' && currentEditProjectId) {
+    // 切换到进度标签页时渲染进度内容
+    console.log('切换到进度标签页，准备渲染进度内容');
+    const p = projects.find(x => x.id === currentEditProjectId);
+    if (p) {
+      renderMonthlyProgress(p);
+    }
   }
 }
 
@@ -236,65 +246,157 @@ function switchModalTabById(tab) {
   }
 }
 
+// 简单的进度类型识别函数
+window.getProgressType = function(content) {
+  const lowerContent = content.toLowerCase();
+  if (lowerContent.includes('技术') || lowerContent.includes('软件') || lowerContent.includes('硬件') || lowerContent.includes('调试')) {
+    return { type: '技术', color: '#4CAF50' };
+  } else if (lowerContent.includes('商务') || lowerContent.includes('合同') || lowerContent.includes('报价') || lowerContent.includes('客户')) {
+    return { type: '商务', color: '#2196F3' };
+  } else if (lowerContent.includes('交付') || lowerContent.includes('发货') || lowerContent.includes('安装') || lowerContent.includes('验收')) {
+    return { type: '交付', color: '#FF9800' };
+  } else if (lowerContent.includes('回款') || lowerContent.includes('付款') || lowerContent.includes('财务')) {
+    return { type: '财务', color: '#9C27B0' };
+  } else {
+    return { type: '其他', color: '#9E9E9E' };
+  }
+};
+
+// 全局变量，用于存储当前正在编辑的项目
+let currentProgressProject = null;
+
 // 渲染项目进度
-function renderMonthlyProgress(project) {
+function renderMonthlyProgress(project, filterType = 'all') {
   const container = document.getElementById('project-progress-content');
   if (!container) return;
-  
+
+  currentProgressProject = project;
+
   const progress = project.monthlyProgress || [];
-  
+
   if (progress.length === 0) {
     container.innerHTML = `
-      <div style="text-align:center;padding:40px 20px;color:#999;font-size:.8rem">
+      <div style="text-align:center;padding:40px 20px;color:#bbb;font-size:.82rem">
         暂无进度记录，请从语雀导入
       </div>
     `;
     return;
   }
-  
-  // 按月份倒序排列（最新的在前面）
+
   const sortedProgress = [...progress].sort((a, b) => {
     const [yearA, monthA] = a.month.match(/(\d{4})年(\d+)月/).slice(1).map(Number);
     const [yearB, monthB] = b.month.match(/(\d{4})年(\d+)月/).slice(1).map(Number);
     return yearB - yearA || monthB - monthA;
   });
-  
-  container.innerHTML = sortedProgress.map((item, index) => {
-    const contentLines = item.content.split('\n');
-    const isLong = contentLines.length > 3;
-    const displayContent = isLong ? contentLines.slice(0, 3).join('\n') + '\n...' : item.content;
-    
-    return `
-      <div style="border-bottom:1px solid var(--paper2);padding:12px 0${index === 0 ? ' margin-top:0' : ''}">
-        <div style="font-size:.85rem;font-weight:600;color:var(--ink);margin-bottom:6px">${item.month}</div>
-        <div class="progress-content" style="font-size:.78rem;line-height:1.4;color:#555;white-space:pre-wrap">
-          ${item.content}
-        </div>
-        ${isLong ? `
-          <div class="progress-toggle" style="margin-top:6px;font-size:.7rem;color:var(--accent);cursor:pointer;display:inline-block" onclick="toggleProgress(this)">
-            展开 ↓
-          </div>
-        ` : ''}
+
+  const filteredProgress = filterType === 'all' ? sortedProgress : sortedProgress.filter(item =>
+    getProgressType(item.content).type === filterType
+  );
+
+  const tagTypes = [
+    { type: 'all',  name: '全部', color: '#888' },
+    { type: '技术', name: '技术', color: '#4CAF50' },
+    { type: '商务', name: '商务', color: '#2196F3' },
+    { type: '交付', name: '交付', color: '#FF9800' },
+    { type: '财务', name: '财务', color: '#9C27B0' },
+    { type: '其他', name: '其他', color: '#9E9E9E' }
+  ];
+
+  container.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div style="font-size:.72rem;color:#aaa">${progress.length} 条记录</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">
+        ${tagTypes.map(tag => `
+          <span onclick="filterProgressByType('${tag.type}')"
+            style="cursor:pointer;font-size:.68rem;padding:2px 9px;border-radius:10px;
+                   border:1px solid ${filterType === tag.type ? tag.color : '#ddd'};
+                   background:${filterType === tag.type ? tag.color : 'transparent'};
+                   color:${filterType === tag.type ? 'white' : '#888'};
+                   transition:all 0.15s">
+            ${tag.name}
+          </span>
+        `).join('')}
       </div>
-    `;
-  }).join('');
+    </div>
+
+    ${filteredProgress.length > 0 ? filteredProgress.map(item => {
+      const progressType = getProgressType(item.content);
+      const isLong = item.content.length > 100 || item.content.split('\n').length > 3;
+
+      return `
+        <div style="display:flex;align-items:flex-start;gap:8px;
+                    padding:4px 8px;background:var(--paper);border-radius:6px;
+                    margin-bottom:4px;border-left:2px solid ${progressType.color}">
+          <div style="display:flex;align-items:flex-start;gap:32px;
+                      min-width:124px;width:124px;flex-shrink:0;padding-top:1px">
+            <span style="font-size:.82rem;color:#888;white-space:nowrap;line-height:1.65">
+              ${item.month}
+            </span>
+            <span style="font-size:.72rem;padding:0 2px;border-radius:8px;
+                        background:${progressType.color}20;color:${progressType.color};
+                        border:1px solid ${progressType.color}50;white-space:nowrap;
+                        line-height:1.6;display:inline-block;flex-shrink:0;margin-top:1px">
+              ${progressType.type}
+            </span>
+          </div>
+          <div style="flex:1;min-width:0;padding-top:1px">
+            <div class="progress-content"
+              style="font-size:.82rem;line-height:1.65;color:#444;white-space:pre-wrap;
+                    display:block;margin:0;${isLong ? 'max-height:80px;overflow:hidden' : ''}">${item.content.trim()}</div>
+            ${isLong ? `
+              <span class="progress-toggle" onclick="toggleProgress(this)"
+                style="font-size:.7rem;color:var(--accent);cursor:pointer;
+                      display:inline-block;margin-top:4px">
+                展开 ↓
+              </span>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    }).join('') : `
+      <div style="text-align:center;padding:30px 20px;color:#bbb;font-size:.82rem">
+        暂无「${filterType}」类型的进度记录
+      </div>
+    `}
+  `;
 }
 
+// 根据标签类型筛选进度
+window.filterProgressByType = function(type) {
+  if (DEBUG) {
+    console.log('filterProgressByType called:', type, 'currentEditProjectId:', currentEditProjectId);
+  }
+  if (currentEditProjectId) {
+    const p = projects.find(x => x.id === currentEditProjectId);
+    if (p) {
+      renderMonthlyProgress(p, type);
+    } else {
+      if (DEBUG) {
+        console.log('Project not found:', currentEditProjectId);
+      }
+    }
+  } else {
+    if (DEBUG) {
+      console.log('currentEditProjectId is null');
+    }
+  }
+};
+
 // 切换进度内容的展开/收起
-function toggleProgress(element) {
+window.toggleProgress = function(element) {
   const content = element.previousElementSibling;
-  const isExpanded = content.style.maxHeight;
+  const isExpanded = content.style.maxHeight !== '120px';
   
   if (isExpanded) {
-    content.style.maxHeight = '';
-    content.style.overflow = '';
+    content.style.maxHeight = '120px';
+    content.style.overflow = 'hidden';
     element.textContent = '展开 ↓';
   } else {
     content.style.maxHeight = content.scrollHeight + 'px';
-    content.style.overflow = 'hidden';
+    content.style.overflow = 'visible';
     element.textContent = '收起 ↑';
   }
-}
+};
 
 // 同步镜像字段（基本信息Tab中的合同金额/回款总金额 ↔ 金额Tab）
 function syncMirrorFields() {
