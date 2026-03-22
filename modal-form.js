@@ -2,6 +2,21 @@
 // ║  MODULE: modal-form（Modal 表单控制器）    ║
 // ╚══════════════════════════════════════════╝
 
+// Tab 节点缓存，只查找一次
+let _tabNodes = null;
+function getTabNodes() {
+  if (_tabNodes) return _tabNodes;
+  _tabNodes = {
+    basic:    document.querySelector('.m-tab[onclick="switchModalTab(\'basic\',this)"]'),
+    payment:  document.querySelector('.m-tab[onclick="switchModalTab(\'payment\',this)"]'),
+    delivery: document.querySelector('.m-tab[onclick="switchModalTab(\'delivery\',this)"]'),
+    progress: document.querySelector('.m-tab[onclick="switchModalTab(\'progress\',this)"]'),
+    files:    document.querySelector('.m-tab[onclick="switchModalTab(\'files\',this)"]'),
+    log:      document.querySelector('.m-tab[onclick="switchModalTab(\'log\',this)"]'),
+  };
+  return _tabNodes;
+}
+
 // ═══════════════════════════════════════════════════
 // Modal Tab 切换
 // ═══════════════════════════════════════════════════
@@ -71,9 +86,8 @@ function onStageChange() {
   }
   
   // 显示/隐藏回款管理、交付情况tab页（洽谈中和已终止项目显示交付情况，不显示回款管理）
-  const paymentTab = document.querySelector('.m-tab[onclick="switchModalTab(\'payment\',this)"]');
-  const deliveryTab = document.querySelector('.m-tab[onclick="switchModalTab(\'delivery\',this)"]');
-  const progressTab = document.querySelector('.m-tab[onclick="switchModalTab(\'progress\',this)"]');
+  const { basic: basicTab, payment: paymentTab, delivery: deliveryTab, 
+          progress: progressTab, files: filesTab, log: logTab } = getTabNodes();
   
   if (paymentTab) {
     paymentTab.style.display = (stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'flex' : 'none';
@@ -92,12 +106,6 @@ function onStageChange() {
   const modalTabs = document.querySelector('.modal-tabs');
   if (modalTabs) {
     // 先获取所有标签页元素
-    const basicTab = document.querySelector('.m-tab[onclick="switchModalTab(\'basic\',this)"]');
-    const paymentTab = document.querySelector('.m-tab[onclick="switchModalTab(\'payment\',this)"]');
-    const deliveryTab = document.querySelector('.m-tab[onclick="switchModalTab(\'delivery\',this)"]');
-    const progressTab = document.querySelector('.m-tab[onclick="switchModalTab(\'progress\',this)"]');
-    const filesTab = document.querySelector('.m-tab[onclick="switchModalTab(\'files\',this)"]');
-    const logTab = document.querySelector('.m-tab[onclick="switchModalTab(\'log\',this)"]');
     
     if (basicTab && deliveryTab && progressTab && filesTab && logTab) {
       // 保存当前激活的Tab

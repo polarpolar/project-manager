@@ -1,0 +1,165 @@
+/* ╔════════════════════════════════════════════════════════════╗
+   ║  AI Analysis - AI识别结果展示样式                          ║
+   ╚════════════════════════════════════════════════════════════╝ */
+
+/* ── 合同/协议分析结果容器 ── */
+.contract-analysis {
+  margin-top: 12px;
+  border-top: 1px solid var(--paper2);
+  padding-top: 12px;
+}
+
+/* 加载动画 */
+.ca-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  color: #7eccd8;
+  font-size: 0.75rem;
+}
+
+.ai-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #7eccd8;
+  animation: blink 1.2s infinite;
+}
+
+.ai-dot:nth-child(2) { animation-delay: 0.2s; }
+.ai-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes blink {
+  0%, 80%, 100% { opacity: 0.2; }
+  40% { opacity: 1; }
+}
+
+/* ── 分析结果区块 ── */
+.ca-section {
+  margin-bottom: 12px;
+}
+
+.ca-title {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #7eccd8;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+
+/* ── 交付内容标签组 ── */
+.ca-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* 标签芯片基础样式在 components.css 中定义 */
+
+/* ── 回款节点行 ── */
+.ca-payment-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--paper2);
+}
+
+.ca-payment-row:last-child {
+  border-bottom: none;
+}
+
+.ca-payment-label {
+  font-size: 0.72rem;
+  color: #666;
+}
+
+.ca-payment-val {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.72rem;
+}
+
+/* ── 识别结果操作按钮 ── */
+.ca-actions {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* ── AI识别徽章 ── */
+.pn-ai-badge {
+  font-size: 0.58rem;
+  color: #7eccd8;
+  background: rgba(126, 204, 216, 0.12);
+  border-radius: 4px;
+  padding: 1px 6px;
+  flex-shrink: 0;
+}
+
+.dtag-from-ai {
+  font-size: 0.6rem;
+  color: #7eccd8;
+  margin-left: 3px;
+}
+
+/* ── 报价分析结果 ── */
+.quote-analysis {
+  margin: 10px 0;
+  padding: 12px;
+  background: rgba(126, 204, 216, 0.05);
+  border-radius: 8px;
+  border-left: 3px solid #7eccd8;
+}
+
+.quote-analysis-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #7eccd8;
+  margin-bottom: 8px;
+}
+
+.quote-amount {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+/* ── 文件类型标签 ── */
+.file-type-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.6rem;
+  font-weight: 600;
+}
+
+.file-type-tag.contract {
+  background: rgba(21, 101, 192, 0.1);
+  color: #1565c0;
+}
+
+.file-type-tag.agreement {
+  background: rgba(46, 125, 50, 0.1);
+  color: #2e7d32;
+}
+
+.file-type-tag.quote {
+  background: rgba(230, 81, 0, 0.1);
+  color: #e65100;
+}
+
+/* ── 分析提示 ── */
+.analysis-hint {
+  font-size: 0.65rem;
+  color: #7eccd8;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}

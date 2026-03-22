@@ -1,0 +1,138 @@
+/* ╔════════════════════════════════════════════════════════════╗
+   ║  Base Styles - 基础重置与布局框架                          ║
+   ╚════════════════════════════════════════════════════════════╝ */
+
+/* ── 全局重置 ── */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── 基础排版 ── */
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: row;
+}
+
+h1 {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 1.05rem;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  overflow: hidden;
+  flex: 1;
+}
+
+h1 span {
+  color: var(--gold);
+}
+
+/* ── 整体布局框架 ── */
+#sidebar {
+  width: 220px;
+  min-width: 220px;
+  background: var(--ink);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1), 
+              min-width 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 100;
+  flex-shrink: 0;
+  box-shadow: 2px 0 18px rgba(26, 5, 51, 0.22);
+}
+
+#sidebar.collapsed {
+  width: 52px;
+  min-width: 52px;
+}
+
+#content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+}
+
+/* ── Pipeline 流程条 ── */
+.pipeline {
+  display: flex;
+  gap: 0;
+  margin: 0;
+  background: var(--ink);
+}
+
+.pipe-seg {
+  flex: 1;
+  padding: 10px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #fff;
+  cursor: default;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.pipe-seg:last-child {
+  border-right: none;
+}
+
+.pipe-seg[data-s="0"] { background: var(--s0); }
+.pipe-seg[data-s="1"] { background: var(--s1); }
+.pipe-seg[data-s="c"] { background: var(--sc); }
+.pipe-seg[data-s="2"] { background: var(--s2); }
+
+.pipe-count {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+/* ── Board 看板布局 ── */
+.main {
+  padding: 20px 20px;
+}
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .board { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 620px) {
+  .board { grid-template-columns: 1fr; }
+}
+
+.col-wrap {
+  min-width: 0;
+}
+
+/* ── 工具类 ── */
+.hidden {
+  display: none !important;
+}
+
+.truncate {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

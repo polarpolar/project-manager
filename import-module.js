@@ -663,7 +663,7 @@ async function fetchYuqueDoc() {
 
     yuquePendingImport = rawProjects.filter(p => p.name).map(p => {
       // 创建项目对象，不包含AI解析的active字段
-      const { active, ...rest } = p;
+      const { active, paymentNodes, ...rest } = p;
       const project = {
         ...rest,
         stage: typeof p.stage === 'number' ? p.stage : (STAGE_MAP_YUQUE[p.stage] ?? 0),
@@ -707,6 +707,16 @@ async function fetchYuqueDoc() {
             }
             break;
           }
+        }
+      }
+      
+      // 只保留非默认的回款节点
+      if (paymentNodes && Array.isArray(paymentNodes) && paymentNodes.length > 0) {
+        const nonDefaultNodes = paymentNodes.filter(node => 
+          node.condition !== '验收后结清' || node.ratio !== '100%'
+        );
+        if (nonDefaultNodes.length > 0) {
+          project.paymentNodes = nonDefaultNodes;
         }
       }
       
@@ -983,6 +993,16 @@ function renderYuquePreview(docTitle) {
         if (f === 'monthlyProgress') {
           if (p[f] && p[f].length > 0) {
             fieldStats[f] = (fieldStats[f] || 0) + 1;
+          }
+        } else if (f === 'paymentNodes') {
+          if (p[f] && Array.isArray(p[f]) && p[f].length > 0) {
+            // 检查是否是默认的回款节点（验收后结清，100%）
+            const hasNonDefaultNode = p[f].some(node => 
+              node.condition !== '验收后结清' || node.ratio !== '100%'
+            );
+            if (hasNonDefaultNode) {
+              fieldStats[f] = (fieldStats[f] || 0) + 1;
+            }
           }
         } else if (p[f] && String(p[f]).trim()) {
           fieldStats[f] = (fieldStats[f] || 0) + 1;

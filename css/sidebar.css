@@ -1,0 +1,187 @@
+/* ╔════════════════════════════════════════════════════════════╗
+   ║  Sidebar - 左侧导航栏样式                                  ║
+   ╚════════════════════════════════════════════════════════════╝ */
+
+/* ── 侧边栏基础（已在base.css中定义 #sidebar 基础结构） ── */
+
+/* 品牌区 */
+.sb-brand {
+  padding: 16px 14px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  min-height: 56px;
+}
+
+.sb-toggle {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.35);
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+  padding: 3px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.sb-toggle:hover {
+  color: var(--gold);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+#sidebar.collapsed .sb-brand h1,
+#sidebar.collapsed .sb-brand .sb-icon-logo {
+  display: none;
+}
+
+/* 统计区 */
+.sb-stats {
+  padding: 12px 14px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+}
+
+#sidebar.collapsed .sb-stats {
+  display: none;
+}
+
+.sb-stats-title {
+  font-size: 0.55rem;
+  color: rgba(255, 255, 255, 0.28);
+  letter-spacing: 0.1em;
+  margin-bottom: 8px;
+}
+
+.stat-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 4px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.stat-item:last-child {
+  border-bottom: none;
+}
+
+.stat-label {
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+}
+
+.stat-val {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  justify-content: flex-end;
+}
+
+.stat-num {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--gold);
+}
+
+.stat-unit {
+  font-size: 0.58rem;
+  color: rgba(255, 255, 255, 0.35);
+  white-space: nowrap;
+}
+
+/* 导航按钮区 */
+.sb-nav {
+  padding: 8px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.sb-btn {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 0.74rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.72);
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  width: 100%;
+  transition: background 0.14s, color 0.14s;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.sb-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.sb-btn.primary {
+  background: var(--gold);
+  color: var(--ink);
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.sb-btn.primary:hover {
+  opacity: 0.88;
+}
+
+.sb-btn.danger {
+  color: #ef9a9a;
+}
+
+.sb-btn.danger:hover {
+  background: rgba(229, 57, 53, 0.2);
+}
+
+.sb-icon {
+  font-size: 0.95rem;
+  flex-shrink: 0;
+  width: 22px;
+  text-align: center;
+}
+
+.sb-label {
+  overflow: hidden;
+  transition: opacity 0.18s;
+  white-space: nowrap;
+  flex: 1;
+}
+
+#sidebar.collapsed .sb-label {
+  opacity: 0;
+  width: 0;
+}
+
+#sidebar.collapsed .sb-btn {
+  justify-content: center;
+  padding: 9px 0;
+}
+
+.sb-sep {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.07);
+  margin: 5px 8px;
+}
+
+/* 兼容旧样式 */
+.btn-hdr-ghost {
+  display: none;
+}

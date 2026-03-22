@@ -16,11 +16,10 @@
         {
           "condition": "验收后结清",
           "ratio": "100%",
-          "amount": "55",
+          "amount": "",
           "actualAmount": "",
           "done": false,
-          "deliverDone": false,
-          "_fromAi": false
+          "deliverDone": false
         }
       ],
       "todos": [],
@@ -42,7 +41,8 @@
         "other": false
       },
       "洽谈状态": "需求沟通",
-      "updatedAt": "2026-03-19 15:11"
+      "updatedAt": "2026-03-19 15:11",
+      "monthlyProgress": []
     },
     {
       "channel": "北化",
@@ -52,7 +52,7 @@
       "desc": "共17台设备监测",
       "product": "无线/有线、本地化",
       "owner": "苏奕玮",
-      "quote": "46.557",
+      "quote": "",
       "contract": "",
       "contractDate": "",
       "stage": 0,
@@ -76,17 +76,18 @@
       "paymentPct": 0,
       "paymentNodes": [],
       "洽谈状态": "需求沟通",
-      "updatedAt": "2026-03-19 14:49"
+      "updatedAt": "2026-03-19 14:49",
+      "monthlyProgress": []
     },
     {
       "channel": "北化",
       "source": "北化股份",
       "uniqueCode": "2OJS",
       "name": "24T项目",
-      "desc": "共83台设备监测、国产化系统",
-      "product": "无线/有线、本地化",
+      "desc": "共83台设备监测",
+      "product": "有线、本地化",
       "owner": "苏奕玮",
-      "quote": "",
+      "quote": "274.00",
       "contract": "",
       "contractDate": "",
       "stage": 0,
@@ -96,7 +97,8 @@
       "active": "active",
       "projectCode": "C26032OJS",
       "id": "2OJS",
-      "paymentNodes": []
+      "paymentNodes": [],
+      "monthlyProgress": []
     },
     {
       "channel": "佳电",
@@ -116,7 +118,8 @@
       "active": "active",
       "projectCode": "P251036UA",
       "id": "36UA",
-      "paymentNodes": []
+      "paymentNodes": [],
+      "monthlyProgress": []
     },
     {
       "channel": "北化",
@@ -136,7 +139,8 @@
       "active": "active",
       "projectCode": "C26034IUV",
       "id": "4IUV",
-      "paymentNodes": []
+      "paymentNodes": [],
+      "monthlyProgress": []
     },
     {
       "channel": "哈电",
@@ -156,7 +160,8 @@
       "active": "active",
       "projectCode": "C26036PP3",
       "id": "6PP3",
-      "paymentNodes": []
+      "paymentNodes": [],
+      "monthlyProgress": []
     },
     {
       "channel": "佳电",
@@ -176,27 +181,43 @@
       "active": "active",
       "projectCode": "C260377P8",
       "id": "77P8",
-      "paymentNodes": []
+      "paymentNodes": [],
+      "monthlyProgress": []
     },
     {
       "channel": "佳电",
       "source": "佳电运维科技",
-      "uniqueCode": "78V9",
-      "name": "红沿河三期",
-      "desc": "佳电已经中标，待和业主签订合同，预计23台G01+V03",
-      "product": "G01、V03",
-      "owner": "苏奕玮",
+      "uniqueCode": "APXI",
+      "name": "红沿河二期",
+      "desc": "106支V03+22个G01",
+      "product": "V03、G01",
+      "owner": "毛娜",
       "quote": "",
-      "contract": "",
-      "contractDate": "",
-      "stage": 0,
+      "contract": "63.12",
+      "contractDate": "2025-06-25",
+      "stage": 2,
       "todos": [],
       "collectTasks": [],
       "logs": [],
       "active": "active",
-      "projectCode": "C260378V9",
-      "id": "78V9",
-      "paymentNodes": []
+      "monthlyProgress": [],
+      "projectCode": "P2506APXI",
+      "id": "APXI",
+      "paymentNodes": [],
+      "cost": "",
+      "collected": "",
+      "deliveryNote": "",
+      "deliveryBrief": "",
+      "terminationReason": "",
+      "paymentPct": 0,
+      "deliveryTags": {
+        "wireless_hardware": false,
+        "wired_hardware": false,
+        "software": false,
+        "other": false
+      },
+      "洽谈状态": "需求沟通",
+      "updatedAt": "2026-03-21 22:32"
     },
     {
       "channel": "佳电",
@@ -216,7 +237,8 @@
       "active": "active",
       "projectCode": "C2603B16F",
       "id": "B16F",
-      "paymentNodes": []
+      "paymentNodes": [],
+      "monthlyProgress": []
     },
     {
       "channel": "佳电",
@@ -236,7 +258,8 @@
       "active": "active",
       "projectCode": "P2504BD64",
       "id": "BD64",
-      "paymentNodes": []
+      "paymentNodes": [],
+      "monthlyProgress": []
     },
     {
       "channel": "佳电",
@@ -256,7 +279,8 @@
       "active": "active",
       "projectCode": "C2603EA2O",
       "id": "EA2O",
-      "paymentNodes": []
+      "paymentNodes": [],
+      "monthlyProgress": []
     },
     {
       "channel": "陕煤",
@@ -276,7 +300,8 @@
       "active": "active",
       "projectCode": "C2603JJWA",
       "id": "JJWA",
-      "paymentNodes": []
+      "paymentNodes": [],
+      "monthlyProgress": []
     },
     {
       "channel": "佳电",
@@ -296,7 +321,8 @@
       "active": "active",
       "projectCode": "P2510JO6U",
       "id": "JO6U",
-      "paymentNodes": []
+      "paymentNodes": [],
+      "monthlyProgress": []
     },
     {
       "channel": "北化",
@@ -325,7 +351,8 @@
       "logs": [],
       "active": "active",
       "projectCode": "P2512LPTQ",
-      "id": "LPTQ"
+      "id": "LPTQ",
+      "monthlyProgress": []
     },
     {
       "channel": "佳电",
@@ -345,7 +372,8 @@
       "active": "active",
       "projectCode": "P2510N6SQ",
       "id": "N6SQ",
-      "paymentNodes": []
+      "paymentNodes": [],
+      "monthlyProgress": []
     },
     {
       "channel": "北化",
@@ -365,7 +393,8 @@
       "active": "active",
       "projectCode": "P2508O8VJ",
       "id": "O8VJ",
-      "paymentNodes": []
+      "paymentNodes": [],
+      "monthlyProgress": []
     },
     {
       "channel": "陕煤",
@@ -385,7 +414,8 @@
       "active": "active",
       "projectCode": "C2603OKIB",
       "id": "OKIB",
-      "paymentNodes": []
+      "paymentNodes": [],
+      "monthlyProgress": []
     },
     {
       "channel": "佳电",
@@ -405,6 +435,28 @@
       "active": "active",
       "projectCode": "C2603POTL",
       "id": "POTL",
+      "paymentNodes": [],
+      "monthlyProgress": []
+    },
+    {
+      "channel": "佳电",
+      "source": "佳电运维科技",
+      "uniqueCode": "",
+      "name": "红沿河三期",
+      "desc": "已报价",
+      "product": "G01、V03",
+      "owner": "苏奕玮",
+      "quote": "48.13",
+      "contract": "",
+      "contractDate": "",
+      "stage": 0,
+      "todos": [],
+      "collectTasks": [],
+      "logs": [],
+      "active": "active",
+      "monthlyProgress": [],
+      "projectCode": "C2603PT6G",
+      "id": "PT6G",
       "paymentNodes": []
     },
     {
@@ -425,7 +477,8 @@
       "active": "active",
       "projectCode": "C2603Q3CW",
       "id": "Q3CW",
-      "paymentNodes": []
+      "paymentNodes": [],
+      "monthlyProgress": []
     },
     {
       "channel": "哈电",
@@ -436,83 +489,22 @@
       "product": "有线监测方案（定制）、软件开发",
       "owner": "苏奕玮",
       "quote": "",
-      "contract": "128.953",
+      "contract": "128.95",
       "contractDate": "2025-07-29",
       "stage": 1,
       "paymentNodes": [
         {
-          "condition": "合同签订后",
-          "ratio": "30%",
-          "amount": "38.6859",
-          "actualAmount": "38.6859",
-          "done": true,
-          "deliverDone": true,
-          "_fromAi": true
-        },
-        {
-          "condition": "货物安装完成",
-          "ratio": "20%",
-          "amount": "25.7906",
-          "actualAmount": "25.7906",
-          "done": true,
-          "deliverDone": true,
-          "_fromAi": true
-        },
-        {
-          "condition": "上线验收后",
-          "ratio": "40%",
-          "amount": "51.5812",
+          "condition": "验收后结清",
+          "ratio": "100%",
+          "amount": "",
           "actualAmount": "",
           "done": false,
-          "deliverDone": true,
-          "_fromAi": true
-        },
-        {
-          "condition": "质保期满后",
-          "ratio": "10%",
-          "amount": "12.8953",
-          "actualAmount": "",
-          "done": false,
-          "deliverDone": false,
-          "_fromAi": true
+          "deliverDone": false
         }
       ],
       "todos": [],
-      "collectTasks": [
-        {
-          "date": "2026-03-19",
-          "amount": "51.5812",
-          "owner": "苏奕玮",
-          "note": "待催：上线验收后",
-          "done": false
-        }
-      ],
-      "logs": [
-        {
-          "time": "2026-03-19 15:39",
-          "text": "📦 节点「合同签订后」交付任务已完成"
-        },
-        {
-          "time": "2026-03-19 15:39",
-          "text": "💰 节点「合同签订后」回款已到账 · 0.00万"
-        },
-        {
-          "time": "2026-03-19 15:39",
-          "text": "📦 节点「货物安装完成」交付任务已完成"
-        },
-        {
-          "time": "2026-03-19 15:39",
-          "text": "💰 节点「货物安装完成」回款已到账 · 0.00万"
-        },
-        {
-          "time": "2026-03-19 15:39",
-          "text": "📦 节点「上线验收后」交付任务已完成"
-        },
-        {
-          "time": "2026-03-19 15:39",
-          "text": "📦 节点「合同签订后」交付任务已完成\n💰 节点「合同签订后」回款已到账 · 0.00万\n📦 节点「货物安装完成」交付任务已完成\n💰 节点「货物安装完成」回款已到账 · 0.00万\n📦 节点「上线验收后」交付任务已完成"
-        }
-      ],
+      "collectTasks": [],
+      "logs": [],
       "active": "active",
       "projectCode": "P2507QL0X",
       "id": "QL0X",
@@ -529,7 +521,8 @@
       "deliveryNote": "",
       "terminationReason": "",
       "洽谈状态": "需求沟通",
-      "updatedAt": "2026-03-19 15:39"
+      "updatedAt": "2026-03-19 15:39",
+      "monthlyProgress": []
     },
     {
       "channel": "北化",
@@ -558,7 +551,8 @@
       "logs": [],
       "active": "active",
       "projectCode": "P2601R24R",
-      "id": "R24R"
+      "id": "R24R",
+      "monthlyProgress": []
     },
     {
       "channel": "北化",
@@ -578,7 +572,8 @@
       "active": "active",
       "projectCode": "C2603RRSB",
       "id": "RRSB",
-      "paymentNodes": []
+      "paymentNodes": [],
+      "monthlyProgress": []
     },
     {
       "channel": "佳电",
@@ -598,27 +593,8 @@
       "active": "active",
       "projectCode": "P2510U3CC",
       "id": "U3CC",
-      "paymentNodes": []
-    },
-    {
-      "channel": "佳电",
-      "source": "佳电运维科技",
-      "uniqueCode": "UQ8H",
-      "name": "红沿河三期",
-      "desc": "106支V03+22个G01",
-      "product": "V03、G01",
-      "owner": "毛娜",
-      "quote": "",
-      "contract": "63.12",
-      "contractDate": "2025-06-25",
-      "stage": 2,
-      "todos": [],
-      "collectTasks": [],
-      "logs": [],
-      "active": "active",
-      "projectCode": "P2506UQ8H",
-      "id": "UQ8H",
-      "paymentNodes": []
+      "paymentNodes": [],
+      "monthlyProgress": []
     },
     {
       "channel": "佳电",
@@ -638,7 +614,8 @@
       "active": "active",
       "projectCode": "P2510X3TN",
       "id": "X3TN",
-      "paymentNodes": []
+      "paymentNodes": [],
+      "monthlyProgress": []
     },
     {
       "channel": "北化",
@@ -648,7 +625,7 @@
       "desc": "故障诊断算法",
       "product": "软件/算法开发",
       "owner": "苏奕玮",
-      "quote": "",
+      "quote": "110.00",
       "contract": "",
       "contractDate": "",
       "stage": 0,
@@ -658,6 +635,28 @@
       "active": "active",
       "projectCode": "C2603XP8J",
       "id": "XP8J",
+      "paymentNodes": [],
+      "monthlyProgress": []
+    },
+    {
+      "channel": "北化",
+      "source": "襄阳五二五",
+      "uniqueCode": "YY0B",
+      "name": "硝化棉产线标配项目",
+      "desc": "温振变送器",
+      "product": "外采",
+      "owner": "苏奕玮",
+      "quote": "31.12",
+      "contract": "",
+      "contractDate": "",
+      "stage": 0,
+      "todos": [],
+      "collectTasks": [],
+      "logs": [],
+      "active": "active",
+      "monthlyProgress": [],
+      "projectCode": "C2603YY0B",
+      "id": "YY0B",
       "paymentNodes": []
     },
     {
@@ -678,7 +677,8 @@
       "active": "active",
       "projectCode": "C2603ZSO8",
       "id": "ZSO8",
-      "paymentNodes": []
+      "paymentNodes": [],
+      "monthlyProgress": []
     }
   ],
   "recycleBin": [],
@@ -696,6 +696,6 @@
     "sbCollapsed": null,
     "fsRootName": "2026年项目管理"
   },
-  "exportDate": "2026-03-19T07:39:56.123Z",
+  "exportDate": "2026-03-21T15:07:58.482Z",
   "version": "1.4"
 }
