@@ -1402,72 +1402,36 @@ function showImportConfirmation(added, updated, progressUpdated, addedProjects, 
   
   let html = `
     <div class="import-confirmation-header">
-      <h3>导入结果确认</h3>
-      <p>以下是本次导入的详细信息</p>
+      <div class="import-confirmation-title">语雀导入完成</div>
     </div>
-    
+
     <div class="import-stat-grid">
       <div class="import-stat-card added">
-        <h5>新增项目</h5>
+        <div class="stat-label">新增项目</div>
         <div class="stat-value">${added}</div>
       </div>
       <div class="import-stat-card updated">
-        <h5>更新项目</h5>
+        <div class="stat-label">更新项目</div>
         <div class="stat-value">${updated}</div>
       </div>
       <div class="import-stat-card progress">
-        <h5>进度更新</h5>
+        <div class="stat-label">进度更新</div>
         <div class="stat-value">${progressUpdated}</div>
       </div>
     </div>
-    
-    <div class="import-status-card success">
-      <h4 class="import-section-title success">导入详情</h4>
-      
-      <div class="import-stat-item">
-        <div class="import-stat-icon added">+</div>
-        <span><strong>新增项目：</strong>${added} 个</span>
-      </div>
-      
-      <div class="import-stat-item">
-        <div class="import-stat-icon updated">↻</div>
-        <span><strong>更新项目：</strong>${updated} 个</span>
-        ${updated > 0 ? `
-          <div class="import-update-details">
-            ${updatedProjects.slice(0, 5).map(p => `${p.name}`).join('、')}${updatedProjects.length > 5 ? '...' : ''}
-          </div>
-        ` : ''}
-      </div>
-      
-      <div class="import-stat-item">
-        <div class="import-stat-icon progress">📈</div>
-        <span><strong>进度更新：</strong>${progressUpdated} 个项目</span>
-      </div>
-  `;
-  
-  if (activeChanges) {
-    html += `
-      <div class="import-stat-item">
-        <div class="import-stat-icon active">⚡</div>
-        <span><strong>活跃度变化：</strong>新增活跃项目 ${activeChanges.activeAdded} 个（${activeProjects.slice(0, 5).map(p => p.name).join('、')}${activeProjects.length > 5 ? '...' : ''}），新增非活跃项目 ${activeChanges.inactiveAdded} 个（${inactiveProjects.slice(0, 5).map(p => p.name).join('、')}${inactiveProjects.length > 5 ? '...' : ''}）</span>
-      </div>
-    `;
-  }
-  
-  html += `
-    </div>
-    
+
     <div class="import-project-list">
   `;
-  
+
   if (added > 0) {
     html += `
-      <div class="import-project-section added">
-        <h4>新增项目 (${added})</h4>
+      <div class="import-project-section">
+        <div class="import-section-title">新增项目 (${added})</div>
         <div class="import-project-items">
           ${addedProjects.map(p => `
-            <div class="import-project-item added">
-              <span>${p.name}</span>
+            <div class="import-project-item">
+              <span class="import-project-tag added">＋</span>
+              <span class="import-project-name">${p.name}</span>
               ${p.projectCode ? `<span class="import-project-code">${p.projectCode}</span>` : ''}
             </div>
           `).join('')}
@@ -1475,15 +1439,16 @@ function showImportConfirmation(added, updated, progressUpdated, addedProjects, 
       </div>
     `;
   }
-  
+
   if (updated > 0) {
     html += `
-      <div class="import-project-section updated">
-        <h4>更新项目 (${updated})</h4>
+      <div class="import-project-section">
+        <div class="import-section-title">更新项目 (${updated})</div>
         <div class="import-project-items">
           ${updatedProjects.map(p => `
-            <div class="import-project-item updated">
-              <span>${p.name}</span>
+            <div class="import-project-item">
+              <span class="import-project-tag updated">↻</span>
+              <span class="import-project-name">${p.name}</span>
               ${p.projectCode ? `<span class="import-project-code">${p.projectCode}</span>` : ''}
             </div>
           `).join('')}
@@ -1491,30 +1456,26 @@ function showImportConfirmation(added, updated, progressUpdated, addedProjects, 
       </div>
     `;
   }
-  
-  if (activeChanges && (activeChanges.activeAdded > 0 || activeChanges.inactiveAdded > 0)) {
+
+  if (activeChanges && (activeChanges.inactiveAdded > 0)) {
     html += `
-      <div class="import-status-card info">
-        <h4 class="import-section-title info">活跃度详情</h4>
-        <div class="import-activity-list">
-          ${activeProjects.length > 0 ? `
-            <div class="import-activity-item active">
-              <strong>新增活跃项目 ${activeProjects.length} 个：</strong>${activeProjects.map(p => p.name).join('、')}
+      <div class="import-project-section">
+        <div class="import-section-title">转为非活跃 (${activeChanges.inactiveAdded})</div>
+        <div class="import-project-items">
+          ${inactiveProjects.map(p => `
+            <div class="import-project-item">
+              <span class="import-project-tag inactive">−</span>
+              <span class="import-project-name">${p.name}</span>
             </div>
-          ` : ''}
-          ${inactiveProjects.length > 0 ? `
-            <div class="import-activity-item inactive">
-              <strong>新增非活跃项目 ${inactiveProjects.length} 个：</strong>${inactiveProjects.map(p => p.name).join('、')}
-            </div>
-          ` : ''}
+          `).join('')}
         </div>
       </div>
     `;
   }
-  
+
   html += `
     </div>
-    
+
     <div class="import-confirmation-footer">
       <button id="confirm-import-btn" class="import-btn-confirm">确认完成</button>
     </div>
