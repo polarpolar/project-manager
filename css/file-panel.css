@@ -116,6 +116,27 @@
   padding: 16px 0;
 }
 
+.file-section-loading {
+  color: #888;
+  font-size: 0.75rem;
+  text-align: center;
+  padding: 16px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.file-section-loading::before {
+  content: '';
+  width: 14px;
+  height: 14px;
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid var(--accent);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
 /* ── 文件网格 ── */
 .file-grid {
   display: grid;

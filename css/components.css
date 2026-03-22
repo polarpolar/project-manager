@@ -49,22 +49,7 @@
   color: #fff;
 }
 
-/* 标准按钮（模态框用） */
-.btn-cancel {
-  padding: 9px 22px;
-  border: 1.5px solid #e0e0e0;
-  border-radius: 7px;
-  background: transparent;
-  cursor: pointer;
-  font-size: 0.82rem;
-  font-family: inherit;
-  color: #888;
-  transition: all 0.2s;
-}
-.btn-cancel:hover {
-  border-color: #aaa;
-}
-
+/* 保存按钮 */
 .btn-save {
   padding: 9px 28px;
   background: var(--accent);
@@ -81,56 +66,39 @@
   background: var(--accent2);
 }
 
-/* 导出按钮 */
-.btn-export {
-  padding: 9px 22px;
-  background: var(--s1);
-  color: #fff;
-  border: none;
+/* 取消按钮 */
+.btn-cancel {
+  padding: 9px 28px;
+  background: transparent;
+  color: #888;
+  border: 1.5px solid #e0e0e0;
   border-radius: 7px;
   cursor: pointer;
   font-size: 0.82rem;
   font-family: inherit;
-  font-weight: 600;
   transition: all 0.2s;
+}
+.btn-cancel:hover {
+  border-color: #bbb;
+  color: #666;
+}
+
+/* 导出按钮 */
+.btn-export {
+  background: rgba(46, 125, 50, 0.08);
+  color: var(--s2);
+  border-color: rgba(46, 125, 50, 0.2);
+  padding: 6px 14px;
+  font-size: 0.75rem;
 }
 .btn-export:hover {
   background: var(--s2);
-}
-
-/* 添加行按钮 */
-.btn-add-row {
-  font-size: 0.7rem;
-  color: #aaa;
-  background: none;
-  border: 1px dashed #ddd;
-  border-radius: 5px;
-  padding: 4px 10px;
-  cursor: pointer;
-  font-family: 'Noto Sans SC', sans-serif;
-  transition: all 0.15s;
-}
-.btn-add-row:hover {
-  border-color: var(--sc);
-  color: var(--sc);
-}
-
-/* 删除行按钮 */
-.btn-rm-row {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: #ddd;
-  font-size: 1rem;
-  line-height: 1;
-  padding: 0 2px;
-}
-.btn-rm-row:hover {
-  color: #e53935;
+  color: #fff;
 }
 
 /* ── 卡片组件 ── */
 
+/* 项目卡片 */
 .card {
   background: var(--paper);
   border-radius: 8px;
@@ -140,34 +108,19 @@
   cursor: default;
   transition: box-shadow 0.2s, transform 0.15s;
   box-shadow: 0 1px 4px var(--shadow);
+  position: relative;
 }
 
 .card:hover {
-  box-shadow: 0 4px 16px var(--shadow);
+  box-shadow: 0 4px 12px var(--shadow-dark);
   transform: translateY(-1px);
 }
 
-.card[data-s="0"] { border-left-color: var(--s0); }
-.card[data-s="1"] { border-left-color: var(--s1); }
-.card[data-s="c"] { border-left-color: var(--sc); }
-.card[data-s="2"] { border-left-color: var(--s2); opacity: 0.88; }
-
-.card-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 6px;
-  margin-bottom: 4px;
+.card.dragging {
+  opacity: 0.5;
 }
 
-.card-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-  min-width: 0;
-}
-
+/* 卡片头部：项目名称 */
 .card-name {
   font-family: 'Noto Serif SC', serif;
   font-size: 0.88rem;
@@ -180,68 +133,11 @@
   text-decoration-color: transparent;
 }
 
-.card-header .card-name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .card-name:hover {
   color: var(--accent);
-  text-decoration-color: var(--accent);
 }
 
-.card-header .source-tag {
-  font-size: 0.62rem;
-  background: var(--paper2);
-  color: var(--ink-light);
-  padding: 2px 7px;
-  border-radius: 10px;
-  flex-shrink: 0;
-}
-
-.card-active {
-  font-size: 0.58rem;
-  padding: 2px 6px;
-  border-radius: 10px;
-  white-space: nowrap;
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-.card-active.on {
-  background: rgba(46, 125, 50, 0.1);
-  color: #2e7d32;
-  border: 1px solid rgba(46, 125, 50, 0.2);
-}
-
-.card-active.off {
-  background: rgba(198, 40, 40, 0.08);
-  color: #c62828;
-  border: 1px solid rgba(198, 40, 40, 0.15);
-}
-
-.card-updated {
-  font-size: 0.6rem;
-  color: #bbb;
-  margin-bottom: 4px;
-}
-
-.card-last-log {
-  font-size: 0.67rem;
-  color: #888;
-  padding: 4px 8px;
-  background: var(--paper2);
-  border-radius: 4px;
-  border-left: 2px solid var(--gold);
-  margin-bottom: 5px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
+/* 卡片元信息行 */
 .card-meta {
   display: flex;
   gap: 5px;
@@ -257,10 +153,15 @@
   border-radius: 10px;
 }
 
+/* 金额信息区 */
 .card-amounts {
   display: flex;
   gap: 8px;
   margin-bottom: 5px;
+}
+
+.card-amounts.mt-sm {
+  margin-top: 6px;
 }
 
 .amount-item {
@@ -279,29 +180,14 @@
 }
 
 .aval.contract {
-  color: var(--s1);
+  color: var(--accent);
 }
 
 .aval.cost {
-  color: #e67e22;
+  color: #e53935;
 }
 
-.card-desc {
-  font-size: 0.7rem;
-  color: #888;
-  line-height: 1.5;
-  margin-bottom: 5px;
-}
-
-.card-actions {
-  display: flex;
-  gap: 5px;
-  margin-top: 8px;
-  justify-content: flex-end;
-}
-
-/* ── 回款进度条 ── */
-
+/* 回款进度区 */
 .card-payment {
   margin: 5px 0;
 }
@@ -314,15 +200,11 @@
   margin-bottom: 3px;
 }
 
-.card-payment-label span:last-child {
-  font-weight: 700;
-  color: var(--sc);
-}
-
+/* 进度条 */
 .pbar-wrap {
   background: var(--paper2);
   border-radius: 4px;
-  height: 5px;
+  height: 6px;
   overflow: hidden;
 }
 
@@ -330,86 +212,167 @@
   height: 100%;
   border-radius: 4px;
   background: var(--sc);
-  transition: width 0.4s;
-}
-
-/* 大号进度条 */
-.pbar-wrap-lg {
-  background: var(--paper2);
-  border-radius: 6px;
-  height: 8px;
-  overflow: hidden;
-  margin: 6px 0;
-}
-
-.pbar-fill-lg {
-  height: 100%;
-  border-radius: 6px;
-  background: var(--sc);
   transition: width 0.3s;
 }
 
-/* ── 催款任务预览 ── */
-
-.card-collect-preview {
+/* 交付内容预览区 */
+.delivery-preview {
   margin: 5px 0;
+  padding: 7px 10px;
+  background: rgba(21, 101, 192, 0.04);
+  border-radius: 6px;
+  border-left: 2px solid var(--s1);
+}
+
+.delivery-preview-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 5px;
+}
+
+.delivery-preview-header.no-margin {
+  margin-bottom: 0;
+}
+
+.delivery-preview-title {
+  font-size: 0.6rem;
+  color: var(--s1);
+  font-weight: 600;
+}
+
+.delivery-tags {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.delivery-empty {
+  font-size: 0.65rem;
+  color: #bbb;
+}
+
+/* 交付标签芯片 */
+.delivery-chip {
+  font-size: 0.62rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.delivery-chip.wireless {
+  background: rgba(21, 101, 192, 0.1);
+  color: #1565c0;
+}
+
+.delivery-chip.wired {
+  background: rgba(46, 125, 50, 0.1);
+  color: #2e7d32;
+}
+
+.delivery-chip.software {
+  background: rgba(106, 27, 154, 0.1);
+  color: #6a1b9a;
+}
+
+.delivery-chip.other {
+  background: rgba(230, 81, 0, 0.1);
+  color: #e65100;
+}
+
+/* 回款节点预览 */
+.payment-node-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--paper2);
+  flex-wrap: wrap;
+}
+
+.node-status-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1.5px solid #ddd;
+  background: transparent;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+}
+
+.node-status-dot.done {
+  border-color: var(--sc);
+  background: var(--sc);
+}
+
+.node-status-dot .check-mark {
+  color: #fff;
+  font-size: 8px;
+}
+
+.node-condition {
+  font-size: 0.65rem;
+  color: #666;
+  flex: 1;
+  min-width: 0;
+  word-wrap: break-word;
+}
+
+.node-ratio {
+  font-size: 0.63rem;
+  color: var(--sc);
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.node-amount {
+  font-size: 0.62rem;
+  color: #888;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* 催款任务预览 */
+.card-collect-preview {
+  margin-top: 6px;
 }
 
 .collect-mini {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   font-size: 0.65rem;
-  color: #666;
-  padding: 3px 6px;
-  border-radius: 4px;
-  background: rgba(230, 81, 0, 0.06);
-  border-left: 2px solid var(--sc);
+  color: var(--sc);
   margin-bottom: 3px;
 }
 
-.collect-mini.done {
-  opacity: 0.5;
-  text-decoration: line-through;
-}
-
 .collect-mini-chk {
-  width: 11px;
-  height: 11px;
+  width: 10px;
+  height: 10px;
   border-radius: 2px;
-  border: 1.5px solid var(--sc);
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  border: 1px solid var(--sc);
 }
 
 .collect-mini-chk.done {
   background: var(--sc);
-  border-color: var(--sc);
 }
 
-.collect-mini-chk.done::after {
-  content: '✓';
-  font-size: 8px;
-  color: #fff;
-}
-
-/* ── 待办预览 ── */
-
+/* 待办预览 */
 .todos-preview {
-  margin: 5px 0;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+  margin-top: 6px;
 }
 
 .todo-item-mini {
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 0.68rem;
-  color: #666;
+  font-size: 0.65rem;
+  color: var(--ink);
+  margin-bottom: 3px;
 }
 
 .todo-item-mini.done {
@@ -418,20 +381,104 @@
 }
 
 .chk-mini {
-  width: 11px;
-  height: 11px;
+  width: 10px;
+  height: 10px;
   border-radius: 2px;
-  border: 1.5px solid #ccc;
-  flex-shrink: 0;
+  border: 1px solid #ccc;
 }
 
 .chk-mini.checked {
-  background: var(--s2);
-  border-color: var(--s2);
+  background: var(--accent);
+  border-color: var(--accent);
 }
 
-/* ── AI识别结果标签芯片 ── */
+/* 更多信息提示 */
+.more-hint {
+  font-size: 0.6rem;
+  color: #bbb;
+  text-align: center;
+  padding-top: 3px;
+}
 
+.more-hint.left {
+  text-align: left;
+}
+
+/* 项目描述 */
+.card-desc {
+  font-size: 0.7rem;
+  color: #888;
+  line-height: 1.5;
+  margin-bottom: 5px;
+}
+
+/* 更新时间 */
+.card-updated {
+  font-size: 0.6rem;
+  color: #bbb;
+  margin-bottom: 4px;
+}
+
+/* 卡片头部布局 */
+.card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.card-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+/* 活跃标记 */
+.card-active {
+  font-size: 0.58rem;
+  padding: 2px 6px;
+  border-radius: 10px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.card-active.on {
+  background: rgba(46, 125, 50, 0.1);
+  color: #2e7d32;
+  border: 1px solid rgba(46, 125, 50, 0.2);
+}
+
+.card-active.off {
+  background: rgba(229, 57, 53, 0.1);
+  color: #e53935;
+  border: 1px solid rgba(229, 57, 53, 0.2);
+}
+
+/* 来源标签 */
+.card-header .source-tag {
+  font-size: 0.62rem;
+  background: var(--paper2);
+  color: var(--ink-light);
+  padding: 2px 7px;
+  border-radius: 10px;
+  align-self: flex-start;
+}
+
+/* ── AI 分析标签 ── */
+
+/* 交付类型标签（卡片内） */
 .ca-chip {
   font-size: 0.62rem;
   padding: 2px 8px;
@@ -454,23 +501,17 @@
   color: #6a1b9a;
 }
 
-.ca-chip.other-dev {
+.ca-chip.other {
   background: rgba(230, 81, 0, 0.1);
   color: #e65100;
 }
 
-.ca-chip.none {
-  background: var(--paper2);
-  color: #999;
-}
-
-/* ── 交付标签（编辑面板） ── */
-
+/* ── 交付标签（模态框用）── */
 .dtag-wrap {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  margin: 10px 0 14px;
+  margin: 8px 0;
 }
 
 .dtag {
@@ -488,56 +529,30 @@
 }
 
 .dtag.off {
-  opacity: 0.3;
-  filter: grayscale(0.9);
+  opacity: 0.35;
+  filter: grayscale(0.8);
 }
 
-.dtag-wl {
-  background: rgba(21, 101, 192, 0.08);
-  color: #1565c0;
-  border-color: rgba(21, 101, 192, 0.25);
+.dtag-wl { background: rgba(21, 101, 192, 0.08); color: #1565c0; border-color: rgba(21, 101, 192, 0.25); }
+.dtag-wd { background: rgba(46, 125, 50, 0.08); color: #2e7d32; border-color: rgba(46, 125, 50, 0.25); }
+.dtag-sw { background: rgba(106, 27, 154, 0.08); color: #6a1b9a; border-color: rgba(106, 27, 154, 0.25); }
+.dtag-ot { background: rgba(230, 81, 0, 0.08); color: #e65100; border-color: rgba(230, 81, 0, 0.25); }
+
+/* ── 列布局 ── */
+.col-wrap {
+  min-width: 0;
 }
-
-.dtag-wd {
-  background: rgba(46, 125, 50, 0.08);
-  color: #2e7d32;
-  border-color: rgba(46, 125, 50, 0.25);
-}
-
-.dtag-sw {
-  background: rgba(106, 27, 154, 0.08);
-  color: #6a1b9a;
-  border-color: rgba(106, 27, 154, 0.25);
-}
-
-.dtag-ot {
-  background: rgba(230, 81, 0, 0.08);
-  color: #e65100;
-  border-color: rgba(230, 81, 0, 0.25);
-}
-
-/* ── 空状态 ── */
-
-.empty-state {
-  text-align: center;
-  padding: 24px 12px;
-  color: #ccc;
-  font-size: 0.72rem;
-  line-height: 2;
-}
-
-/* ── 列标题 ── */
 
 .col-header {
-  padding: 10px 14px;
-  border-radius: 8px 8px 0 0;
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
+  background: var(--ink);
   color: #fff;
+  padding: 10px 12px;
+  border-radius: 8px 8px 0 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  font-size: 0.78rem;
+  font-weight: 600;
 }
 
 .col-header[data-s="0"] { background: var(--s0); }
@@ -561,4 +576,28 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+/* ── 空状态 ── */
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #bbb;
+  font-size: 0.82rem;
+}
+
+/* ── 工具类 ── */
+.mt-sm { margin-top: 6px; }
+.mt-md { margin-top: 10px; }
+.mt-lg { margin-top: 16px; }
+
+.text-muted { color: #bbb; }
+.text-center { text-align: center; }
+
+/* 卡片操作按钮区 */
+.card-actions {
+  display: flex;
+  gap: 5px;
+  margin-top: 8px;
+  justify-content: flex-end;
 }

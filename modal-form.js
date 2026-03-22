@@ -312,7 +312,7 @@ function renderMonthlyProgress(project, filterType = 'all') {
 
   if (progress.length === 0) {
     container.innerHTML = `
-      <div style="text-align:center;padding:40px 20px;color:#bbb;font-size:.82rem">
+      <div class="progress-empty">
         暂无进度记录，请从语雀导入
       </div>
     `;
@@ -339,16 +339,15 @@ function renderMonthlyProgress(project, filterType = 'all') {
   ];
 
   container.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <div style="font-size:.72rem;color:#aaa">${progress.length} 条记录</div>
-      <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">
+    <div class="progress-header">
+      <div class="progress-count">${progress.length} 条记录</div>
+      <div class="progress-filter-tags">
         ${tagTypes.map(tag => `
           <span onclick="filterProgressByType('${tag.type}')"
-            style="cursor:pointer;font-size:.68rem;padding:2px 9px;border-radius:10px;
-                   border:1px solid ${filterType === tag.type ? tag.color : '#ddd'};
+            class="progress-filter-tag ${filterType === tag.type ? 'active' : ''}"
+            style="border-color:${filterType === tag.type ? tag.color : '#ddd'};
                    background:${filterType === tag.type ? tag.color : 'transparent'};
-                   color:${filterType === tag.type ? 'white' : '#888'};
-                   transition:all 0.15s">
+                   color:${filterType === tag.type ? 'white' : '#888'};">
             ${tag.name}
           </span>
         `).join('')}
@@ -360,29 +359,17 @@ function renderMonthlyProgress(project, filterType = 'all') {
       const isLong = item.content.length > 100 || item.content.split('\n').length > 3;
 
       return `
-        <div style="display:flex;align-items:flex-start;gap:8px;
-                    padding:4px 8px;background:var(--paper);border-radius:6px;
-                    margin-bottom:4px;border-left:2px solid ${progressType.color}">
-          <div style="display:flex;align-items:flex-start;gap:32px;
-                      min-width:124px;width:124px;flex-shrink:0;padding-top:1px">
-            <span style="font-size:.82rem;color:#888;white-space:nowrap;line-height:1.65">
-              ${item.month}
-            </span>
-            <span style="font-size:.72rem;padding:0 2px;border-radius:8px;
-                        background:${progressType.color}20;color:${progressType.color};
-                        border:1px solid ${progressType.color}50;white-space:nowrap;
-                        line-height:1.6;display:inline-block;flex-shrink:0;margin-top:1px">
+        <div class="progress-item" style="border-left-color:${progressType.color}">
+          <div class="progress-item-meta">
+            <span class="progress-item-month">${item.month}</span>
+            <span class="progress-item-type" style="background:${progressType.color}20;color:${progressType.color};border:1px solid ${progressType.color}50">
               ${progressType.type}
             </span>
           </div>
-          <div style="flex:1;min-width:0;padding-top:1px">
-            <div class="progress-content"
-              style="font-size:.82rem;line-height:1.65;color:#444;white-space:pre-wrap;
-                    display:block;margin:0;${isLong ? 'max-height:80px;overflow:hidden' : ''}">${item.content.trim()}</div>
+          <div class="progress-item-content-wrap">
+            <div class="progress-item-content ${isLong ? 'collapsed' : ''}">${item.content.trim()}</div>
             ${isLong ? `
-              <span class="progress-toggle" onclick="toggleProgress(this)"
-                style="font-size:.7rem;color:var(--accent);cursor:pointer;
-                      display:inline-block;margin-top:4px">
+              <span class="progress-toggle" onclick="toggleProgress(this)">
                 展开 ↓
               </span>
             ` : ''}
@@ -390,7 +377,7 @@ function renderMonthlyProgress(project, filterType = 'all') {
         </div>
       `;
     }).join('') : `
-      <div style="text-align:center;padding:30px 20px;color:#bbb;font-size:.82rem">
+      <div class="progress-empty small">
         暂无「${filterType}」类型的进度记录
       </div>
     `}
@@ -496,11 +483,11 @@ function addPaymentNode(node={}, fromAi=false) {
     <!-- 交付任务目标区：标题描述 + 紧跟的完成勾选 -->
     <div class="pn-task-area">
       <div class="pn-task-label">📋 交付任务目标</div>
-      <div class="pn-task-row" style="display:flex;align-items:center;gap:10px;">
-        <input class="pn-condition" type="text" style="flex:1;"
+      <div class="pn-task-row">
+        <input class="pn-condition" type="text"
           placeholder="描述需完成的交付任务，如：合同签订后收到保函及发票"
           value="${(node.condition||'').replace(/"/g,'&quot;')}">
-        <div class="pn-deliver-toggle" onclick="onPnDeliverToggle(this)" style="flex-shrink:0;">
+        <div class="pn-deliver-toggle" onclick="onPnDeliverToggle(this)">
           <input type="checkbox" class="pn-deliver-chk" ${node.deliverDone?'checked':''}>
           <div class="pn-status-btn ${node.deliverDone?'active-deliver':''}">
             ${node.deliverDone?'✅ 交付完成':'○ 交付完成'}
@@ -811,12 +798,12 @@ function addCollectRow(task={}, isNew=false) {
   row.innerHTML = `
     <input type="checkbox" class="ct-done" ${task.done?'checked':''} onchange="onCollectDoneChange(this)">
     <input type="date" class="ct-date" value="${task.date||''}">
-    <div style="display: flex; align-items: center; gap: 4px; width: 120px;">
-      <input type="number" class="ct-amount" placeholder="金额" value="${task.amount||''}" step="0.01" min="0" style="width: 80px;">
-      <span style="font-size: 0.72rem; color: #888;">万元</span>
+    <div class="collect-task-amount-wrap">
+      <input type="number" class="ct-amount" placeholder="金额" value="${task.amount||''}" step="0.01" min="0">
+      <span class="collect-task-unit">万元</span>
     </div>
-    <input type="text" class="ct-owner" placeholder="负责人" value="${task.owner||''}" style="width: 80px;">
-    <input type="text" class="ct-note"  placeholder="备注（可选）" value="${esc(task.note||'')}" style="flex: 1;">
+    <input type="text" class="ct-owner collect-task-owner" placeholder="负责人" value="${task.owner||''}">
+    <input type="text" class="ct-note collect-task-note" placeholder="备注（可选）" value="${esc(task.note||'')}">
     <button type="button" class="btn-rm-row" onclick="this.parentElement.remove()">×</button>`;
   list.appendChild(row);
   // 新增催款任务时添加系统提示
@@ -907,7 +894,7 @@ function renderLogHistory(logs) {
   const box = document.getElementById('f-log-history');
   if (!box) return;
   if (!logs||!logs.length) { box.innerHTML=''; return; }
-  box.innerHTML = `<div style="font-size:.68rem;color:#aaa;margin-bottom:6px">历史记录（${logs.length}条）</div>`
+  box.innerHTML = `<div class="log-history-title">历史记录（${logs.length}条）</div>`
     + [...logs].reverse().map(l=>`
     <div class="log-history-item">
       <div class="log-time">${l.time}</div>
@@ -987,6 +974,7 @@ function editProject(id) {
   // 使用requestAnimationFrame优化渲染时机
   requestAnimationFrame(() => {
     editingId = id;
+    currentEditProjectId = id; // 设置当前编辑的项目ID
     _pendingLogs = [];
     // 保存原始项目数据，用于比较是否有更新
     originalProjectData = JSON.parse(JSON.stringify(p));
@@ -1095,11 +1083,11 @@ function editProject(id) {
             <!-- 交付任务目标区：标题描述 + 紧跟的完成勾选 -->
             <div class="pn-task-area">
               <div class="pn-task-label">📋 交付任务目标</div>
-              <div class="pn-task-row" style="display:flex;align-items:center;gap:10px;">
-                <input class="pn-condition" type="text" style="flex:1;" 
+              <div class="pn-task-row">
+                <input class="pn-condition" type="text" 
                   placeholder="描述需完成的交付任务，如：合同签订后收到保函及发票"
                   value="${(n.condition||'').replace(/"/g,'&quot;')}">
-                <div class="pn-deliver-toggle" onclick="onPnDeliverToggle(this)" style="flex-shrink:0;">
+                <div class="pn-deliver-toggle" onclick="onPnDeliverToggle(this)">
                   <input type="checkbox" class="pn-deliver-chk" ${n.deliverDone?'checked':''}>
                   <div class="pn-status-btn ${n.deliverDone?'active-deliver':''}">
                     ${n.deliverDone?'✅ 交付完成':'○ 交付完成'}
@@ -1181,12 +1169,14 @@ function editProject(id) {
         labelRow.style.borderRadius = '6px';
         labelRow.style.marginBottom = '6px';
         labelRow.innerHTML = `
-          <div style="width: 14px;"></div>
-          <div style="width: 130px; font-size: 0.68rem; color: #888;">日期</div>
-          <div style="width: 120px; font-size: 0.68rem; color: #888;">金额</div>
-          <div style="width: 80px; font-size: 0.68rem; color: #888;">负责人</div>
-          <div style="flex: 1; font-size: 0.68rem; color: #888;">备注</div>
-          <div style="width: 20px;"></div>
+          <div class="collect-task-header">
+          <div></div>
+          <div>日期</div>
+          <div>金额</div>
+          <div>负责人</div>
+          <div>备注</div>
+          <div></div>
+        </div>
         `;
         elements.fCollectList.appendChild(labelRow);
         
@@ -1197,12 +1187,12 @@ function editProject(id) {
           row.innerHTML = `
             <input type="checkbox" class="ct-done" ${t.done?'checked':''} onchange="onCollectDoneChange(this)">
             <input type="date" class="ct-date" value="${t.date||''}">
-            <div style="display: flex; align-items: center; gap: 4px; width: 120px;">
-              <input type="number" class="ct-amount" placeholder="金额" value="${t.amount||''}" step="0.01" min="0" style="width: 80px;">
-              <span style="font-size: 0.72rem; color: #888;">万元</span>
+            <div class="collect-task-amount-wrap">
+              <input type="number" class="ct-amount" placeholder="金额" value="${t.amount||''}" step="0.01" min="0">
+              <span class="collect-task-unit">万元</span>
             </div>
-            <input type="text" class="ct-owner" placeholder="负责人" value="${t.owner||''}" style="width: 80px;">
-            <input type="text" class="ct-note"  placeholder="备注（可选）" value="${esc(t.note||'')}" style="flex: 1;">
+            <input type="text" class="ct-owner collect-task-owner" placeholder="负责人" value="${t.owner||''}">
+            <input type="text" class="ct-note collect-task-note" placeholder="备注（可选）" value="${esc(t.note||'')}">
             <button type="button" class="btn-rm-row" onclick="this.parentElement.remove()">×</button>`;
           collectFragment.appendChild(row);
         });

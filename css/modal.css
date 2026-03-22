@@ -2,163 +2,6 @@
    ║  Modal - 弹窗与表单样式                                    ║
    ╚════════════════════════════════════════════════════════════╝ */
 
-/* ── 弹窗遮罩 ── */
-.overlay {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(10, 5, 20, 0.6);
-  z-index: 300;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 20px;
-  overflow-y: auto;
-}
-
-.overlay.show {
-  display: flex;
-}
-
-.modal {
-  background: #fff;
-  border-radius: 14px;
-  padding: 28px 32px;
-  width: 100%;
-  max-width: 800px;
-  margin: auto;
-  box-shadow: 0 20px 60px rgba(26, 5, 51, 0.25);
-  animation: slideUp 0.25s ease;
-}
-
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.modal h2 {
-  font-family: 'Noto Serif SC', serif;
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--ink);
-  margin-bottom: 20px;
-  padding-bottom: 12px;
-  border-bottom: 2px solid var(--paper2);
-}
-
-.modal-footer {
-  display: flex;
-  gap: 10px;
-  justify-content: flex-end;
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--paper2);
-}
-
-/* ── 表单基础 ── */
-.form-section-title {
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: var(--ink-light);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  margin: 16px 0 10px;
-  padding-bottom: 4px;
-  border-bottom: 1px solid var(--paper2);
-}
-
-.form-group {
-  margin-bottom: 12px;
-}
-
-.form-group label {
-  display: block;
-  font-size: 0.72rem;
-  color: #888;
-  margin-bottom: 4px;
-  font-weight: 500;
-}
-
-.form-group input,
-.form-group select,
-.form-group textarea {
-  width: 100%;
-  border: 1.5px solid var(--paper2);
-  border-radius: 7px;
-  padding: 8px 11px;
-  font-size: 0.82rem;
-  font-family: 'Noto Sans SC', sans-serif;
-  outline: none;
-  background: #fff;
-  color: var(--ink);
-  transition: border-color 0.2s;
-}
-
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
-  border-color: var(--accent);
-}
-
-.form-group textarea {
-  min-height: 64px;
-  resize: vertical;
-}
-
-.form-row {
-  display: flex;
-  gap: 12px;
-}
-
-.form-row .form-group {
-  flex: 1;
-  min-width: 0;
-}
-
-/* ── Modal 标签页 ── */
-.modal-tabs {
-  display: flex;
-  gap: 0;
-  border-bottom: 2px solid var(--paper2);
-  margin: 0 -32px 20px;
-  padding: 0 32px;
-}
-
-.m-tab {
-  padding: 10px 18px;
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: #bbb;
-  cursor: pointer;
-  border-bottom: 2.5px solid transparent;
-  margin-bottom: -2px;
-  transition: all 0.15s;
-  white-space: nowrap;
-  user-select: none;
-}
-
-.m-tab:hover {
-  color: var(--ink);
-}
-
-.m-tab.active {
-  color: var(--accent);
-  border-bottom-color: var(--accent);
-}
-
-.m-tab-body {
-  display: none;
-}
-
-.m-tab-body.active {
-  display: block;
-  animation: fadeIn 0.15s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
 /* ── 确认弹窗 ── */
 .confirm-overlay {
   display: none;
@@ -236,6 +79,240 @@
   font-weight: 600;
 }
 
+/* ── 弹窗遮罩 ── */
+.overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 5, 20, 0.6);
+  z-index: 300;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.overlay.show {
+  display: flex;
+}
+
+.modal {
+  background: #fff;
+  border-radius: 14px;
+  padding: 28px 32px;
+  width: 100%;
+  max-width: 800px;
+  margin: auto;
+  box-shadow: 0 20px 60px rgba(26, 5, 51, 0.25);
+  animation: slideUp 0.25s ease;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.modal h2 {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--paper2);
+}
+
+.modal-footer {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--paper2);
+}
+
+/* ── 表单区块 ── */
+.form-section-title {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--ink-light);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin: 16px 0 10px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--paper2);
+}
+
+.form-group {
+  margin-bottom: 12px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 0.72rem;
+  color: #888;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  border: 1.5px solid var(--paper2);
+  border-radius: 7px;
+  padding: 8px 11px;
+  font-size: 0.82rem;
+  font-family: 'Noto Sans SC', sans-serif;
+  outline: none;
+  background: #fff;
+  color: var(--ink);
+  transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  border-color: var(--accent);
+}
+
+.form-group textarea {
+  min-height: 64px;
+  resize: vertical;
+}
+
+.form-row {
+  display: flex;
+  gap: 12px;
+}
+
+.form-row .form-group {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── 项目进度区域 ── */
+.progress-section {
+  margin-top: 12px;
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.progress-count {
+  font-size: 0.72rem;
+  color: #aaa;
+}
+
+.progress-filter-tags {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.progress-filter-tag {
+  cursor: pointer;
+  font-size: 0.68rem;
+  padding: 2px 9px;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+  background: transparent;
+  color: #888;
+  transition: all 0.15s;
+}
+
+.progress-filter-tag:hover {
+  border-color: #bbb;
+}
+
+.progress-filter-tag.active {
+  color: white;
+}
+
+/* 进度条目 */
+.progress-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 4px 8px;
+  background: var(--paper);
+  border-radius: 6px;
+  margin-bottom: 4px;
+}
+
+.progress-item-meta {
+  display: flex;
+  align-items: flex-start;
+  gap: 32px;
+  min-width: 124px;
+  width: 124px;
+  flex-shrink: 0;
+  padding-top: 1px;
+}
+
+.progress-item-month {
+  font-size: 0.82rem;
+  color: #888;
+  white-space: nowrap;
+  line-height: 1.65;
+}
+
+.progress-item-type {
+  font-size: 0.72rem;
+  padding: 0 2px;
+  border-radius: 8px;
+  white-space: nowrap;
+  line-height: 1.6;
+  display: inline-block;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.progress-item-content-wrap {
+  flex: 1;
+  min-width: 0;
+  padding-top: 1px;
+}
+
+.progress-item-content {
+  font-size: 0.82rem;
+  line-height: 1.65;
+  color: #444;
+  white-space: pre-wrap;
+  display: block;
+  margin: 0;
+}
+
+.progress-item-content.collapsed {
+  max-height: 80px;
+  overflow: hidden;
+}
+
+.progress-toggle {
+  font-size: 0.7rem;
+  color: var(--accent);
+  cursor: pointer;
+  display: inline-block;
+  margin-top: 4px;
+}
+
+/* 空状态 */
+.progress-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: #bbb;
+  font-size: 0.82rem;
+}
+
+.progress-empty.small {
+  padding: 30px 20px;
+}
+
 /* ── 回款模块 ── */
 .payment-section {
   background: rgba(230, 81, 0, 0.04);
@@ -256,7 +333,22 @@
   gap: 8px;
 }
 
-/* ── 催款任务编辑 ── */
+.pbar-wrap-lg {
+  background: var(--paper2);
+  border-radius: 6px;
+  height: 8px;
+  overflow: hidden;
+  margin: 6px 0;
+}
+
+.pbar-fill-lg {
+  height: 100%;
+  border-radius: 6px;
+  background: var(--sc);
+  transition: width 0.3s;
+}
+
+/* ── 催款任务行 ── */
 .collect-row {
   display: flex;
   gap: 6px;
@@ -268,7 +360,7 @@
   margin-bottom: 5px;
 }
 
-.collect-row input[type=checkbox] {
+.collect-row input[type="checkbox"] {
   accent-color: var(--sc);
   flex-shrink: 0;
   width: 14px;
@@ -276,9 +368,21 @@
   cursor: pointer;
 }
 
-.collect-row input[type=date],
-.collect-row input[type=number],
-.collect-row input[type=text] {
+.collect-row input[type="date"] {
+  width: 130px;
+}
+
+.collect-row input[type="number"] {
+  width: 120px;
+}
+
+.collect-row input[type="text"] {
+  flex: 1;
+}
+
+.collect-row input[type="date"],
+.collect-row input[type="number"],
+.collect-row input[type="text"] {
   border: 1px solid var(--paper2);
   border-radius: 5px;
   padding: 4px 7px;
@@ -289,19 +393,44 @@
   color: var(--ink);
 }
 
-.collect-row input[type=date] {
-  width: 130px;
+.btn-rm-row {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #ddd;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0 2px;
 }
 
-.collect-row input[type=number] {
-  width: 120px;
+.btn-rm-row:hover {
+  color: #e53935;
 }
 
-.collect-row input[type=text] {
-  flex: 1;
+.btn-add-row {
+  font-size: 0.7rem;
+  color: #aaa;
+  background: none;
+  border: 1px dashed #ddd;
+  border-radius: 5px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-family: 'Noto Sans SC', sans-serif;
+  transition: all 0.15s;
+}
+
+.btn-add-row:hover {
+  border-color: var(--sc);
+  color: var(--sc);
 }
 
 /* ── 更新日志 ── */
+.log-history-title {
+  font-size: 0.68rem;
+  color: #aaa;
+  margin-bottom: 6px;
+}
+
 .log-history-item {
   display: flex;
   gap: 8px;
@@ -338,11 +467,11 @@
   margin-bottom: 6px;
 }
 
-.todo-row input[type=checkbox] {
+.todo-row input[type="checkbox"] {
   accent-color: var(--accent);
 }
 
-.todo-row input[type=text] {
+.todo-row input[type="text"] {
   flex: 1;
   border: 1.5px solid var(--paper2);
   border-radius: 6px;
@@ -352,7 +481,7 @@
   outline: none;
 }
 
-.todo-row input[type=text]:focus {
+.todo-row input[type="text"]:focus {
   border-color: var(--accent);
 }
 
@@ -384,6 +513,51 @@
 .btn-add-todo:hover {
   border-color: var(--accent);
   color: var(--accent);
+}
+
+/* ── Modal Tabs ── */
+.modal-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid var(--paper2);
+  margin: 0 -32px 20px;
+  padding: 0 32px;
+}
+
+.m-tab {
+  padding: 10px 18px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #bbb;
+  cursor: pointer;
+  border-bottom: 2.5px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.15s;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.m-tab:hover {
+  color: var(--ink);
+}
+
+.m-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.m-tab-body {
+  display: none;
+}
+
+.m-tab-body.active {
+  display: block;
+  animation: fadeIn 0.15s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* ── 回款节点编辑 ── */
@@ -627,4 +801,76 @@
 .btn-add-pn:hover {
   border-color: var(--sc);
   color: var(--sc);
+}
+
+/* ── 催款任务表格布局 ── */
+.collect-task-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 0 4px;
+}
+
+.collect-task-header > div:first-child {
+  width: 14px;
+}
+
+.collect-task-header > div:nth-child(2) {
+  width: 130px;
+  font-size: 0.68rem;
+  color: #888;
+}
+
+.collect-task-header > div:nth-child(3) {
+  width: 120px;
+  font-size: 0.68rem;
+  color: #888;
+}
+
+.collect-task-header > div:nth-child(4) {
+  width: 80px;
+  font-size: 0.68rem;
+  color: #888;
+}
+
+.collect-task-header > div:nth-child(5) {
+  flex: 1;
+  font-size: 0.68rem;
+  color: #888;
+}
+
+.collect-task-header > div:last-child {
+  width: 20px;
+}
+
+.collect-task-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.collect-task-amount-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 120px;
+}
+
+.collect-task-amount-wrap input {
+  width: 80px;
+}
+
+.collect-task-unit {
+  font-size: 0.72rem;
+  color: #888;
+}
+
+.collect-task-owner {
+  width: 80px;
+}
+
+.collect-task-note {
+  flex: 1;
 }

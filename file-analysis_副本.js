@@ -75,11 +75,17 @@ async function loadModalFilePanel(projectId) {
     const analysisDiv = document.getElementById(analysisDivId);
     if (analysisDiv) {
       if (type === 'contract') {
-        renderContractAnalysis({ _isParsedResult: true, result }, analysisDiv, projectId);
+        // 重新渲染合同分析结果
+        const mockData = { _parsed: { text: JSON.stringify(result) } };
+        renderContractAnalysis(mockData, analysisDiv);
       } else if (type === 'agreement') {
-        renderAgreementAnalysis({ _isParsedResult: true, result }, analysisDiv, projectId);
+        // 重新渲染技术协议分析结果
+        const mockData = { _parsed: { text: JSON.stringify(result) } };
+        renderAgreementAnalysis(mockData, analysisDiv, projectId);
       } else if (type === 'quote') {
-        renderQuoteAnalysis({ _isParsedResult: true, result }, analysisDiv, projectId);
+        // 重新渲染报价分析结果
+        const mockData = { _parsed: { text: JSON.stringify(result) } };
+        renderQuoteAnalysis(mockData, analysisDiv, projectId);
       }
     }
   }
@@ -93,20 +99,11 @@ async function loadModalFilePanel(projectId) {
     return;
   }
 
-  // 显示加载提示
-  const fileGrids = ['modalContractFileGrid', 'modalAgreementFileGrid', 'modalTechPlanFileGrid', 'modalQuoteFileGrid', 'modalOtherFileGrid'];
-  fileGrids.forEach(id => {
-    const grid = document.getElementById(id);
-    if (grid) {
-      grid.innerHTML = '<div class="file-section-loading">正在加载文件...</div>';
-    }
-  });
-
   const dir = await getProjectDirById(p.id);
   if (!dir) {
     // 项目文件夹不存在，显示错误信息
     const dirName = await getProjectDirNameById(p.id);
-    fileGrids.forEach(id => {
+    ['modalContractFileGrid', 'modalAgreementFileGrid', 'modalTechPlanFileGrid', 'modalQuoteFileGrid', 'modalOtherFileGrid'].forEach(id => {
       const grid = document.getElementById(id);
       if (grid) grid.innerHTML = '<div class="file-section-empty">项目文件夹不存在</div>';
     });
@@ -116,52 +113,25 @@ async function loadModalFilePanel(projectId) {
 
   // 读取文件和文件夹列表
   const files = [];
-  try {
-    for await (const [name, handle] of dir.entries()) {
-      if (handle.kind === 'file') {
-        try {
-          const file = await handle.getFile();
-          files.push({ name, handle, lastModified: file.lastModified, isDirectory: false });
-        } catch(e) {
-          files.push({ name, handle, lastModified: 0, isDirectory: false });
-        }
-      } else if (handle.kind === 'directory') {
-        // 识别文件夹
-        files.push({ name, handle, lastModified: 0, isDirectory: true });
+  for await (const [name, handle] of dir.entries()) {
+    if (handle.kind === 'file') {
+      try {
+        const file = await handle.getFile();
+        files.push({ name, handle, lastModified: file.lastModified, isDirectory: false });
+      } catch(e) {
+        files.push({ name, handle, lastModified: 0, isDirectory: false });
       }
+    } else if (handle.kind === 'directory') {
+      // 识别文件夹
+      files.push({ name, handle, lastModified: 0, isDirectory: true });
     }
-  } catch(e) {
-    fileGrids.forEach(id => {
-      const grid = document.getElementById(id);
-      if (grid) grid.innerHTML = '<div class="file-section-empty">读取文件失败</div>';
-    });
-    showToast(`读取文件失败：${e.message}`);
-    return;
   }
 
   // 过滤排除备注.txt 和隐藏文件（以.开头）
   const displayFiles = files.filter(f => f.name !== '备注.txt' && !f.name.startsWith('.'));
 
-  // 更新加载提示为AI分析
-  fileGrids.forEach(id => {
-    const grid = document.getElementById(id);
-    if (grid) {
-      grid.innerHTML = '<div class="file-section-loading">正在分析文件类型...</div>';
-    }
-  });
-
   // 先用 AI 分类，再分区渲染
-  let tagMap = {};
-  try {
-    tagMap = displayFiles.length ? await classifyFileNames(displayFiles.map(f => f.name)) : {};
-  } catch(e) {
-    fileGrids.forEach(id => {
-      const grid = document.getElementById(id);
-      if (grid) grid.innerHTML = '<div class="file-section-empty">分析文件类型失败</div>';
-    });
-    showToast(`分析文件类型失败：${e.message}`);
-    return;
-  }
+  const tagMap = displayFiles.length ? await classifyFileNames(displayFiles.map(f => f.name)) : {};
 
   // 按分类分组
   const contractFiles  = displayFiles.filter(f => !f.isDirectory && (tagMap[f.name]?.cat === '合同')).sort((a, b) => b.lastModified - a.lastModified);
@@ -540,7 +510,7 @@ async function analyzeContractsForPayment() {
           // PDF 处理逻辑
           const ab = await file.arrayBuffer();
           const b64 = btoa(String.fromCharCode(...new Uint8Array(ab)));
-          await analyzeContractFile(name, b64, 'pdf', analysisDiv, btn, projectId);
+          await analyzeContractFile(name, b64, 'pdf', analysisDiv, btn);
           return;
         }
       } catch(e) {
@@ -559,7 +529,7 @@ async function analyzeContractsForPayment() {
     }
     
     // 使用全局AI模型分析合同
-    await analyzeContractText(combinedText, analysisDiv, projectId);
+    await analyzeContractText(combinedText, analysisDiv);
     
     // 更新UI
     if (pnAiHint) {
@@ -952,7 +922,7 @@ async function analyzeContracts() {
           // PDF 转 base64 发给 Claude（单独处理，直接返回）
           const ab = await file.arrayBuffer();
           const b64 = btoa(String.fromCharCode(...new Uint8Array(ab)));
-          await analyzeContractFile(name, b64, 'pdf', analysisDiv, btn, projectId);
+          await analyzeContractFile(name, b64, 'pdf', analysisDiv, btn);
           btn.disabled = false;
           return;
         } else if (['doc','docx'].includes(ext)) {
@@ -966,7 +936,7 @@ async function analyzeContracts() {
 
     if (!combinedText.trim() || combinedText.includes('格式不支持')) {
       if (analysisDiv) {
-        analysisDiv.innerHTML = `<div class="contract-analysis ca-warning">⚠️ 无法读取合同内容，请确认文件为 PDF、docx 或 txt 格式</div>`;
+        analysisDiv.innerHTML = `<div class="contract-analysis" style="color:#e65100;font-size:.75rem">⚠️ 无法读取合同内容，请确认文件为 PDF、docx 或 txt 格式</div>`;
       } else {
         showToast('无法读取合同内容，请确认文件为 PDF、docx 或 txt 格式');
       }
@@ -975,10 +945,10 @@ async function analyzeContracts() {
       btn.style.opacity = '1';
       return;
     }
-    await analyzeContractText(combinedText, analysisDiv, projectId);
+    await analyzeContractText(combinedText, analysisDiv);
   } catch(e) {
     if (analysisDiv) {
-      analysisDiv.innerHTML = `<div class="contract-analysis ca-error">❌ 识别失败：${e.message}</div>`;
+      analysisDiv.innerHTML = `<div class="contract-analysis" style="color:#e53935;font-size:.75rem">❌ 识别失败：${e.message}</div>`;
     } else {
       showToast('识别失败：' + e.message);
     }
@@ -1109,12 +1079,12 @@ async function analyzeAgreements() {
       } catch(e) { combinedText += `\n\n【文件：${name}，读取失败：${e.message}】`; }
     }
     if (!combinedText.trim()) {
-      analysisDiv.innerHTML = `<div class="contract-analysis ca-warning">⚠️ 无法读取文件内容</div>`;
+      analysisDiv.innerHTML = `<div class="contract-analysis" style="color:#e65100;font-size:.75rem">⚠️ 无法读取文件内容</div>`;
       return;
     }
     await analyzeAgreementText(combinedText, projectId, analysisDiv);
   } catch(e) {
-    analysisDiv.innerHTML = `<div class="contract-analysis ca-error">❌ 识别失败：${e.message}</div>`;
+    analysisDiv.innerHTML = `<div class="contract-analysis" style="color:#e53935;font-size:.75rem">❌ 识别失败：${e.message}</div>`;
   } finally { btn.disabled = false; }
 }
 
@@ -1207,12 +1177,12 @@ async function analyzeQuotes() {
       } catch(e) { combinedText += `\n\n【文件：${name}，读取失败：${e.message}】`; }
     }
     if (!combinedText.trim()) {
-      analysisDiv.innerHTML = `<div class="contract-analysis ca-warning">⚠️ 无法读取文件内容</div>`;
+      analysisDiv.innerHTML = `<div class="contract-analysis" style="color:#e65100;font-size:.75rem">⚠️ 无法读取文件内容</div>`;
       return;
     }
     await analyzeQuoteText(combinedText, projectId, analysisDiv);
   } catch(e) {
-    analysisDiv.innerHTML = `<div class="contract-analysis ca-error">❌ 识别失败：${e.message}</div>`;
+    analysisDiv.innerHTML = `<div class="contract-analysis" style="color:#e53935;font-size:.75rem">❌ 识别失败：${e.message}</div>`;
   } finally { 
     btn.disabled = false;
     btn.style.opacity = '1';
@@ -1234,7 +1204,7 @@ async function analyzeAgreementFile(name, b64, analysisDiv, btn) {
     });
     renderAgreementAnalysis(data, analysisDiv, btn.dataset.projectId);
   } catch(e) {
-    analysisDiv.innerHTML = `<div class="contract-analysis ca-error">❌ PDF识别失败：${e.message}</div>`;
+    analysisDiv.innerHTML = `<div class="contract-analysis" style="color:#e53935;font-size:.75rem">❌ PDF识别失败：${e.message}</div>`;
   }
 }
 
@@ -1253,7 +1223,7 @@ async function analyzeQuoteFile(name, b64, analysisDiv, btn) {
     });
     renderQuoteAnalysis(data, analysisDiv, btn.dataset.projectId);
   } catch(e) {
-    analysisDiv.innerHTML = `<div class="contract-analysis ca-error">❌ PDF识别失败：${e.message}</div>`;
+    analysisDiv.innerHTML = `<div class="contract-analysis" style="color:#e53935;font-size:.75rem">❌ PDF识别失败：${e.message}</div>`;
   }
 }
 
@@ -1277,7 +1247,7 @@ async function analyzeAgreementText(text, projectId, analysisDiv) {
     renderAgreementAnalysis(data, analysisDiv, projectId);
   } catch(e) {
     if (DEBUG) console.error('[技术协议] claudeCall异常:', e);
-    analysisDiv.innerHTML = `<div class="contract-analysis ca-error">❌ AI调用失败：${e.message}</div>`;
+    analysisDiv.innerHTML = `<div class="contract-analysis" style="color:#e53935;font-size:.75rem">❌ AI调用失败：${e.message}</div>`;
   }
 }
 
@@ -1291,7 +1261,7 @@ async function analyzeQuoteText(text, projectId, analysisDiv) {
     renderQuoteAnalysis(data, analysisDiv, projectId);
   } catch(e) {
     if (DEBUG) console.error('[方案报价] claudeCall异常:', e);
-    analysisDiv.innerHTML = `<div class="contract-analysis ca-error">❌ AI调用失败：${e.message}</div>`;
+    analysisDiv.innerHTML = `<div class="contract-analysis" style="color:#e53935;font-size:.75rem">❌ AI调用失败：${e.message}</div>`;
   }
 }
 
@@ -1329,22 +1299,22 @@ function renderAgreementAnalysis(data, analysisDiv, projectId) {
     
     analysisDiv.innerHTML = `
       <div class="contract-analysis">
-        <div class="ca-result-header">
-          <span>✅ 识别完成</span><span class="dot">·</span><span class="hint">请确认识别结果后再写入项目</span>
+        <div style="font-size:.65rem;color:#7eccd8;margin-bottom:8px;display:flex;align-items:center;gap:5px">
+          <span>✅ 识别完成</span><span style="color:#ddd">·</span><span style="color:#aaa">请确认识别结果后再写入项目</span>
         </div>
-        ${result.brief ? `<div class="ca-result-brief">${result.brief}</div>` : ''}
+        ${result.brief ? `<div style="font-size:.76rem;color:var(--ink);font-weight:600;margin-bottom:8px;padding:6px 10px;background:rgba(21,101,192,.05);border-radius:6px;border-left:2px solid var(--s1)">${result.brief}</div>` : ''}
         <div class="ca-chips">${chips.length ? chips.join('') : '<span class="ca-chip none">未识别到具体类型</span>'}</div>
-        <div class="ca-result-actions">
-          <button class="btn-cancel btn-sm" onclick="cancelAgreementAIAnalysis('${projectId}')">取消</button>
-          <button class="btn-save btn-sm" onclick="confirmAgreementAIAnalysis('${projectId}')">确认写入项目</button>
+        <div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end">
+          <button class="btn-cancel" style="padding:6px 16px;font-size:.75rem" onclick="cancelAgreementAIAnalysis('${projectId}')">取消</button>
+          <button class="btn-save" style="padding:6px 16px;font-size:.75rem" onclick="confirmAgreementAIAnalysis('${projectId}')">确认写入项目</button>
         </div>
       </div>`;
   }
   } catch(e) {
     const rawText = data._parsed?.text || data.choices?.[0]?.message?.content || data.content?.filter(b=>b.type==='text').map(b=>b.text).join('') || '';
-    analysisDiv.innerHTML = `<div class="contract-analysis ca-error">❌ 解析失败：${e.message}
-      <details class="ca-error-details"><summary>🔍 诊断信息（点击展开）</summary>
-      <div class="ca-error-trace">
+    analysisDiv.innerHTML = `<div class="contract-analysis" style="color:#e53935;font-size:.75rem">❌ 解析失败：${e.message}
+      <details style="margin-top:8px"><summary style="cursor:pointer;color:#aaa;font-size:.6rem">🔍 诊断信息（点击展开）</summary>
+      <div style="white-space:pre-wrap;color:#888;font-family:monospace;max-height:200px;overflow-y:auto;background:rgba(0,0,0,.05);padding:6px;border-radius:4px;margin-top:4px">
 _parsed.error: ${data._parsed?.error || '无'}
 _parsed.text长度: ${data._parsed?.text?.length ?? 'undefined'}
 原始响应(前500字):
@@ -1458,9 +1428,9 @@ function renderQuoteAnalysis(data, analysisDiv, projectId) {
 
     // 显示结果并等待用户确认
     const deliveryHtml = tags.length > 0 
-      ? `<div class="ca-delivery-content">
-           <div class="ca-delivery-content-title">📦 交付内容</div>
-           <div>${tags.map(t => `<span class="ca-delivery-tag">${t}</span>`).join('')}</div>
+      ? `<div style="margin-top:10px;padding:8px;background:rgba(129,199,132,.08);border-radius:6px;font-size:.72rem">
+           <div style="font-weight:600;margin-bottom:4px">📦 交付内容</div>
+           <div>${tags.map(t => `<span style="display:inline-block;background:var(--paper2);padding:2px 8px;border-radius:4px;margin:2px;font-size:.68rem">${t}</span>`).join('')}</div>
          </div>`
       : '';
 
@@ -1476,20 +1446,20 @@ function renderQuoteAnalysis(data, analysisDiv, projectId) {
 
     analysisDiv.innerHTML = `
       <div class="contract-analysis">
-        <div class="ca-result-header">✅ 识别完成 · 请确认以下信息</div>
-        <div class="ca-result-brief quote">💰 报价：¥${result.quote || '?'}万</div>
+        <div style="font-size:.65rem;color:#7eccd8;margin-bottom:8px">✅ 识别完成 · 请确认以下信息</div>
+        <div style="font-size:.76rem;color:var(--ink);font-weight:600;margin-bottom:8px;padding:6px 10px;background:rgba(230,81,0,.05);border-radius:6px;border-left:2px solid var(--sc)">💰 报价：¥${result.quote || '?'}万</div>
         ${deliveryHtml}
-        <div class="ca-result-actions center">
-          <button class="btn-cancel btn-sm" onclick="cancelQuoteAIAnalysis('${projectId}')">取消</button>
-          <button class="btn-save btn-sm" onclick="confirmQuoteAIAnalysis('${projectId}')">确认写入</button>
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <button class="btn-cancel" style="padding:6px 16px;font-size:.72rem" onclick="cancelQuoteAIAnalysis('${projectId}')">取消</button>
+          <button class="btn-save" style="padding:6px 16px;font-size:.72rem" onclick="confirmQuoteAIAnalysis('${projectId}')">确认写入</button>
         </div>
       </div>`;
 
   } catch(e) {
     const rawText = data._parsed?.text || data.choices?.[0]?.message?.content || data.content?.filter(b=>b.type==='text').map(b=>b.text).join('') || '';
-    analysisDiv.innerHTML = `<div class="contract-analysis ca-error">❌ 解析失败：${e.message}
-      <details class="ca-error-details"><summary>🔍 诊断信息（点击展开）</summary>
-      <div class="ca-error-trace">
+    analysisDiv.innerHTML = `<div class="contract-analysis" style="color:#e53935;font-size:.75rem">❌ 解析失败：${e.message}
+      <details style="margin-top:8px"><summary style="cursor:pointer;color:#aaa;font-size:.6rem">🔍 诊断信息（点击展开）</summary>
+      <div style="white-space:pre-wrap;color:#888;font-family:monospace;max-height:200px;overflow-y:auto;background:rgba(0,0,0,.05);padding:6px;border-radius:4px;margin-top:4px">
 _parsed.error: ${data._parsed?.error || '无'}
 _parsed.text长度: ${data._parsed?.text?.length ?? 'undefined'}
 原始响应(前500字):
@@ -1541,7 +1511,7 @@ function cancelQuoteAIAnalysis(projectId) {
   if (analysisDiv) analysisDiv.innerHTML = '';
 }
 
-async function analyzeContractFile(name, b64, type, analysisDiv, btn, projectId) {
+async function analyzeContractFile(name, b64, type, analysisDiv, btn) {
   analysisDiv.innerHTML = `<div class="contract-analysis"><div class="ca-loading"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div>&nbsp;AI 正在分析合同 PDF…</div></div>`;
   try {
     const data = await claudeCall({
@@ -1555,9 +1525,9 @@ async function analyzeContractFile(name, b64, type, analysisDiv, btn, projectId)
         ]
       }]
     });
-    renderContractAnalysis(data, analysisDiv, projectId);
+    renderContractAnalysis(data, analysisDiv);
   } catch(e) {
-    analysisDiv.innerHTML = `<div class="contract-analysis ca-error">❌ PDF解析失败：${e.message}</div>`;
+    analysisDiv.innerHTML = `<div class="contract-analysis" style="color:#e53935;font-size:.75rem">❌ PDF解析失败：${e.message}</div>`;
   } finally {
     // 启用按钮
     if (btn) {
@@ -1567,7 +1537,7 @@ async function analyzeContractFile(name, b64, type, analysisDiv, btn, projectId)
   }
 }
 
-async function analyzeContractText(text, analysisDiv, projectId) {
+async function analyzeContractText(text, analysisDiv) {
   if (analysisDiv) {
     analysisDiv.innerHTML = `<div class="contract-analysis"><div class="ca-loading"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div>&nbsp;AI 正在分析合同内容…</div></div>`;
   }
@@ -1578,37 +1548,31 @@ async function analyzeContractText(text, analysisDiv, projectId) {
       messages: [{ role: 'user', content: CONTRACT_ANALYZE_PROMPT + '\n\n合同内容如下：\n' + text.slice(0, 12000) }]
     });
     if (analysisDiv) {
-      renderContractAnalysis(data, analysisDiv, projectId);
+      renderContractAnalysis(data, analysisDiv);
     } else {
-      renderContractAnalysis(data, null, projectId);
+      renderContractAnalysis(data, null);
     }
   } catch(e) {
     if (analysisDiv) {
-      analysisDiv.innerHTML = `<div class="contract-analysis ca-error">❌ 解析失败：${e.message}</div>`;
+      analysisDiv.innerHTML = `<div class="contract-analysis" style="color:#e53935;font-size:.75rem">❌ 解析失败：${e.message}</div>`;
     } else {
       showToast('合同解析失败：' + e.message);
     }
   }
 }
 
-function renderContractAnalysis(data, analysisDiv, projectId) {
+function renderContractAnalysis(data, analysisDiv) {
   try {
-    // 支持直接传入已解析的 result 对象（恢复显示时使用）
-    let result;
-    if (data && data._isParsedResult) {
-      result = data.result;
-    } else {
-      const text = (
-        data._parsed?.text ||
-        data.choices?.[0]?.message?.content ||
-        data.content?.filter(b => b.type==='text').map(b => b.text).join('') ||
-        ''
-      ).replace(/```json|```/g,'').trim();
-      if (!text) throw new Error('AI 返回了空响应，请检查 AI 配置和模型是否正确');
-      const match = text.match(/\{[\s\S]*\}/);
-      if (!match) throw new Error('未找到 JSON，AI 原始响应：\n' + text.slice(0, 300));
-      result = JSON.parse(match[0]);
-    }
+    const text = (
+      data._parsed?.text ||
+      data.choices?.[0]?.message?.content ||
+      data.content?.filter(b => b.type==='text').map(b => b.text).join('') ||
+      ''
+    ).replace(/```json|```/g,'').trim();
+    if (!text) throw new Error('AI 返回了空响应，请检查 AI 配置和模型是否正确');
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error('未找到 JSON，AI 原始响应：\n' + text.slice(0, 300));
+    const result = JSON.parse(match[0]);
     const d = result.delivery || {};
     const payments = result.payment || [];
     const contractAmountYuan = (result.contractAmount != null) ? Number(result.contractAmount) : null;
@@ -1628,7 +1592,7 @@ function renderContractAnalysis(data, analysisDiv, projectId) {
       <div class="ca-payment-row">
         <div class="ca-payment-label">📌 ${row.condition || '-'}</div>
         <div class="ca-payment-val">
-          ${row.ratio  ? `<b class="text-s1">${row.ratio}</b>` : ''}
+          ${row.ratio  ? `<b style="color:var(--s1)">${row.ratio}</b>` : ''}
           ${row.amount ? `&nbsp;·&nbsp;${row.amount}` : ''}
         </div>
       </div>`).join('');
@@ -1637,16 +1601,16 @@ function renderContractAnalysis(data, analysisDiv, projectId) {
     const contractHtml = contractAmountYuan != null ? `
       <div class="ca-section">
         <div class="ca-title">📝 合同金额</div>
-        <div class="ca-result-title">
+        <div style="font-size:.76rem;color:var(--ink);font-weight:600">
           ¥${fmtYuan(contractAmountYuan)} 元
-          <span class="ca-result-subtitle">（${contractAmountWan} 万元）</span>
+          <span style="font-size:.65rem;color:#888;font-weight:400">（${contractAmountWan} 万元）</span>
         </div>
       </div>` : '';
 
     if (analysisDiv) {
-      // 使用传入的 projectId，不依赖全局变量
-      const pid = projectId || currentEditProjectId || fsCurrentProjectId;
-      const project = projects.find(p => p.id === pid);
+      const projectId = currentEditProjectId || fsCurrentProjectId;
+      // 存储识别结果到项目对象，供确认按钮使用
+      const project = projects.find(p => p.id === projectId);
       if (project) {
         project._aiAnalysisResult = {
           type: 'contract',
@@ -1655,11 +1619,10 @@ function renderContractAnalysis(data, analysisDiv, projectId) {
         };
       }
       
-      analysisDiv.style.display = 'block';
       analysisDiv.innerHTML = `
         <div class="contract-analysis">
-          <div class="ca-result-header">
-            <span>✅ 识别完成</span><span class="dot">·</span><span class="hint">请确认识别结果后再写入项目</span>
+          <div style="font-size:.65rem;color:#7eccd8;margin-bottom:8px;display:flex;align-items:center;gap:5px">
+            <span>✅ 识别完成</span><span style="color:#ddd">·</span><span style="color:#aaa">请确认识别结果后再写入项目</span>
           </div>
           ${contractHtml}
           <div class="ca-section">
@@ -1670,17 +1633,17 @@ function renderContractAnalysis(data, analysisDiv, projectId) {
           </div>
           <div class="ca-section">
             <div class="ca-title">💰 回款节点（共 ${payments.length} 个）</div>
-            ${payments.length ? paymentRows : '<div class="ca-empty-hint">未识别到回款节点</div>'}
+            ${payments.length ? paymentRows : '<div style="color:#ccc;font-size:.75rem">未识别到回款节点</div>'}
           </div>
-          <div class="ca-result-actions">
-            <button class="btn-cancel btn-sm" onclick="cancelAIAnalysis('${pid}')">取消</button>
-            <button class="btn-save btn-sm" onclick="confirmAIAnalysis('${pid}')">确认写入项目</button>
+          <div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end">
+            <button class="btn-cancel" style="padding:6px 16px;font-size:.75rem" onclick="cancelAIAnalysis('${projectId}')">取消</button>
+            <button class="btn-save" style="padding:6px 16px;font-size:.75rem" onclick="confirmAIAnalysis('${projectId}')">确认写入项目</button>
           </div>
         </div>`;
     }
   } catch(e) {
     if (analysisDiv) {
-      analysisDiv.innerHTML = `<div class="contract-analysis ca-error">❌ 解析结果失败：${e.message}</div>`;
+      analysisDiv.innerHTML = `<div class="contract-analysis" style="color:#e53935;font-size:.75rem">❌ 解析结果失败：${e.message}</div>`;
     } else {
       showToast('合同解析失败：' + e.message);
     }
@@ -1804,14 +1767,12 @@ function confirmAIAnalysis(projectId) {
           labelRow.style.borderRadius = '6px';
           labelRow.style.marginBottom = '6px';
           labelRow.innerHTML = `
-            <div class="collect-task-header">
-            <div></div>
-            <div>日期</div>
-            <div>金额</div>
-            <div>负责人</div>
-            <div>备注</div>
-            <div></div>
-          </div>
+            <div style="width: 14px;"></div>
+            <div style="width: 130px; font-size: 0.68rem; color: #888;">日期</div>
+            <div style="width: 120px; font-size: 0.68rem; color: #888;">金额</div>
+            <div style="width: 80px; font-size: 0.68rem; color: #888;">负责人</div>
+            <div style="flex: 1; font-size: 0.68rem; color: #888;">备注</div>
+            <div style="width: 20px;"></div>
           `;
           collectList.appendChild(labelRow);
         }

@@ -1,0 +1,352 @@
+/* ╔════════════════════════════════════════════════════════════╗
+   ║  Import Confirmation - 导入结果确认弹窗样式               ║
+   ╚════════════════════════════════════════════════════════════╝ */
+
+/* ── 弹窗遮罩 ── */
+.import-confirmation-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+/* ── 弹窗内容 ── */
+.import-confirmation-content {
+  background: white;
+  border-radius: 12px;
+  padding: 32px;
+  width: 90%;
+  max-width: 700px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  animation: importSlideIn 0.3s ease-out;
+}
+
+@keyframes importSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ── 弹窗头部 ── */
+.import-confirmation-header {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.import-confirmation-header h3 {
+  margin: 0 0 8px 0;
+  color: #333;
+  font-size: 20px;
+}
+
+.import-confirmation-header p {
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+}
+
+/* ── 状态卡片 ── */
+.import-status-card {
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  background: white;
+  border: 1px solid #f0f0f0;
+}
+
+.import-status-card.success {
+  background: linear-gradient(135deg, #f6ffed 0%, #e6f7ff 100%);
+  border-left: 4px solid #52c41a;
+}
+
+.import-status-card.info {
+  background: linear-gradient(135deg, #e6f7ff 0%, #f0f5ff 100%);
+  border-left: 4px solid #1890ff;
+}
+
+.import-status-card.warning {
+  background: linear-gradient(135deg, #fff7e6 0%, #fff1f0 100%);
+  border-left: 4px solid #fa8c16;
+}
+
+/* ── 区块标题 ── */
+.import-section-title {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  display: flex;
+  align-items: center;
+}
+
+.import-section-title::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 10px;
+}
+
+.import-section-title.success::before {
+  background: #52c41a;
+}
+
+.import-section-title.info::before {
+  background: #1890ff;
+}
+
+.import-section-title.warning::before {
+  background: #fa8c16;
+}
+
+/* ── 统计网格 ── */
+.import-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+@media (max-width: 600px) {
+  .import-stat-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── 统计卡片 ── */
+.import-stat-card {
+  background: white;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  border: 1px solid #f0f0f0;
+}
+
+.import-stat-card h5 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: #666;
+}
+
+.import-stat-card .stat-value {
+  font-size: 20px;
+  font-weight: 600;
+  color: #333;
+}
+
+.import-stat-card.added .stat-value {
+  color: #52c41a;
+}
+
+.import-stat-card.updated .stat-value {
+  color: #1890ff;
+}
+
+.import-stat-card.progress .stat-value {
+  color: #fa8c16;
+}
+
+/* ── 统计项 ── */
+.import-stat-item {
+  display: flex;
+  align-items: center;
+  margin: 8px 0;
+  font-size: 14px;
+}
+
+.import-stat-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 12px;
+  font-size: 12px;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.import-stat-icon.added {
+  background: #f6ffed;
+  color: #52c41a;
+}
+
+.import-stat-icon.updated {
+  background: #e6f7ff;
+  color: #1890ff;
+}
+
+.import-stat-icon.progress {
+  background: #fff7e6;
+  color: #fa8c16;
+}
+
+.import-stat-icon.active {
+  background: #f6ffed;
+  color: #52c41a;
+}
+
+.import-stat-icon.inactive {
+  background: #fff1f0;
+  color: #ff4d4f;
+}
+
+/* ── 项目列表 ── */
+.import-project-list {
+  margin-top: 20px;
+}
+
+.import-project-section {
+  margin-bottom: 24px;
+}
+
+.import-project-section h4 {
+  display: flex;
+  align-items: center;
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.import-project-section h4::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 8px;
+}
+
+.import-project-section.added h4::before {
+  background: #52c41a;
+}
+
+.import-project-section.updated h4::before {
+  background: #1890ff;
+}
+
+.import-project-items {
+  background: #fafafa;
+  border-radius: 6px;
+  padding: 12px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.import-project-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  margin: 4px 0;
+  background: white;
+  border-radius: 4px;
+  font-size: 13px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+.import-project-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.import-project-item.added::before {
+  content: '+';
+  color: #52c41a;
+  font-weight: bold;
+  margin-right: 8px;
+}
+
+.import-project-item.updated::before {
+  content: '↻';
+  color: #1890ff;
+  font-weight: bold;
+  margin-right: 8px;
+}
+
+.import-project-code {
+  margin-left: auto;
+  color: #999;
+  font-size: 12px;
+}
+
+/* ── 更新详情 ── */
+.import-update-details {
+  margin-left: 36px;
+  margin-top: 4px;
+  padding: 8px;
+  background: #f8f9fa;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #666;
+}
+
+/* ── 活跃度区块 ── */
+.import-activity-section {
+  margin-top: 20px;
+}
+
+.import-activity-list {
+  margin-top: 12px;
+}
+
+.import-activity-item {
+  display: flex;
+  align-items: center;
+  margin: 8px 0;
+  font-size: 13px;
+}
+
+.import-activity-item.active {
+  color: #52c41a;
+}
+
+.import-activity-item.inactive {
+  color: #ff4d4f;
+}
+
+/* ── 确认按钮 ── */
+.import-btn-confirm {
+  padding: 10px 24px;
+  background: linear-gradient(135deg, #1890ff 0%, #36cfc9 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.import-btn-confirm:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.3);
+}
+
+.import-btn-confirm:active {
+  transform: translateY(0);
+}
+
+/* ── 按钮容器 ── */
+.import-confirmation-footer {
+  display: flex;
+  justify-content: center;
+  margin-top: 24px;
+}

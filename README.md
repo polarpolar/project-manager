@@ -190,7 +190,7 @@
 | 语言 | 原生 HTML5 + CSS3 + JavaScript（ES2020+）|
 | 框架 | 无框架，纯 Vanilla JS |
 | 模块化 | ES Module + 动态导入 (`import()`) |
-| 样式 | 自定义 CSS，CSS Variables 主题系统 |
+| 样式 | 模块化 CSS 架构，CSS Variables 主题系统，9个独立样式文件 |
 | 字体 | Google Fonts（Noto Serif SC / Noto Sans SC）|
 | 第三方库 | [SheetJS (xlsx)](https://sheetjs.com/) v0.18.5 |
 | 数据存储 | IndexedDB（主存储）+ localStorage（缓存/快速加载）|
@@ -207,7 +207,17 @@
 ```
 project-manager/
 ├── main.js               # 主入口脚本，动态导入所有模块，初始化应用
-├── project-manager.html  # 主 HTML 文件，仅包含 DOM 结构和基础样式
+├── project-manager.html  # 主 HTML 文件，仅包含 DOM 结构（样式已完全外部化）
+│
+├── css/                  # 样式系统目录（完全模块化）
+│   ├── variables.css     # CSS 变量定义（设计系统）
+│   ├── base.css          # 基础重置与布局框架
+│   ├── components.css    # 通用 UI 组件（按钮、卡片、标签）
+│   ├── modal.css         # 弹窗与表单样式
+│   ├── sidebar.css       # 左侧导航栏样式
+│   ├── file-panel.css    # 文件面板样式
+│   ├── ai-analysis.css   # AI 识别结果展示样式
+│   └── panels.css        # 侧边栏面板样式（待办、台账、导入、监控）
 │
 ├── project-module.js     # 项目管理核心模块（常量、数据管理、回收站）
 ├── render-module.js      # 渲染模块（看板视图、卡片、统计）
@@ -413,9 +423,110 @@ http://localhost:8787
 
 ---
 
+## CSS 架构
+
+本项目采用完全模块化的 CSS 架构，将原本内联在 HTML 中的样式分离为 8 个独立样式文件，实现关注点分离和更好的可维护性。
+
+### 重构成果
+
+| 指标 | 重构前 | 重构后 | 优化 |
+|------|--------|--------|------|
+| HTML 内联 CSS | ~970 行 | 0 行 | ✅ 完全移除 |
+| HTML 总行数 | ~2000 行 | ~1070 行 | ✅ 减少 47% |
+| CSS 文件数 | 0 | 8 个模块 | ✅ 完全模块化 |
+| 缓存能力 | 无 | 完全支持 | ✅ 浏览器缓存 |
+
+### 文件结构
+
+```
+css/
+├── variables.css      # 38 行   - 设计系统变量定义
+├── base.css           # 138 行  - 基础重置与布局框架
+├── components.css     # 564 行  - 通用 UI 组件（按钮、卡片、标签）
+├── modal.css          # 630 行  - 弹窗与表单样式
+├── sidebar.css        # 187 行  - 左侧导航栏样式
+├── file-panel.css     # 408 行  - 文件面板 + 交付标签
+├── ai-analysis.css    # 165 行  - AI 合同识别结果样式
+└── panels.css         # 873 行  - 待办/台账/导入/监控面板样式
+```
+
+### 加载顺序
+
+样式文件按以下顺序加载，确保层叠正确：
+
+```html
+<!-- 1. 变量（必须在最前） -->
+<link rel="stylesheet" href="css/variables.css">
+
+<!-- 2. 基础（重置 + 布局框架） -->
+<link rel="stylesheet" href="css/base.css">
+
+<!-- 3. 组件（通用 UI） -->
+<link rel="stylesheet" href="css/components.css">
+
+<!-- 4-9. 模块（具体功能） -->
+<link rel="stylesheet" href="css/modal.css">
+<link rel="stylesheet" href="css/sidebar.css">
+<link rel="stylesheet" href="css/file-panel.css">
+<link rel="stylesheet" href="css/ai-analysis.css">
+<link rel="stylesheet" href="css/panels.css">
+```
+
+### 设计系统变量
+
+`variables.css` 定义了一套完整的设计系统：
+
+```css
+:root {
+  /* 主色调 */
+  --ink: #1a0533;           /* 主文字色 - 深紫黑 */
+  --ink-light: #5b3478;     /* 次要文字 - 浅紫 */
+  
+  /* 背景色 */
+  --paper: #f8f0ff;         /* 主背景 - 极浅紫 */
+  --paper2: #f0e6ff;        /* 次级背景 */
+  --paper3: #e6d4f7;        /* 第三级背景 */
+  
+  /* 强调色 */
+  --accent: #7b1fa2;        /* 主强调色 - 紫色 */
+  --gold: #ce93d8;          /* 金色/高亮色 */
+  
+  /* 项目阶段色 */
+  --s0: #6a1b9a;            /* 洽谈中 - 紫色 */
+  --s1: #1565c0;            /* 交付中 - 蓝色 */
+  --sc: #e65100;            /* 催款中 - 橙色 */
+  --s2: #2e7d32;            /* 已完结 - 绿色 */
+  
+  /* 间距与动效 */
+  --radius: 10px;
+  --radius-lg: 16px;
+  --transition: 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+```
+
+### 模块化原则
+
+1. **单一职责**：每个 CSS 文件只负责一个功能模块
+2. **变量驱动**：所有颜色、间距、动画均使用 CSS 变量
+3. **无内联样式**：HTML 中不再包含任何 `<style>` 标签
+4. **可缓存**：分离后的 CSS 可被浏览器独立缓存
+5. **易于维护**：修改样式只需定位到对应模块文件
+
+---
+
 ## 版本说明
 
-当前版本：**v1.4**
+当前版本：**v1.5**
+
+### v1.5 更新内容（CSS 架构重构）
+
+- **CSS 完全模块化**：将 ~970 行内联 CSS 分离为 8 个独立样式文件
+- **设计系统建立**：提取 CSS 变量到 `variables.css`，统一配色和间距
+- **HTML 轻量化**：`project-manager.html` 从 ~2000 行缩减至 ~1070 行
+- **缓存优化**：样式文件可被浏览器独立缓存，提升加载性能
+- **可维护性提升**：按功能模块组织样式，便于后续开发和维护
+
+### v1.4 更新内容
 
 ### v1.4 更新内容
 

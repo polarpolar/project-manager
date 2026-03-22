@@ -410,12 +410,60 @@ async function confirmImport() {
       added++;
     }
   });
-  // 更新所有项目的活跃度
+  // 收集新增和更新的项目信息
+  const addedProjects = [];
+  const updatedProjects = [];
+  const activeChanges = { activeAdded: 0, inactiveAdded: 0 };
+  
+  // 分析活跃度变化
   projects.forEach(project => {
     if (window.updateProjectActivity) {
+      const oldActive = project.active;
       window.updateProjectActivity(project);
+      if (oldActive !== project.active) {
+        if (project.active === 'active') {
+          activeChanges.activeAdded++;
+          project._justActivated = true;
+        } else {
+          activeChanges.inactiveAdded++;
+          project._justDeactivated = true;
+        }
+      }
     }
   });
+  
+  // 收集新增和更新的项目
+  pendingImport.forEach(p => {
+    let isAdded = true;
+    let idx = -1;
+    
+    // 优先通过唯一代码匹配
+    if (p.uniqueCode) {
+      idx = projects.findIndex(x => x.projectCode && x.projectCode.endsWith(p.uniqueCode));
+    }
+    // 其次通过完整项目编号匹配
+    if (idx === -1 && p.projectCode) {
+      idx = projects.findIndex(x => x.projectCode === p.projectCode);
+    }
+    // 最后通过项目名称匹配
+    if (idx === -1 && p.name) {
+      idx = projects.findIndex(x => x.name === p.name);
+    }
+    
+    if (idx >= 0) {
+      updatedProjects.push(projects[idx]);
+      isAdded = false;
+    } else {
+      // 找到新增的项目
+      const newProject = projects.find(x => x.projectCode === p.projectCode);
+      if (newProject) {
+        addedProjects.push(newProject);
+      }
+    }
+  });
+  
+  // 显示确认弹窗
+  await showImportConfirmation(added, updated, progressUpdated, addedProjects, updatedProjects, activeChanges);
   
   closeImport(); save(); refreshView();
 
@@ -439,8 +487,6 @@ async function confirmImport() {
       openFolderMatch(matches);
     }
   }
-
-  showToast(`导入完成：新增 ${added} 个，更新 ${updated} 个，其中 ${progressUpdated} 个项目有新进度`);
 
   // 有新生成的唯一代码时导出
   if (hasNewCodeGenerated) {
@@ -1273,13 +1319,226 @@ async function confirmYuqueImport() {
     }
   }
 
-  // 更新所有项目的活跃度
+  // 收集新增和更新的项目信息
+  const addedProjects = [];
+  const updatedProjects = [];
+  const activeChanges = { activeAdded: 0, inactiveAdded: 0 };
+  
+  // 分析活跃度变化
   projects.forEach(project => {
+    const oldActive = project.active;
     window.updateProjectActivity(project);
+    if (oldActive !== project.active) {
+      if (project.active === 'active') {
+        activeChanges.activeAdded++;
+        project._justActivated = true;
+      } else {
+        activeChanges.inactiveAdded++;
+        project._justDeactivated = true;
+      }
+    }
   });
   
-  showToast(`语雀导入：新增 ${added} 个，更新 ${updated} 个，其中 ${progressUpdated} 个项目有新进度`);
+  // 收集新增和更新的项目
+  yuquePendingImport.forEach(p => {
+    let isAdded = true;
+    let idx = -1;
+    
+    // 优先通过唯一代码匹配
+    if (p.uniqueCode) {
+      idx = originalProjects.findIndex(x => x.projectCode && x.projectCode.endsWith(p.uniqueCode));
+    }
+    // 其次通过完整项目编号匹配
+    if (idx === -1 && p.projectCode) {
+      idx = originalProjects.findIndex(x => x.projectCode === p.projectCode);
+    }
+    
+    if (idx >= 0) {
+      // 找到更新的项目
+      const updatedProject = projects.find(x => x.projectCode === originalProjects[idx].projectCode);
+      if (updatedProject) {
+        updatedProjects.push(updatedProject);
+      }
+      isAdded = false;
+    } else {
+      // 找到新增的项目
+      const newProject = projects.find(x => x.projectCode === p.projectCode);
+      if (newProject) {
+        addedProjects.push(newProject);
+      }
+    }
+  });
+  
+  // 显示确认弹窗
+  await showImportConfirmation(added, updated, progressUpdated, addedProjects, updatedProjects, activeChanges);
+  
   closeImport(); save(); refreshView();
+}
+
+// 显示导入确认弹窗
+function showImportConfirmation(added, updated, progressUpdated, addedProjects, updatedProjects, activeChanges) {
+  const modal = document.createElement('div');
+  modal.className = 'import-confirmation-modal';
+  
+  const content = document.createElement('div');
+  content.className = 'import-confirmation-content';
+  
+  // 收集活跃度变化的具体项目
+  const activeProjects = [];
+  const inactiveProjects = [];
+  projects.forEach(project => {
+    if (project.active === 'active' && project._justActivated) {
+      activeProjects.push(project);
+    } else if (project.active !== 'active' && project._justDeactivated) {
+      inactiveProjects.push(project);
+    }
+  });
+  
+  // 为每个项目添加临时标记，用于跟踪活跃度变化
+  projects.forEach(project => {
+    project._justActivated = false;
+    project._justDeactivated = false;
+  });
+  
+  let html = `
+    <div class="import-confirmation-header">
+      <h3>导入结果确认</h3>
+      <p>以下是本次导入的详细信息</p>
+    </div>
+    
+    <div class="import-stat-grid">
+      <div class="import-stat-card added">
+        <h5>新增项目</h5>
+        <div class="stat-value">${added}</div>
+      </div>
+      <div class="import-stat-card updated">
+        <h5>更新项目</h5>
+        <div class="stat-value">${updated}</div>
+      </div>
+      <div class="import-stat-card progress">
+        <h5>进度更新</h5>
+        <div class="stat-value">${progressUpdated}</div>
+      </div>
+    </div>
+    
+    <div class="import-status-card success">
+      <h4 class="import-section-title success">导入详情</h4>
+      
+      <div class="import-stat-item">
+        <div class="import-stat-icon added">+</div>
+        <span><strong>新增项目：</strong>${added} 个</span>
+      </div>
+      
+      <div class="import-stat-item">
+        <div class="import-stat-icon updated">↻</div>
+        <span><strong>更新项目：</strong>${updated} 个</span>
+        ${updated > 0 ? `
+          <div class="import-update-details">
+            ${updatedProjects.slice(0, 5).map(p => `${p.name}`).join('、')}${updatedProjects.length > 5 ? '...' : ''}
+          </div>
+        ` : ''}
+      </div>
+      
+      <div class="import-stat-item">
+        <div class="import-stat-icon progress">📈</div>
+        <span><strong>进度更新：</strong>${progressUpdated} 个项目</span>
+      </div>
+  `;
+  
+  if (activeChanges) {
+    html += `
+      <div class="import-stat-item">
+        <div class="import-stat-icon active">⚡</div>
+        <span><strong>活跃度变化：</strong>新增活跃项目 ${activeChanges.activeAdded} 个（${activeProjects.slice(0, 5).map(p => p.name).join('、')}${activeProjects.length > 5 ? '...' : ''}），新增非活跃项目 ${activeChanges.inactiveAdded} 个（${inactiveProjects.slice(0, 5).map(p => p.name).join('、')}${inactiveProjects.length > 5 ? '...' : ''}）</span>
+      </div>
+    `;
+  }
+  
+  html += `
+    </div>
+    
+    <div class="import-project-list">
+  `;
+  
+  if (added > 0) {
+    html += `
+      <div class="import-project-section added">
+        <h4>新增项目 (${added})</h4>
+        <div class="import-project-items">
+          ${addedProjects.map(p => `
+            <div class="import-project-item added">
+              <span>${p.name}</span>
+              ${p.projectCode ? `<span class="import-project-code">${p.projectCode}</span>` : ''}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+  
+  if (updated > 0) {
+    html += `
+      <div class="import-project-section updated">
+        <h4>更新项目 (${updated})</h4>
+        <div class="import-project-items">
+          ${updatedProjects.map(p => `
+            <div class="import-project-item updated">
+              <span>${p.name}</span>
+              ${p.projectCode ? `<span class="import-project-code">${p.projectCode}</span>` : ''}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+  
+  if (activeChanges && (activeChanges.activeAdded > 0 || activeChanges.inactiveAdded > 0)) {
+    html += `
+      <div class="import-status-card info">
+        <h4 class="import-section-title info">活跃度详情</h4>
+        <div class="import-activity-list">
+          ${activeProjects.length > 0 ? `
+            <div class="import-activity-item active">
+              <strong>新增活跃项目 ${activeProjects.length} 个：</strong>${activeProjects.map(p => p.name).join('、')}
+            </div>
+          ` : ''}
+          ${inactiveProjects.length > 0 ? `
+            <div class="import-activity-item inactive">
+              <strong>新增非活跃项目 ${inactiveProjects.length} 个：</strong>${inactiveProjects.map(p => p.name).join('、')}
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    `;
+  }
+  
+  html += `
+    </div>
+    
+    <div class="import-confirmation-footer">
+      <button id="confirm-import-btn" class="import-btn-confirm">确认完成</button>
+    </div>
+  `;
+  
+  content.innerHTML = html;
+  modal.appendChild(content);
+  document.body.appendChild(modal);
+  
+  return new Promise(resolve => {
+    const confirmBtn = document.getElementById('confirm-import-btn');
+    confirmBtn.addEventListener('click', () => {
+      document.body.removeChild(modal);
+      resolve();
+    });
+    
+    // 点击背景关闭
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        document.body.removeChild(modal);
+        resolve();
+      }
+    });
+  });
 }
 
 // ── Excel 文本读取（供文件识别模块使用）──

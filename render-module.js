@@ -135,7 +135,7 @@ function cardHTML(p, colKey) {
     const pct = p.paymentPct || Math.round((collected / p.contract) * 100) || 0;
     
     contractInfoHtml = `
-      <div class="card-amounts" style="margin-top:6px">
+      <div class="card-amounts mt-sm">
         <div class="amount-item"><div class="alabel">📅 签单</div><div class="aval">${contractDateStr}</div></div>
         <div class="amount-item"><div class="alabel">合同额</div><div class="aval contract">¥${fmtWanShort(p.contract)}万</div></div>
         ${isDelivering ? `<div class="amount-item"><div class="alabel">已回款</div><div class="aval" style="color:var(--sc)">¥${fmtWanShort(collected)}万</div></div>` : ''}
@@ -146,19 +146,19 @@ function cardHTML(p, colKey) {
   // 交付标签（交付中/已完结显示）
   const tags = p.deliveryTags || {};
   const tagItems = [
-    tags.wireless_hardware && `<span style="font-size:.62rem;padding:2px 8px;border-radius:10px;background:rgba(21,101,192,.1);color:#1565c0;font-weight:600">📡 无线</span>`,
-    tags.wired_hardware    && `<span style="font-size:.62rem;padding:2px 8px;border-radius:10px;background:rgba(46,125,50,.1);color:#2e7d32;font-weight:600">🔌 有线</span>`,
-    tags.software          && `<span style="font-size:.62rem;padding:2px 8px;border-radius:10px;background:rgba(106,27,154,.1);color:#6a1b9a;font-weight:600">💻 软件</span>`,
-    tags.other             && `<span style="font-size:.62rem;padding:2px 8px;border-radius:10px;background:rgba(230,81,0,.1);color:#e65100;font-weight:600">📎 其他</span>`,
+    tags.wireless_hardware && `<span class="delivery-chip wireless">📡 无线</span>`,
+    tags.wired_hardware    && `<span class="delivery-chip wired">🔌 有线</span>`,
+    tags.software          && `<span class="delivery-chip software">💻 软件</span>`,
+    tags.other             && `<span class="delivery-chip other">📎 其他</span>`,
   ].filter(Boolean);
   const hasDelivery = tagItems.length || p.deliveryBrief || p.deliveryNote;
   const deliveryHtml = (p.stage === STAGE.DELIVERING || p.stage === STAGE.COMPLETED) ? `
-    <div style="margin:5px 0;padding:7px 10px;background:rgba(21,101,192,.04);border-radius:6px;border-left:2px solid var(--s1)">
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:${hasDelivery ? '5px' : '0'}">
-        <span style="font-size:.6rem;color:var(--s1);font-weight:600">📦 交付内容</span>
+    <div class="delivery-preview">
+      <div class="delivery-preview-header ${!hasDelivery ? 'no-margin' : ''}">
+        <span class="delivery-preview-title">📦 交付内容</span>
       </div>
-      ${tagItems.length ? `<div style="display:flex;gap:4px;flex-wrap:wrap">${tagItems.join('')}</div>` : ''}
-      ${!hasDelivery ? `<div style="font-size:.65rem;color:#bbb">暂无交付信息，可通过文件面板识别技术协议自动提取</div>` : ''}
+      ${tagItems.length ? `<div class="delivery-tags">${tagItems.join('')}</div>` : ''}
+      ${!hasDelivery ? `<div class="delivery-empty">暂无交付信息，可通过文件面板识别技术协议自动提取</div>` : ''}
     </div>` : '';
 
   // 回款进度条 + 付款节点详情（仅交付中/已完结显示）
@@ -168,15 +168,15 @@ function cardHTML(p, colKey) {
     const pct = p.paymentPct || 0;
     const doneCount = nodes.filter(n => n.done).length;
     const nodePreview = nodes.slice(0, 3).map(n => `
-      <div style="display:flex;align-items:flex-start;gap:5px;padding:3px 0;border-bottom:1px solid var(--paper2);flex-wrap:wrap">
-        <span style="width:12px;height:12px;border-radius:50%;border:1.5px solid ${n.done ? 'var(--sc)' : '#ddd'};background:${n.done ? 'var(--sc)' : 'transparent'};flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-top:2px">
-          ${n.done ? '<span style="color:#fff;font-size:8px">✓</span>' : ''}
+      <div class="payment-node-row">
+        <span class="node-status-dot ${n.done ? 'done' : ''}" style="border-color:${n.done ? 'var(--sc)' : '#ddd'};background:${n.done ? 'var(--sc)' : 'transparent'}">
+          ${n.done ? '<span class="check-mark">✓</span>' : ''}
         </span>
-        <span style="font-size:.65rem;color:#666;flex:1;min-width:0;word-wrap:break-word">${esc(n.condition || '付款节点')}</span>
-        ${n.ratio ? `<span style="font-size:.63rem;color:var(--sc);font-weight:700;flex-shrink:0;margin-top:2px">${n.ratio}</span>` : ''}
+        <span class="node-condition">${esc(n.condition || '付款节点')}</span>
+        ${n.ratio ? `<span class="node-ratio">${n.ratio}</span>` : ''}
         ${n.contractAmountYuan
-          ? `<span style="font-size:.62rem;color:#888;flex-shrink:0;margin-top:2px">${fmtYuan(n.contractAmountYuan)} 元</span>`
-          : n.amount ? `<span style="font-size:.62rem;color:#888;flex-shrink:0;margin-top:2px">${n.amount}</span>` : ''}
+          ? `<span class="node-amount">${fmtYuan(n.contractAmountYuan)} 元</span>`
+          : n.amount ? `<span class="node-amount">${n.amount}</span>` : ''}
       </div>`).join('');
     paymentHtml = `
     <div class="card-payment">
@@ -185,7 +185,7 @@ function cardHTML(p, colKey) {
         <span>${pct}%</span>
       </div>
       <div class="pbar-wrap"><div class="pbar-fill" style="width:${pct}%"></div></div>
-      <div style="margin-top:5px">${nodePreview}${nodes.length > 3 ? `<div style="font-size:.6rem;color:#bbb;text-align:center;padding-top:3px">…还有${nodes.length - 3}个节点</div>` : ''}</div>
+      <div class="mt-sm">${nodePreview}${nodes.length > 3 ? `<div class="more-hint">…还有${nodes.length - 3}个节点</div>` : ''}</div>
     </div>`;
   }
 
@@ -200,9 +200,9 @@ function cardHTML(p, colKey) {
         <div class="collect-mini-chk ${t.done ? 'done' : ''}"></div>
         <span style="color:var(--sc);font-weight:600">${t.date || '—'}</span>
         ${t.amount ? `<span>催 ${t.amount}万</span>` : ''}
-        ${t.note   ? `<span style="color:#aaa">·${esc(t.note)}</span>` : ''}
+        ${t.note   ? `<span class="text-muted">·${esc(t.note)}</span>` : ''}
       </div>`).join('') +
-      (tasks.filter(t => !t.done).length > 3 ? `<div style="font-size:.6rem;color:#bbb">…还有更多</div>` : '') +
+      (tasks.filter(t => !t.done).length > 3 ? `<div class="more-hint left">…还有更多</div>` : '') +
       `</div>`;
   }
 
@@ -218,7 +218,7 @@ function cardHTML(p, colKey) {
           <div class="chk-mini ${t.done ? 'checked' : ''}"></div>
           <span>${esc(t.text)}</span>
         </div>`).join('')}
-      ${(p.todos || []).length > 3 ? `<div style="font-size:.6rem;color:#bbb">…还有${p.todos.length - 3}项</div>` : ''}
+      ${(p.todos || []).length > 3 ? `<div class="more-hint left">…还有${p.todos.length - 3}项</div>` : ''}
     </div>` : '';
 
   let actionBtns = '';
@@ -242,12 +242,15 @@ function cardHTML(p, colKey) {
   <div class="card" data-s="${sAttr}">
     <div class="card-top">
       <div class="card-header">
-        ${sourceTag}
-        <div class="card-name" onclick="editProject('${p.id}')">${esc(p.name)}</div>
+        <div class="card-header-left">
+          ${sourceTag}
+          ${updatedHtml}
+          <div class="card-name" onclick="editProject('${p.id}')">${esc(p.name)}</div>
+        </div>
       </div>
       <span class="card-active ${p.active === 'inactive' ? 'off' : 'on'}">${p.active === 'inactive' ? '🔴 不活跃' : '🟢 活跃'}</span>
     </div>
-    ${updatedHtml}${logHtml}${filteredMetaHtml}${amtHtml}${contractInfoHtml}${deliveryHtml}${paymentHtml}${descHtml}${todoHtml}
+    ${logHtml}${filteredMetaHtml}${amtHtml}${contractInfoHtml}${deliveryHtml}${paymentHtml}${descHtml}${todoHtml}
     <div class="card-actions">${actionBtns}</div>
   </div>`;
 

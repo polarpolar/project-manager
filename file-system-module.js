@@ -608,6 +608,11 @@ async function deleteFile(projectId, fileNames) {
     } else {
       showToast(`✅ 成功删除 ${successCount} 个文件`);
     }
+    
+    // 重新加载文件面板，更新文件数
+    if (typeof loadModalFilePanel === 'function') {
+      await loadModalFilePanel(projectId);
+    }
   } catch(e) {
     if (DEBUG) console.error('删除文件失败:', e);
     showToast('❌ 文件删除失败：' + e.message);
