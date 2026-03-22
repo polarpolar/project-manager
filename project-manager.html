@@ -24,31 +24,15 @@
 <!-- 内联关键CSS（逐步迁移到外部文件） -->
 <style>
   /* 注意：以下样式正在逐步迁移到 css/ 目录下的文件中
-     迁移完成后，此 style 标签将被完全移除 */
-  * { box-sizing: border-box; margin:0; padding:0; }
-  body { font-family:'Noto Sans SC',sans-serif; background:var(--paper); color:var(--ink); min-height:100vh; }
-
-  /* ── 整体左右布局 ── */
-  body { display:flex; flex-direction:row; min-height:100vh; }
-
-  /* ── 左侧导航栏 ── */
-  #sidebar {
-    width:220px; min-width:220px; background:var(--ink); color:#fff;
-    display:flex; flex-direction:column;
-    position:sticky; top:0; height:100vh; overflow-y:auto; overflow-x:hidden;
-    transition:width .22s cubic-bezier(.4,0,.2,1), min-width .22s cubic-bezier(.4,0,.2,1);
-    z-index:100; flex-shrink:0;
-    box-shadow:2px 0 18px rgba(26,5,51,0.22);
-  }
-  #sidebar.collapsed { width:52px; min-width:52px; }
-
+     基础样式(base.css)已迁移完成，剩余样式将逐步迁移到对应模块文件 */
+  
+  /* ═══════════════════════════════════════════════════════
+     以下样式待迁移至 sidebar.css
+     ═══════════════════════════════════════════════════════ */
   .sb-brand {
     padding:16px 14px 14px; border-bottom:1px solid rgba(255,255,255,.08);
     display:flex; align-items:center; gap:8px; flex-shrink:0; min-height:56px;
   }
-  h1 { font-family:'Noto Serif SC',serif; font-size:1.05rem; letter-spacing:.06em;
-       white-space:nowrap; overflow:hidden; flex:1; }
-  h1 span { color:var(--gold); }
   .sb-toggle {
     flex-shrink:0; background:none; border:none; color:rgba(255,255,255,.35);
     cursor:pointer; font-size:.85rem; line-height:1; padding:3px; border-radius:4px;
@@ -58,7 +42,6 @@
   #sidebar.collapsed .sb-brand h1,
   #sidebar.collapsed .sb-brand .sb-icon-logo { display:none; }
 
-  /* 统计区 */
   .sb-stats {
     padding:12px 14px 12px; border-bottom:1px solid rgba(255,255,255,.08);
     display:flex; flex-direction:column; gap:0; overflow:hidden;
@@ -76,7 +59,6 @@
   .stat-num { font-family:'Noto Serif SC',serif; font-size:.95rem; font-weight:700; color:var(--gold); }
   .stat-unit { font-size:.58rem; color:rgba(255,255,255,.35); white-space:nowrap; }
 
-  /* 导航按钮区 */
   .sb-nav { padding:8px 8px; display:flex; flex-direction:column; gap:2px; flex:1; }
   .sb-btn {
     display:flex; align-items:center; gap:9px; padding:8px 10px; border-radius:8px;
@@ -95,33 +77,11 @@
   #sidebar.collapsed .sb-btn { justify-content:center; padding:9px 0; }
   .sb-sep { height:1px; background:rgba(255,255,255,.07); margin:5px 8px; }
 
-  /* 旧 header btn 兼容（不再用，保留防报错） */
-  /* .btn-hdr, .btn-hdr-primary, .btn-hdr-danger { display:none; } */
   .btn-hdr-ghost { display:none; }
 
-  /* ── 右侧内容区 ── */
-  #content { flex:1; min-width:0; display:flex; flex-direction:column; background:var(--paper); }
-
-  /* ── Pipeline ── */
-  .pipeline { display:flex; gap:0; margin:0; background:var(--ink); }
-  .pipe-seg {
-    flex:1; padding:10px 16px; display:flex; justify-content:space-between; align-items:center;
-    font-size:.72rem; font-weight:600; letter-spacing:.04em; color:#fff; cursor:default;
-    border-right:1px solid rgba(255,255,255,.1);
-  }
-  .pipe-seg:last-child { border-right:none; }
-  .pipe-seg[data-s="0"] { background:var(--s0); }
-  .pipe-seg[data-s="1"] { background:var(--s1); }
-  .pipe-seg[data-s="c"] { background:var(--sc); }
-  .pipe-seg[data-s="2"] { background:var(--s2); }
-  .pipe-count { font-family:'Noto Serif SC',serif; font-size:1.1rem; font-weight:700; }
-
-  /* ── Board ── */
-  .main { padding:20px 20px; }
-  .board { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; align-items:start; }
-  @media(max-width:1100px){ .board{grid-template-columns:repeat(2,1fr);} }
-  @media(max-width:620px){ .board{grid-template-columns:1fr;} }
-  .col-wrap { min-width:0; }
+  /* ═══════════════════════════════════════════════════════
+     以下样式待迁移至 board.css
+     ═══════════════════════════════════════════════════════ */
   .col-header {
     padding:10px 14px; border-radius:8px 8px 0 0; font-size:.75rem; font-weight:700;
     letter-spacing:.05em; color:#fff; display:flex; justify-content:space-between; align-items:center;
