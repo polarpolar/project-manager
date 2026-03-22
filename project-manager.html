@@ -276,12 +276,14 @@
           🔑 语雀 Token
           <a href="https://www.yuque.com/settings/tokens" target="_blank" style="font-size:.65rem;color:#aaa;font-weight:400;margin-left:4px">如何获取？↗</a>
         </div>
-        <div style="display:flex;gap:8px">
-          <input type="password" id="yuque-token" placeholder="粘贴你的语雀 Personal Access Token…"
-            style="flex:1;border:1.5px solid var(--paper2);border-radius:7px;padding:7px 11px;font-size:.78rem;font-family:inherit;outline:none"
-            oninput="saveYuqueToken()">
-          <button class="btn-save" style="padding:7px 14px;white-space:nowrap;font-size:.75rem" onclick="testYuqueToken()">验证</button>
-        </div>
+        <form onsubmit="event.preventDefault(); testYuqueToken();">
+          <div style="display:flex;gap:8px">
+            <input type="password" id="yuque-token" placeholder="粘贴你的语雀 Personal Access Token…"
+              style="flex:1;border:1.5px solid var(--paper2);border-radius:7px;padding:7px 11px;font-size:.78rem;font-family:inherit;outline:none"
+              oninput="saveYuqueToken()">
+            <button class="btn-save" type="submit" style="padding:7px 14px;white-space:nowrap;font-size:.75rem">验证</button>
+          </div>
+        </form>
         <div id="yuque-token-status" style="font-size:.68rem;margin-top:6px;color:#aaa"></div>
       </div>
 
@@ -939,10 +941,12 @@
             <span class="ai-cfg-tag">代理地址</span>
           </div>
           <div id="ai-proxy-hint" style="font-size:.63rem;color:#444;margin-bottom:8px;display:none"></div>
-          <div class="ai-cfg-row">
-            <input class="ai-cfg-input" type="password" id="ai-key-input" placeholder="API Key" oninput="saveAiKey(this.value)">
-            <button class="ai-test-btn" onclick="testAiConnection()">测试连接</button>
-          </div>
+          <form onsubmit="event.preventDefault(); testAiConnection();">
+            <div class="ai-cfg-row">
+              <input class="ai-cfg-input" type="password" id="ai-key-input" placeholder="API Key" oninput="saveAiKey(this.value)">
+              <button class="ai-test-btn" type="submit">测试连接</button>
+            </div>
+          </form>
           <div class="ai-status" id="ai-conn-status"></div>
         </div>
 

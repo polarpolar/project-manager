@@ -226,10 +226,11 @@ function cardHTML(p, colKey) {
   if (p.stage === STAGE.DELIVERING)  actionBtns += `<button class="btn-sm btn-done" onclick="moveStage('${p.id}',${STAGE.COMPLETED})">→ 已完结</button>`;
   actionBtns += `<button class="btn-sm btn-del" onclick="deleteProject('${p.id}')">✕</button>`;
 
-  // 提取项目来源标签
-  const sourceTag = p.channel ? `<span class="card-tag source-tag">🌐 ${esc(p.channel)}</span>` : '';
+  // 提取项目来源标签（优先使用channel，其次使用source）
+  const sourceValue = p.channel || p.source;
+  const sourceTag = sourceValue ? `<span class="card-tag source-tag">🌐 ${esc(sourceValue)}</span>` : '';
   
-  // 移除metaHtml中的项目来源标签
+  // 保留客户名称（source）的显示
   const filteredMetaHtml = (p.source || p.owner || p.product || (p.stage === STAGE.NEGOTIATING && p.洽谈状态)) ? `
     <div class="card-meta">
       ${p.source  ? `<span class="card-tag">📌 ${esc(p.source)}</span>`  : ''}
@@ -243,9 +244,11 @@ function cardHTML(p, colKey) {
     <div class="card-top">
       <div class="card-header">
         <div class="card-header-left">
-          ${sourceTag}
+          <div class="card-header-row">
+            ${sourceTag}
+            <div class="card-name" onclick="editProject('${p.id}')">${esc(p.name)}</div>
+          </div>
           ${updatedHtml}
-          <div class="card-name" onclick="editProject('${p.id}')">${esc(p.name)}</div>
         </div>
       </div>
       <span class="card-active ${p.active === 'inactive' ? 'off' : 'on'}">${p.active === 'inactive' ? '🔴 不活跃' : '🟢 活跃'}</span>

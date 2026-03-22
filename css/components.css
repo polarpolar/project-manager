@@ -473,7 +473,24 @@
   color: var(--ink-light);
   padding: 2px 7px;
   border-radius: 10px;
-  align-self: flex-start;
+  align-self: center;
+}
+
+/* 卡片头部行：标签和标题在同一行 */
+.card-header-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.card-header-row .card-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ── AI 分析标签 ── */
