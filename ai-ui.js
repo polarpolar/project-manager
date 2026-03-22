@@ -166,8 +166,8 @@ function renderMonitor() {
 
 // ── 沙盒调试台 ────────────────────────────
 
-function openSandbox() { document.getElementById('sandboxPanel').style.display = 'flex'; }
-function closeSandbox() { document.getElementById('sandboxPanel').style.display = 'none'; }
+function openSandbox() { document.getElementById('sandboxPanel').classList.add('open'); }
+function closeSandbox() { document.getElementById('sandboxPanel').classList.remove('open'); }
 
 function switchSandboxTab(tab, el) {
   document.querySelectorAll('.sbx-tab').forEach(t => t.classList.remove('active'));

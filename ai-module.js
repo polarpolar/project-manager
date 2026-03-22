@@ -206,7 +206,14 @@ function providerSupportsVision() {
   if (cfg.provider === 'claude') return true;
   if (cfg.provider === 'gemini') return true;
   if (cfg.provider === 'openai' && (cfg.model.includes('gpt-4o') || cfg.model.includes('gpt-4-vision'))) return true;
-  return false; // custom（含 GLM）不支持
+  // custom provider：根据模型名判断
+  if (cfg.provider === 'custom') {
+    const m = cfg.model.toLowerCase();
+    if (m.includes('glm-4v') || m.includes('glm-4.5v') || m.includes('glm-4.6v') ||
+        m.includes('vision') || m.includes('-v') || m.includes('vl') ||
+        m.includes('kimi') || m.includes('moonshot')) return true;
+  }
+  return false;
 }
 
 // 获取当前 provider 名称，用于提示

@@ -1,0 +1,303 @@
+/* ╔════════════════════════════════════════════════════════════╗
+   ║  AI Monitor Panel - AI监控面板完整样式                      ║
+   ╚════════════════════════════════════════════════════════════╝ */
+
+/* 标签页 */
+.monitor-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.monitor-tab {
+  padding: 12px 24px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  color: #888;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+  background: none;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  font-family: inherit;
+}
+
+.monitor-tab:hover {
+  color: #aaa;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.monitor-tab.active {
+  color: #7eccd8;
+  border-bottom-color: #7eccd8;
+  background: rgba(126, 204, 216, 0.05);
+}
+
+.monitor-tab-body {
+  display: none;
+}
+
+.monitor-tab-body.active {
+  display: block;
+}
+
+/* 清空按钮 */
+.mbtn-clear {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 5px;
+  padding: 5px 12px;
+  font-size: 0.7rem;
+  color: #888;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  margin-left: auto;
+}
+
+.mbtn-clear:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ccc;
+}
+
+/* 配置区域 */
+.ai-cfg-section {
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.ai-cfg-section:last-child {
+  border-bottom: none;
+}
+
+.ai-cfg-label {
+  font-size: 0.75rem;
+  color: #7eccd8;
+  font-weight: 600;
+  margin-bottom: 10px;
+  letter-spacing: 0.03em;
+}
+
+.ai-cfg-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ai-cfg-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.65rem;
+  background: rgba(126, 204, 216, 0.1);
+  color: #7eccd8;
+  border: 1px solid rgba(126, 204, 216, 0.2);
+}
+
+.ai-cfg-input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 0.75rem;
+  color: #ccc;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
+  min-width: 200px;
+}
+
+.ai-cfg-input:focus {
+  border-color: rgba(126, 204, 216, 0.4);
+}
+
+.ai-cfg-input::placeholder {
+  color: #555;
+}
+
+/* 模型选择 */
+.ai-model-select {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 0.75rem;
+  color: #ccc;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+}
+
+.ai-model-select:focus {
+  border-color: rgba(126, 204, 216, 0.4);
+}
+
+.ai-model-select option {
+  background: #1a1a2e;
+  color: #ccc;
+}
+
+/* 服务商网格 */
+.ai-provider-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.ai-provider-btn {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 14px 10px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ai-provider-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.ai-provider-btn.active {
+  background: rgba(126, 204, 216, 0.1);
+  border-color: rgba(126, 204, 216, 0.4);
+  box-shadow: 0 0 20px rgba(126, 204, 216, 0.1);
+}
+
+.ai-provider-icon {
+  font-size: 1.4rem;
+  margin-bottom: 6px;
+}
+
+.ai-provider-name {
+  font-size: 0.72rem;
+  color: #aaa;
+  font-weight: 500;
+}
+
+.ai-provider-btn.active .ai-provider-name {
+  color: #7eccd8;
+}
+
+/* AI状态 */
+.ai-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.7rem;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: rgba(46, 125, 50, 0.1);
+  color: #81c784;
+  border: 1px solid rgba(46, 125, 50, 0.2);
+}
+
+.ai-status.error {
+  background: rgba(229, 57, 53, 0.1);
+  color: #e57373;
+  border-color: rgba(229, 57, 53, 0.2);
+}
+
+.ai-status.warning {
+  background: rgba(251, 140, 0, 0.1);
+  color: #ffb74d;
+  border-color: rgba(251, 140, 0, 0.2);
+}
+
+/* 监控日志表格 */
+.monitor-log {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.72rem;
+  margin-top: 12px;
+}
+
+.monitor-log th {
+  background: rgba(255, 255, 255, 0.05);
+  color: #7eccd8;
+  padding: 10px 8px;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.monitor-log td {
+  padding: 10px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: #aaa;
+}
+
+.monitor-log tr:hover td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* 空状态 */
+.monitor-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: #555;
+  font-size: 0.8rem;
+}
+
+/* 对话测试气泡 */
+.chat-bubble {
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  max-width: 85%;
+  word-wrap: break-word;
+}
+
+.chat-bubble.user {
+  background: rgba(126, 204, 216, 0.15);
+  border: 1px solid rgba(126, 204, 216, 0.25);
+  color: #7eccd8;
+  align-self: flex-end;
+  border-bottom-right-radius: 4px;
+}
+
+.chat-bubble.ai {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #ccc;
+  align-self: flex-start;
+  border-bottom-left-radius: 4px;
+}
+
+.chat-bubble.thinking {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #666;
+  font-style: italic;
+  align-self: flex-start;
+  border-bottom-left-radius: 4px;
+}
+
+.chat-bubble.err {
+  background: rgba(229, 57, 53, 0.1);
+  border: 1px solid rgba(229, 57, 53, 0.2);
+  color: #e57373;
+  align-self: flex-start;
+  border-bottom-left-radius: 4px;
+}
+
+/* 响应式 */
+@media (max-width: 600px) {
+  .ai-provider-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .monitor-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

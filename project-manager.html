@@ -20,6 +20,7 @@
 <link rel="stylesheet" href="css/file-panel.css">
 <link rel="stylesheet" href="css/ai-analysis.css">
 <link rel="stylesheet" href="css/panels.css">
+<link rel="stylesheet" href="css/panels-ai-monitor.css">
 <link rel="stylesheet" href="css/import-confirmation.css">
 
 </head>
@@ -690,179 +691,179 @@
 </div>
 
 <!-- 沙盒调试台 -->
-<div id="sandboxPanel" style="position:fixed;inset:0;background:rgba(26,5,51,.65);z-index:310;display:none;align-items:center;justify-content:center">
-  <div style="background:#1a1a2e;border-radius:16px;width:min(780px,96vw);max-height:92vh;display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,.5);overflow:hidden">
+<div id="sandboxPanel">
+  <div class="sandbox-inner">
 
     <!-- 标题栏 -->
-    <div style="display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.08);flex-shrink:0">
-      <span style="font-size:1.1rem">🔬</span>
-      <div style="font-size:.9rem;font-weight:700;color:#eee;letter-spacing:.04em">沙盒调试台</div>
-      <div style="display:flex;align-items:center;gap:8px;margin-left:16px">
-        <span style="font-size:.62rem;color:#7eccd8">模型选择：</span>
-        <select id="sbx-model-select" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:4px;padding:2px 6px;font-size:.62rem;color:#aaa;outline:none">
+    <div class="sandbox-header">
+      <span class="sandbox-icon">🔬</span>
+      <div class="sandbox-title">沙盒调试台</div>
+      <div class="sandbox-model-select">
+        <span class="sandbox-model-label">模型选择：</span>
+        <select id="sbx-model-select" class="sandbox-model-dropdown">
           <option value="sandbox">内置 Claude 沙盒</option>
           <option value="global">全局 AI 模型</option>
         </select>
       </div>
-      <button onclick="closeSandbox()" style="margin-left:auto;background:none;border:none;font-size:1.1rem;cursor:pointer;color:#555;padding:4px 8px">✕</button>
+      <button class="sandbox-close" onclick="closeSandbox()">✕</button>
     </div>
 
     <!-- Tabs -->
-    <div style="display:flex;gap:0;border-bottom:1px solid rgba(255,255,255,.08);flex-shrink:0">
-      <div class="sbx-tab active" id="sbxtab-btn-contract" onclick="switchSandboxTab('contract',this)" style="padding:10px 20px;font-size:.75rem;cursor:pointer;color:#aaa;border-bottom:2px solid transparent;transition:all .2s">📄 合同调试</div>
-      <div class="sbx-tab" id="sbxtab-btn-agreement" onclick="switchSandboxTab('agreement',this)" style="padding:10px 20px;font-size:.75rem;cursor:pointer;color:#aaa;border-bottom:2px solid transparent;transition:all .2s">📋 技术协议调试</div>
-      <div class="sbx-tab" id="sbxtab-btn-table" onclick="switchSandboxTab('table',this)" style="padding:10px 20px;font-size:.75rem;cursor:pointer;color:#aaa;border-bottom:2px solid transparent;transition:all .2s">📊 表格识别</div>
+    <div class="sandbox-tabs">
+      <button class="sbx-tab active" id="sbxtab-btn-contract" onclick="switchSandboxTab('contract',this)">📄 合同调试</button>
+      <button class="sbx-tab" id="sbxtab-btn-agreement" onclick="switchSandboxTab('agreement',this)">📋 技术协议调试</button>
+      <button class="sbx-tab" id="sbxtab-btn-table" onclick="switchSandboxTab('table',this)">📊 表格识别</button>
     </div>
 
-    <div style="overflow-y:auto;flex:1;padding:0">
+    <div class="sandbox-body">
 
       <!-- ── 合同调试 Tab ── -->
-      <div id="sbxtab-contract" style="padding:16px 20px">
-        <div style="font-size:.68rem;color:#ce93d8;background:rgba(206,147,216,.06);border:1px solid rgba(206,147,216,.15);border-radius:8px;padding:10px 14px;margin-bottom:16px">
+      <div id="sbxtab-contract" class="sandbox-tab-content">
+        <div class="sandbox-hint purple">
           识别合同中的 <b>交付内容</b>、<b>回款节点</b> 和 <b>合同总金额</b>，可编辑 Prompt 后重跑
         </div>
 
         <!-- 上传区 -->
-        <div id="sbx-c-drop" style="border:2px dashed rgba(126,204,216,.3);border-radius:10px;padding:20px;text-align:center;cursor:pointer;color:#666;font-size:.78rem;transition:all .2s;margin-bottom:12px" onclick="document.getElementById('sbx-c-file').click()">
+        <div id="sbx-c-drop" class="sandbox-dropzone" onclick="document.getElementById('sbx-c-file').click()">
           🗂 拖拽或点击上传合同文件（PDF / DOCX / TXT）
         </div>
         <input type="file" id="sbx-c-file" accept=".pdf,.docx,.doc,.txt,.md" style="display:none" onchange="sbxContractFileSelected(this)">
-        <div id="sbx-c-file-info" style="font-size:.72rem;color:#666;margin-bottom:10px;display:none"></div>
+        <div id="sbx-c-file-info" class="sandbox-file-info" style="display:none"></div>
 
         <!-- 操作按钮 -->
-        <div style="display:flex;gap:8px;margin-bottom:12px">
-          <button class="ai-test-btn" style="flex:1;padding:9px" id="sbx-c-btn-delivery" onclick="sbxContractAnalyze('delivery')" disabled>📦 交付内容</button>
-          <button class="ai-test-btn" style="flex:1;padding:9px" id="sbx-c-btn-payment"  onclick="sbxContractAnalyze('payment')"  disabled>💰 回款节点</button>
-          <button class="ai-test-btn" style="flex:1;padding:9px" id="sbx-c-btn-both"     onclick="sbxContractAnalyze('both')"     disabled>🔍 全部识别</button>
+        <div class="sandbox-btn-group">
+          <button class="ai-test-btn" id="sbx-c-btn-delivery" onclick="sbxContractAnalyze('delivery')" disabled>📦 交付内容</button>
+          <button class="ai-test-btn" id="sbx-c-btn-payment"  onclick="sbxContractAnalyze('payment')"  disabled>💰 回款节点</button>
+          <button class="ai-test-btn" id="sbx-c-btn-both"     onclick="sbxContractAnalyze('both')"     disabled>🔍 全部识别</button>
         </div>
 
         <!-- 文本预览 -->
-        <div id="sbx-c-text-sec" style="display:none;margin-bottom:10px">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
-            <span style="font-size:.65rem;color:#7eccd8;font-weight:600">提取到的文本</span>
-            <span id="sbx-c-text-len" style="font-size:.62rem;color:#555"></span>
+        <div id="sbx-c-text-sec" class="sandbox-section" style="display:none">
+          <div class="sandbox-section-header">
+            <span class="sandbox-section-title">提取到的文本</span>
+            <span id="sbx-c-text-len" class="sandbox-section-meta"></span>
           </div>
-          <div id="sbx-c-raw-text" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:10px;font-size:.68rem;color:#888;max-height:110px;overflow-y:auto;white-space:pre-wrap;font-family:monospace;line-height:1.5"></div>
+          <div id="sbx-c-raw-text" class="sandbox-text-block"></div>
         </div>
 
         <!-- Prompt 编辑区 -->
-        <div id="sbx-c-prompt-sec" style="display:none;margin-bottom:10px">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
-            <span style="font-size:.65rem;color:#7eccd8;font-weight:600">Prompt（可修改后重跑）</span>
-            <button class="ai-test-btn" style="padding:3px 10px;font-size:.63rem" onclick="sbxContractRerun()">↺ 重新运行</button>
+        <div id="sbx-c-prompt-sec" class="sandbox-section" style="display:none">
+          <div class="sandbox-section-header">
+            <span class="sandbox-section-title">Prompt（可修改后重跑）</span>
+            <button class="ai-test-btn small" onclick="sbxContractRerun()">↺ 重新运行</button>
           </div>
-          <textarea id="sbx-c-prompt-edit" style="width:100%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:10px;font-size:.67rem;color:#aaa;height:130px;resize:vertical;font-family:monospace;outline:none;box-sizing:border-box;line-height:1.5"></textarea>
+          <textarea id="sbx-c-prompt-edit" class="sandbox-textarea"></textarea>
         </div>
 
         <!-- AI 原始响应 -->
-        <div id="sbx-c-raw-sec" style="display:none;margin-bottom:10px">
-          <div style="font-size:.65rem;color:#7eccd8;font-weight:600;margin-bottom:5px">AI 原始响应</div>
-          <div id="sbx-c-raw-resp" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:10px;font-size:.68rem;color:#aaa;max-height:140px;overflow-y:auto;white-space:pre-wrap;font-family:monospace;line-height:1.5"></div>
+        <div id="sbx-c-raw-sec" class="sandbox-section" style="display:none">
+          <div class="sandbox-section-title">AI 原始响应</div>
+          <div id="sbx-c-raw-resp" class="sandbox-text-block" style="max-height:140px"></div>
         </div>
 
         <!-- 解析结果 -->
-        <div id="sbx-c-result-sec" style="display:none">
-          <div style="font-size:.65rem;color:#7eccd8;font-weight:600;margin-bottom:5px">解析结果</div>
-          <div id="sbx-c-result-body"></div>
+        <div id="sbx-c-result-sec" class="sandbox-section" style="display:none">
+          <div class="sandbox-section-title">解析结果</div>
+          <div id="sbx-c-result-body" class="sandbox-result-body"></div>
         </div>
       </div>
 
       <!-- ── 技术协议调试 Tab ── -->
-      <div id="sbxtab-agreement" style="padding:16px 20px;display:none">
-        <div style="font-size:.68rem;color:#ffcc80;background:rgba(255,204,128,.06);border:1px solid rgba(255,204,128,.15);border-radius:8px;padding:10px 14px;margin-bottom:16px">
+      <div id="sbxtab-agreement" class="sandbox-tab-content" style="display:none">
+        <div class="sandbox-hint orange">
           识别技术协议中的 <b>交付内容</b>，生成不超过 50 字的简要概述，以及交付类型标签
         </div>
 
         <!-- 上传区 -->
-        <div id="sbx-a-drop" style="border:2px dashed rgba(255,204,128,.25);border-radius:10px;padding:20px;text-align:center;cursor:pointer;color:#666;font-size:.78rem;transition:all .2s;margin-bottom:12px" onclick="document.getElementById('sbx-a-file').click()">
+        <div id="sbx-a-drop" class="sandbox-dropzone" style="border-color:rgba(255,204,128,.25)" onclick="document.getElementById('sbx-a-file').click()">
           🗂 拖拽或点击上传技术协议文件（PDF / DOCX / TXT）
         </div>
         <input type="file" id="sbx-a-file" accept=".pdf,.docx,.doc,.txt,.md" style="display:none" onchange="sbxAgreementFileSelected(this)">
-        <div id="sbx-a-file-info" style="font-size:.72rem;color:#666;margin-bottom:10px;display:none"></div>
+        <div id="sbx-a-file-info" class="sandbox-file-info" style="display:none"></div>
 
         <!-- 操作按钮 -->
-        <div style="display:flex;gap:8px;margin-bottom:12px">
-          <button class="ai-test-btn" style="flex:1;padding:9px;background:rgba(255,204,128,.1);border-color:rgba(255,204,128,.3);color:#ffcc80" id="sbx-a-btn" onclick="sbxAgreementAnalyze()" disabled>🤖 识别交付内容</button>
+        <div class="sandbox-btn-group">
+          <button class="ai-test-btn orange" id="sbx-a-btn" onclick="sbxAgreementAnalyze()" disabled>🤖 识别交付内容</button>
         </div>
 
         <!-- 文本预览 -->
-        <div id="sbx-a-text-sec" style="display:none;margin-bottom:10px">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
-            <span style="font-size:.65rem;color:#ffcc80;font-weight:600">提取到的文本</span>
-            <span id="sbx-a-text-len" style="font-size:.62rem;color:#555"></span>
+        <div id="sbx-a-text-sec" class="sandbox-section" style="display:none">
+          <div class="sandbox-section-header">
+            <span class="sandbox-section-title" style="color:#ffcc80">提取到的文本</span>
+            <span id="sbx-a-text-len" class="sandbox-section-meta"></span>
           </div>
-          <div id="sbx-a-raw-text" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:10px;font-size:.68rem;color:#888;max-height:110px;overflow-y:auto;white-space:pre-wrap;font-family:monospace;line-height:1.5"></div>
+          <div id="sbx-a-raw-text" class="sandbox-text-block"></div>
         </div>
 
         <!-- Prompt 编辑区 -->
-        <div id="sbx-a-prompt-sec" style="display:none;margin-bottom:10px">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
-            <span style="font-size:.65rem;color:#ffcc80;font-weight:600">Prompt（可修改后重跑）</span>
-            <button class="ai-test-btn" style="padding:3px 10px;font-size:.63rem;background:rgba(255,204,128,.1);border-color:rgba(255,204,128,.3);color:#ffcc80" onclick="sbxAgreementRerun()">↺ 重新运行</button>
+        <div id="sbx-a-prompt-sec" class="sandbox-section" style="display:none">
+          <div class="sandbox-section-header">
+            <span class="sandbox-section-title" style="color:#ffcc80">Prompt（可修改后重跑）</span>
+            <button class="ai-test-btn small orange" onclick="sbxAgreementRerun()">↺ 重新运行</button>
           </div>
-          <textarea id="sbx-a-prompt-edit" style="width:100%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:10px;font-size:.67rem;color:#aaa;height:130px;resize:vertical;font-family:monospace;outline:none;box-sizing:border-box;line-height:1.5"></textarea>
+          <textarea id="sbx-a-prompt-edit" class="sandbox-textarea"></textarea>
         </div>
 
         <!-- AI 原始响应 -->
-        <div id="sbx-a-raw-sec" style="display:none;margin-bottom:10px">
-          <div style="font-size:.65rem;color:#ffcc80;font-weight:600;margin-bottom:5px">AI 原始响应</div>
-          <div id="sbx-a-raw-resp" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:10px;font-size:.68rem;color:#aaa;max-height:140px;overflow-y:auto;white-space:pre-wrap;font-family:monospace;line-height:1.5"></div>
+        <div id="sbx-a-raw-sec" class="sandbox-section" style="display:none">
+          <div class="sandbox-section-title" style="color:#ffcc80">AI 原始响应</div>
+          <div id="sbx-a-raw-resp" class="sandbox-text-block" style="max-height:140px"></div>
         </div>
 
         <!-- 解析结果 -->
-        <div id="sbx-a-result-sec" style="display:none">
-          <div style="font-size:.65rem;color:#ffcc80;font-weight:600;margin-bottom:5px">解析结果</div>
-          <div id="sbx-a-result-body"></div>
+        <div id="sbx-a-result-sec" class="sandbox-section" style="display:none">
+          <div class="sandbox-section-title" style="color:#ffcc80">解析结果</div>
+          <div id="sbx-a-result-body" class="sandbox-result-body"></div>
         </div>
       </div>
 
       <!-- ── 表格识别 Tab ── -->
-      <div id="sbxtab-table" style="padding:16px 20px;display:none">
-        <div style="font-size:.68rem;color:#7eccd8;background:rgba(126,204,216,.06);border:1px solid rgba(126,204,216,.15);border-radius:8px;padding:10px 14px;margin-bottom:16px">
+      <div id="sbxtab-table" class="sandbox-tab-content" style="display:none">
+        <div class="sandbox-hint">
           使用 AI 智能识别 Excel 或语雀表格的列名，自动映射到项目管理字段
         </div>
 
         <!-- 上传区 -->
-        <div id="sbx-t-drop" style="border:2px dashed rgba(126,204,216,.3);border-radius:10px;padding:20px;text-align:center;cursor:pointer;color:#666;font-size:.78rem;transition:all .2s;margin-bottom:12px" onclick="document.getElementById('sbx-t-file').click()">
+        <div id="sbx-t-drop" class="sandbox-dropzone" onclick="document.getElementById('sbx-t-file').click()">
           🗂 拖拽或点击上传 Excel 文件（.xlsx / .xls）
         </div>
         <input type="file" id="sbx-t-file" accept=".xlsx,.xls" style="display:none" onchange="sbxTableFileSelected(this)">
-        <div id="sbx-t-file-info" style="font-size:.72rem;color:#666;margin-bottom:10px;display:none"></div>
+        <div id="sbx-t-file-info" class="sandbox-file-info" style="display:none"></div>
 
         <!-- 操作按钮 -->
-        <div style="display:flex;gap:8px;margin-bottom:12px">
-          <button class="ai-test-btn" style="flex:1;padding:9px" id="sbx-t-btn-parse" onclick="sbxTableAnalyze()" disabled>🔍 识别表格</button>
-          <button class="ai-test-btn" style="flex:1;padding:9px" id="sbx-t-btn-clear" onclick="sbxTableClear()">🗑 清空</button>
+        <div class="sandbox-btn-group">
+          <button class="ai-test-btn" id="sbx-t-btn-parse" onclick="sbxTableAnalyze()" disabled>🔍 识别表格</button>
+          <button class="ai-test-btn" id="sbx-t-btn-clear" onclick="sbxTableClear()">🗑 清空</button>
         </div>
 
         <!-- 表格预览 -->
-        <div id="sbx-t-table-sec" style="display:none;margin-bottom:10px">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
-            <span style="font-size:.65rem;color:#7eccd8;font-weight:600">表格数据预览</span>
-            <span id="sbx-t-table-info" style="font-size:.62rem;color:#555"></span>
+        <div id="sbx-t-table-sec" class="sandbox-section" style="display:none">
+          <div class="sandbox-section-header">
+            <span class="sandbox-section-title">表格数据预览</span>
+            <span id="sbx-t-table-info" class="sandbox-section-meta"></span>
           </div>
-          <div id="sbx-t-raw-table" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:10px;font-size:.68rem;color:#888;max-height:150px;overflow-y:auto;white-space:pre-wrap;font-family:monospace;line-height:1.5"></div>
+          <div id="sbx-t-raw-table" class="sandbox-text-block" style="max-height:150px"></div>
         </div>
 
         <!-- Prompt 编辑区 -->
-        <div id="sbx-t-prompt-sec" style="display:none;margin-bottom:10px">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
-            <span style="font-size:.65rem;color:#7eccd8;font-weight:600">Prompt（可修改后重跑）</span>
-            <button class="ai-test-btn" style="padding:3px 10px;font-size:.63rem" onclick="sbxTableRerun()">↺ 重新运行</button>
+        <div id="sbx-t-prompt-sec" class="sandbox-section" style="display:none">
+          <div class="sandbox-section-header">
+            <span class="sandbox-section-title">Prompt（可修改后重跑）</span>
+            <button class="ai-test-btn small" onclick="sbxTableRerun()">↺ 重新运行</button>
           </div>
-          <textarea id="sbx-t-prompt-edit" style="width:100%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:10px;font-size:.67rem;color:#aaa;height:130px;resize:vertical;font-family:monospace;outline:none;box-sizing:border-box;line-height:1.5"></textarea>
+          <textarea id="sbx-t-prompt-edit" class="sandbox-textarea"></textarea>
         </div>
 
         <!-- AI 原始响应 -->
-        <div id="sbx-t-raw-sec" style="display:none;margin-bottom:10px">
-          <div style="font-size:.65rem;color:#7eccd8;font-weight:600;margin-bottom:5px">AI 原始响应</div>
-          <div id="sbx-t-raw-resp" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:10px;font-size:.68rem;color:#aaa;max-height:140px;overflow-y:auto;white-space:pre-wrap;font-family:monospace;line-height:1.5"></div>
+        <div id="sbx-t-raw-sec" class="sandbox-section" style="display:none">
+          <div class="sandbox-section-title">AI 原始响应</div>
+          <div id="sbx-t-raw-resp" class="sandbox-text-block" style="max-height:140px"></div>
         </div>
 
         <!-- 解析结果 -->
-        <div id="sbx-t-result-sec" style="display:none">
-          <div style="font-size:.65rem;color:#7eccd8;font-weight:600;margin-bottom:5px">解析结果</div>
-          <div id="sbx-t-result-body"></div>
+        <div id="sbx-t-result-sec" class="sandbox-section" style="display:none">
+          <div class="sandbox-section-title">解析结果</div>
+          <div id="sbx-t-result-body" class="sandbox-result-body"></div>
         </div>
       </div>
 
@@ -877,7 +878,7 @@
       <span style="font-size:1.1rem">🤖</span>
       <div class="monitor-title">AI 控制台</div>
       <button class="mbtn-clear" onclick="clearAiLogs()">🗑 清空记录</button>
-      <button onclick="closeMonitor()" style="background:none;border:none;font-size:1.1rem;cursor:pointer;color:#555;padding:4px 8px;margin-left:8px">✕</button>
+      <button class="monitor-close" onclick="closeMonitor()">✕</button>
     </div>
     <!-- Tabs -->
     <div class="monitor-tabs">
@@ -964,7 +965,7 @@
         <div class="ai-cfg-section">
           <div class="ai-cfg-label">对话测试</div>
           <div id="ai-chat-history" style="max-height:200px;overflow-y:auto;margin-bottom:8px;display:flex;flex-direction:column;gap:6px">
-            <div id="ai-chat-placeholder" style="color:#333;font-size:.7rem;text-align:center;padding:12px 0">发送消息以测试当前配置的模型</div>
+            <div id="ai-chat-placeholder" style="color:#666;font-size:.7rem;text-align:center;padding:12px 0">发送消息以测试当前配置的模型</div>
           </div>
           <div style="display:flex;gap:8px">
             <input class="ai-cfg-input" id="ai-chat-input" placeholder="输入消息，按 Enter 发送…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendTestChat()}">

@@ -871,3 +871,385 @@
   color: #888;
   font-weight: 700;
 }
+/* ╔════════════════════════════════════════════════════════════╗
+   ║  Panels Patch - 修复AI监控面板和沙盒调试台样式              ║
+   ╚════════════════════════════════════════════════════════════╝ */
+
+/* ── 沙盒调试台 ── */
+#sandboxPanel {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 5, 51, 0.65);
+  z-index: 310;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+#sandboxPanel.open {
+  display: flex;
+}
+
+.sandbox-inner {
+  background: #1a1a2e;
+  border-radius: 16px;
+  width: min(780px, 96vw);
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  border: 1px solid rgba(126, 204, 216, 0.15);
+}
+
+.sandbox-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.sandbox-icon {
+  font-size: 1.1rem;
+}
+
+.sandbox-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #eee;
+  letter-spacing: 0.04em;
+}
+
+.sandbox-model-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 16px;
+}
+
+.sandbox-model-label {
+  font-size: 0.62rem;
+  color: #7eccd8;
+}
+
+.sandbox-model-dropdown {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.62rem;
+  color: #aaa;
+  outline: none;
+}
+
+.sandbox-close {
+  margin-left: auto;
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  cursor: pointer;
+  color: #555;
+  padding: 4px 8px;
+  transition: color 0.2s;
+}
+
+.sandbox-close:hover {
+  color: #fff;
+}
+
+/* 沙盒标签页 */
+.sandbox-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.sbx-tab {
+  padding: 10px 20px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  color: #aaa;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+  background: none;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  font-family: inherit;
+}
+
+.sbx-tab:hover {
+  color: #ccc;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.sbx-tab.active {
+  color: #7eccd8;
+  border-bottom-color: #7eccd8;
+  background: rgba(126, 204, 216, 0.05);
+}
+
+.sandbox-body {
+  overflow-y: auto;
+  flex: 1;
+  padding: 0;
+}
+
+.sandbox-tab-content {
+  padding: 16px 20px;
+}
+
+.sandbox-hint {
+  font-size: 0.68rem;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+}
+
+.sandbox-hint.purple {
+  color: #ce93d8;
+  background: rgba(206, 147, 216, 0.06);
+  border: 1px solid rgba(206, 147, 216, 0.15);
+}
+
+.sandbox-hint.orange {
+  color: #ffcc80;
+  background: rgba(255, 204, 128, 0.06);
+  border: 1px solid rgba(255, 204, 128, 0.15);
+}
+
+.sandbox-hint.green {
+  color: #a5d6a7;
+  background: rgba(165, 214, 167, 0.06);
+  border: 1px solid rgba(165, 214, 167, 0.15);
+}
+
+/* 沙盒上传区 */
+.sandbox-dropzone {
+  border: 2px dashed rgba(126, 204, 216, 0.3);
+  border-radius: 10px;
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  color: #666;
+  font-size: 0.78rem;
+  transition: all 0.2s;
+  margin-bottom: 12px;
+}
+
+.sandbox-dropzone:hover {
+  border-color: rgba(126, 204, 216, 0.5);
+  background: rgba(126, 204, 216, 0.03);
+}
+
+.sandbox-file-info {
+  font-size: 0.72rem;
+  color: #666;
+  margin-bottom: 10px;
+}
+
+/* 沙盒按钮组 */
+.sandbox-btn-group {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.sandbox-btn-group .ai-test-btn {
+  flex: 1;
+}
+
+/* AI测试按钮 - 沙盒调试台专用 */
+.ai-test-btn {
+  padding: 9px 16px;
+  background: linear-gradient(135deg, rgba(126, 204, 216, 0.15) 0%, rgba(126, 204, 216, 0.08) 100%);
+  border: 1px solid rgba(126, 204, 216, 0.3);
+  border-radius: 6px;
+  color: #7eccd8;
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.ai-test-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(126, 204, 216, 0.25) 0%, rgba(126, 204, 216, 0.15) 100%);
+  border-color: rgba(126, 204, 216, 0.5);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(126, 204, 216, 0.15);
+}
+
+.ai-test-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+}
+
+.ai-test-btn.small {
+  padding: 3px 10px;
+  font-size: 0.63rem;
+}
+
+/* 橙色主题按钮（技术协议调试用） */
+.ai-test-btn.orange {
+  background: rgba(255, 204, 128, 0.1);
+  border-color: rgba(255, 204, 128, 0.3);
+  color: #ffcc80;
+}
+
+.ai-test-btn.orange:hover:not(:disabled) {
+  background: rgba(255, 204, 128, 0.2);
+  border-color: rgba(255, 204, 128, 0.5);
+  box-shadow: 0 4px 12px rgba(255, 204, 128, 0.15);
+}
+
+/* 沙盒文本区域 */
+.sandbox-section {
+  margin-bottom: 10px;
+}
+
+.sandbox-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+
+.sandbox-section-title {
+  font-size: 0.65rem;
+  color: #7eccd8;
+  font-weight: 600;
+}
+
+.sandbox-section-meta {
+  font-size: 0.62rem;
+  color: #555;
+}
+
+.sandbox-text-block {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 7px;
+  padding: 10px;
+  font-size: 0.68rem;
+  color: #888;
+  max-height: 110px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  font-family: monospace;
+  line-height: 1.5;
+}
+
+.sandbox-textarea {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 7px;
+  padding: 10px;
+  font-size: 0.67rem;
+  color: #aaa;
+  height: 130px;
+  resize: vertical;
+  font-family: monospace;
+  outline: none;
+  box-sizing: border-box;
+  line-height: 1.5;
+}
+
+.sandbox-textarea:focus {
+  border-color: rgba(126, 204, 216, 0.3);
+}
+
+/* 沙盒结果区域 */
+.sandbox-result-body {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+/* 表格识别特殊样式 */
+.table-upload-area {
+  border: 2px dashed rgba(165, 214, 167, 0.3);
+  border-radius: 10px;
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  color: #666;
+  font-size: 0.78rem;
+  transition: all 0.2s;
+  margin-bottom: 16px;
+}
+
+.table-upload-area:hover {
+  border-color: rgba(165, 214, 167, 0.5);
+  background: rgba(165, 214, 167, 0.03);
+}
+
+.table-preview-area {
+  margin-top: 16px;
+}
+
+/* AI监控面板额外修复 */
+.monitor-section-title {
+  font-size: 0.75rem;
+  color: #aaa;
+  margin: 16px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.monitor-close {
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  transition: color 0.2s;
+}
+
+.monitor-close:hover {
+  color: #fff;
+}
+
+/* 监控日志样式 */
+.monitor-log {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  padding: 12px;
+  font-family: monospace;
+  font-size: 0.65rem;
+  color: #888;
+  max-height: 200px;
+  overflow-y: auto;
+  line-height: 1.6;
+}
+
+.monitor-log-entry {
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.monitor-log-entry:last-child {
+  border-bottom: none;
+}
+
+.monitor-log-time {
+  color: #666;
+  margin-right: 8px;
+}
+
+.monitor-log-info { color: #7eccd8; }
+.monitor-log-success { color: #81c784; }
+.monitor-log-warning { color: #ffb74d; }
+.monitor-log-error { color: #e57373; }

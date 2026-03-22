@@ -538,14 +538,13 @@ async function analyzeContractsForPayment() {
           combinedText += `\n\n【文件：${name}】\n` + text;
         } else if (ext === 'pdf') {
           // PDF 处理逻辑
-          const ab = await file.arrayBuffer();
           const uint8 = new Uint8Array(ab);
-          let binary = '';
+          const chunks = [];
           const chunkSize = 8192;
           for (let i = 0; i < uint8.length; i += chunkSize) {
-            binary += String.fromCharCode(...uint8.subarray(i, i + chunkSize));
+            chunks.push(String.fromCharCode(...uint8.subarray(i, i + chunkSize)));
           }
-          const b64 = btoa(binary);
+          const b64 = btoa(chunks.join(''));
           await analyzeContractFile(name, b64, 'pdf', analysisDiv, btn, projectId);
           return;
         }
@@ -956,14 +955,13 @@ async function analyzeContracts() {
           combinedText += `\n\n【文件：${name}】\n` + await file.text();
         } else if (ext === 'pdf') {
           // PDF 转 base64 发给 Claude（单独处理，直接返回）
-          const ab = await file.arrayBuffer();
           const uint8 = new Uint8Array(ab);
-          let binary = '';
+          const chunks = [];
           const chunkSize = 8192;
           for (let i = 0; i < uint8.length; i += chunkSize) {
-            binary += String.fromCharCode(...uint8.subarray(i, i + chunkSize));
+            chunks.push(String.fromCharCode(...uint8.subarray(i, i + chunkSize)));
           }
-          const b64 = btoa(binary);          
+          const b64 = btoa(chunks.join(''));
           await analyzeContractFile(name, b64, 'pdf', analysisDiv, btn, projectId);
           btn.disabled = false;
           return;
@@ -1108,14 +1106,13 @@ async function analyzeAgreements() {
         if (['txt','md'].includes(ext)) {
           combinedText += `\n\n【文件：${name}】\n` + await file.text();
         } else if (ext === 'pdf') {
-          const ab = await file.arrayBuffer();
           const uint8 = new Uint8Array(ab);
-          let binary = '';
+          const chunks = [];
           const chunkSize = 8192;
           for (let i = 0; i < uint8.length; i += chunkSize) {
-            binary += String.fromCharCode(...uint8.subarray(i, i + chunkSize));
+            chunks.push(String.fromCharCode(...uint8.subarray(i, i + chunkSize)));
           }
-          const b64 = btoa(binary);
+          const b64 = btoa(chunks.join(''));
           await analyzeAgreementFile(name, b64, analysisDiv, btn);
           btn.disabled = false;
           return;
@@ -1212,12 +1209,12 @@ async function analyzeQuotes() {
         } else if (ext === 'pdf') {
           const ab = await file.arrayBuffer();
           const uint8 = new Uint8Array(ab);
-          let binary = '';
+          const chunks = [];
           const chunkSize = 8192;
           for (let i = 0; i < uint8.length; i += chunkSize) {
-            binary += String.fromCharCode(...uint8.subarray(i, i + chunkSize));
+            chunks.push(String.fromCharCode(...uint8.subarray(i, i + chunkSize)));
           }
-          const b64 = btoa(binary);
+          const b64 = btoa(chunks.join(''));
           await analyzeQuoteFile(name, b64, analysisDiv, btn);
           btn.disabled = false;
           return;
