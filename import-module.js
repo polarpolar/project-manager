@@ -1354,10 +1354,18 @@ async function confirmYuqueImport() {
     }
     
     if (idx >= 0) {
-      // 找到更新的项目
-      const updatedProject = projects.find(x => x.projectCode === originalProjects[idx].projectCode);
-      if (updatedProject) {
-        updatedProjects.push(updatedProject);
+      // 找到当前系统中对应的项目进行更新
+      const currentIdx = projects.findIndex(x => x.projectCode && x.projectCode.endsWith(originalProjects[idx].projectCode.slice(-4)));
+      if (currentIdx >= 0) {
+        const existingProject = projects[currentIdx];
+        // 检查项目是否有变化
+        if (hasProjectChanged(existingProject, p)) {
+          // 找到更新的项目
+          const updatedProject = projects.find(x => x.projectCode === originalProjects[idx].projectCode);
+          if (updatedProject) {
+            updatedProjects.push(updatedProject);
+          }
+        }
       }
       isAdded = false;
     } else {
@@ -1428,9 +1436,10 @@ function showImportConfirmation(added, updated, progressUpdated, addedProjects, 
       <div class="import-project-section">
         <div class="import-section-title">新增项目 (${added})</div>
         <div class="import-project-items">
-          ${addedProjects.map(p => `
+          ${addedProjects.map((p, index) => `
             <div class="import-project-item">
-              <span class="import-project-tag added">＋</span>
+              <span class="import-project-tag added">${index + 1}</span>
+              ${p.channel ? `<span class="import-project-channel">🌐 ${p.channel}</span>` : ''}
               <span class="import-project-name">${p.name}</span>
               ${p.projectCode ? `<span class="import-project-code">${p.projectCode}</span>` : ''}
             </div>
@@ -1445,9 +1454,10 @@ function showImportConfirmation(added, updated, progressUpdated, addedProjects, 
       <div class="import-project-section">
         <div class="import-section-title">更新项目 (${updated})</div>
         <div class="import-project-items">
-          ${updatedProjects.map(p => `
+          ${updatedProjects.map((p, index) => `
             <div class="import-project-item">
-              <span class="import-project-tag updated">↻</span>
+              <span class="import-project-tag updated">${index + 1}</span>
+              ${p.channel ? `<span class="import-project-channel">🌐 ${p.channel}</span>` : ''}
               <span class="import-project-name">${p.name}</span>
               ${p.projectCode ? `<span class="import-project-code">${p.projectCode}</span>` : ''}
             </div>
@@ -1462,10 +1472,12 @@ function showImportConfirmation(added, updated, progressUpdated, addedProjects, 
       <div class="import-project-section">
         <div class="import-section-title">转为非活跃 (${activeChanges.inactiveAdded})</div>
         <div class="import-project-items">
-          ${inactiveProjects.map(p => `
+          ${inactiveProjects.map((p, index) => `
             <div class="import-project-item">
-              <span class="import-project-tag inactive">−</span>
+              <span class="import-project-tag inactive">${index + 1}</span>
+              ${p.channel ? `<span class="import-project-channel">🌐 ${p.channel}</span>` : ''}
               <span class="import-project-name">${p.name}</span>
+              ${p.projectCode ? `<span class="import-project-code">${p.projectCode}</span>` : ''}
             </div>
           `).join('')}
         </div>

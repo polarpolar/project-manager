@@ -135,6 +135,15 @@
   white-space: nowrap;
 }
 
+.import-project-channel {
+  color: #666;
+  font-size: .68rem;
+  white-space: nowrap;
+  background: var(--paper2);
+  padding: 1px 6px;
+  border-radius: 10px;
+}
+
 /* ── 底部按钮 ── */
 .import-confirmation-footer {
   display: flex;

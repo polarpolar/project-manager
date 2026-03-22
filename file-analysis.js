@@ -539,7 +539,13 @@ async function analyzeContractsForPayment() {
         } else if (ext === 'pdf') {
           // PDF 处理逻辑
           const ab = await file.arrayBuffer();
-          const b64 = btoa(String.fromCharCode(...new Uint8Array(ab)));
+          const uint8 = new Uint8Array(ab);
+          let binary = '';
+          const chunkSize = 8192;
+          for (let i = 0; i < uint8.length; i += chunkSize) {
+            binary += String.fromCharCode(...uint8.subarray(i, i + chunkSize));
+          }
+          const b64 = btoa(binary);
           await analyzeContractFile(name, b64, 'pdf', analysisDiv, btn, projectId);
           return;
         }
@@ -951,7 +957,13 @@ async function analyzeContracts() {
         } else if (ext === 'pdf') {
           // PDF 转 base64 发给 Claude（单独处理，直接返回）
           const ab = await file.arrayBuffer();
-          const b64 = btoa(String.fromCharCode(...new Uint8Array(ab)));
+          const uint8 = new Uint8Array(ab);
+          let binary = '';
+          const chunkSize = 8192;
+          for (let i = 0; i < uint8.length; i += chunkSize) {
+            binary += String.fromCharCode(...uint8.subarray(i, i + chunkSize));
+          }
+          const b64 = btoa(binary);          
           await analyzeContractFile(name, b64, 'pdf', analysisDiv, btn, projectId);
           btn.disabled = false;
           return;
@@ -1097,7 +1109,13 @@ async function analyzeAgreements() {
           combinedText += `\n\n【文件：${name}】\n` + await file.text();
         } else if (ext === 'pdf') {
           const ab = await file.arrayBuffer();
-          const b64 = btoa(String.fromCharCode(...new Uint8Array(ab)));
+          const uint8 = new Uint8Array(ab);
+          let binary = '';
+          const chunkSize = 8192;
+          for (let i = 0; i < uint8.length; i += chunkSize) {
+            binary += String.fromCharCode(...uint8.subarray(i, i + chunkSize));
+          }
+          const b64 = btoa(binary);
           await analyzeAgreementFile(name, b64, analysisDiv, btn);
           btn.disabled = false;
           return;
@@ -1193,7 +1211,13 @@ async function analyzeQuotes() {
           combinedText += `\n\n【文件：${name}】\n` + await file.text();
         } else if (ext === 'pdf') {
           const ab = await file.arrayBuffer();
-          const b64 = btoa(String.fromCharCode(...new Uint8Array(ab)));
+          const uint8 = new Uint8Array(ab);
+          let binary = '';
+          const chunkSize = 8192;
+          for (let i = 0; i < uint8.length; i += chunkSize) {
+            binary += String.fromCharCode(...uint8.subarray(i, i + chunkSize));
+          }
+          const b64 = btoa(binary);
           await analyzeQuoteFile(name, b64, analysisDiv, btn);
           btn.disabled = false;
           return;
@@ -1542,28 +1566,104 @@ function cancelQuoteAIAnalysis(projectId) {
 }
 
 async function analyzeContractFile(name, b64, type, analysisDiv, btn, projectId) {
-  analysisDiv.innerHTML = `<div class="contract-analysis"><div class="ca-loading"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div>&nbsp;AI 正在分析合同 PDF…</div></div>`;
+  const setMsg = (html) => { analysisDiv.innerHTML = `<div class="contract-analysis"><div class="ca-loading">${html}</div></div>`; };
+
+  setMsg('<div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div>&nbsp;📄 正在读取 PDF…');
+
   try {
-    const data = await claudeCall({
-      task: '合同PDF解析',
+    // ── 第一步：尝试用 document 接口提取文字 ──
+    let data;
+    try {
+      data = await claudeCall({
+        task: '合同PDF解析',
+        max_tokens: 4000,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } },
+            { type: 'text', text: CONTRACT_ANALYZE_PROMPT }
+          ]
+        }]
+      });
+
+      // 检查是否返回了有效的 JSON 结果（文字型 PDF 应该能解析出来）
+      const text = data._parsed?.text || '';
+      const hasJson = text.includes('{') && text.includes('}');
+
+      if (hasJson) {
+        // 文字型 PDF，直接渲染结果
+        renderContractAnalysis(data, analysisDiv, projectId);
+        return;
+      }
+      // 返回内容不含 JSON，可能是扫描件导致 document 接口无法提取文字
+    } catch(e) {
+      // document 接口失败，继续尝试扫描件流程
+    }
+
+    // ── 第二步：判定为扫描件，切换图片识别 ──
+    setMsg('<div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div>&nbsp;🖼️ 识别到扫描件，正在转换页面图片…');
+
+    // 检查当前模型是否支持图片
+    if (!providerSupportsVision()) {
+      const providerName = getProviderName();
+      analysisDiv.innerHTML = `
+        <div class="contract-analysis ca-warning">
+          ⚠️ 检测到 PDF 扫描件，但当前模型（${providerName}）不支持图片识别。<br>
+          <span style="font-size:.72rem;color:#888">请在设置中切换到 Claude 或 Gemini 模型后重试。</span>
+        </div>`;
+      return;
+    }
+
+    // 动态加载 pdf.js
+    if (!window.pdfjsLib) {
+      setMsg('<div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div>&nbsp;🖼️ 正在加载 PDF 渲染引擎…');
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        script.onload = resolve;
+        script.onerror = () => reject(new Error('pdf.js 加载失败，请检查网络'));
+        document.head.appendChild(script);
+      });
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+
+    // 把 base64 转成 PDF 并渲染每页为图片
+    const pdfData = atob(b64);
+    const pdfBytes = new Uint8Array(pdfData.length);
+    for (let i = 0; i < pdfData.length; i++) pdfBytes[i] = pdfData.charCodeAt(i);
+
+    const pdf = await window.pdfjsLib.getDocument({ data: pdfBytes }).promise;
+    const totalPages = Math.min(pdf.numPages, 6); // 最多处理 6 页
+    const images = [];
+
+    for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+      setMsg(`<div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div>&nbsp;🖼️ 正在处理第 ${pageNum}/${totalPages} 页…`);
+      const page = await pdf.getPage(pageNum);
+      const viewport = page.getViewport({ scale: 1.5 }); // 1.5倍清晰度
+      const canvas = document.createElement('canvas');
+      canvas.width  = viewport.width;
+      canvas.height = viewport.height;
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+      const base64img = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+      images.push({ base64: base64img, mimeType: 'image/jpeg' });
+    }
+
+    setMsg('<div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div>&nbsp;🤖 图片处理完成，AI 正在识别合同内容…');
+
+    data = await claudeCallWithVision({
+      task: '合同扫描件识别',
       max_tokens: 4000,
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } },
-          { type: 'text', text: CONTRACT_ANALYZE_PROMPT }
-        ]
-      }]
+      images,
+      textPrompt: CONTRACT_ANALYZE_PROMPT
     });
+
     renderContractAnalysis(data, analysisDiv, projectId);
+
   } catch(e) {
     analysisDiv.innerHTML = `<div class="contract-analysis ca-error">❌ PDF解析失败：${e.message}</div>`;
   } finally {
-    // 启用按钮
-    if (btn) {
-      btn.disabled = false;
-      btn.style.opacity = '1';
-    }
+    if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
   }
 }
 

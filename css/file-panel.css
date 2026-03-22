@@ -427,3 +427,20 @@
   color: #7eccd8;
   margin-left: 3px;
 }
+
+/* ── 扫描件识别进度提示 ── */
+.ca-scan-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: .75rem;
+  color: #666;
+  padding: 10px 0;
+}
+
+.ca-warning {
+  font-size: .75rem;
+  color: #e65100;
+  line-height: 1.6;
+  padding: 4px 0;
+}

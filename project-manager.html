@@ -279,8 +279,9 @@
         <form onsubmit="event.preventDefault(); testYuqueToken();">
           <div style="display:flex;gap:8px">
             <input type="password" id="yuque-token" placeholder="粘贴你的语雀 Personal Access Token…"
-              style="flex:1;border:1.5px solid var(--paper2);border-radius:7px;padding:7px 11px;font-size:.78rem;font-family:inherit;outline:none"
-              oninput="saveYuqueToken()">
+            style="flex:1;border:1.5px solid var(--paper2);border-radius:7px;padding:7px 11px;font-size:.78rem;font-family:inherit;outline:none"
+            oninput="saveYuqueToken()"
+            autocomplete="new-password">
             <button class="btn-save" type="submit" style="padding:7px 14px;white-space:nowrap;font-size:.75rem">验证</button>
           </div>
         </form>
@@ -943,7 +944,7 @@
           <div id="ai-proxy-hint" style="font-size:.63rem;color:#444;margin-bottom:8px;display:none"></div>
           <form onsubmit="event.preventDefault(); testAiConnection();">
             <div class="ai-cfg-row">
-              <input class="ai-cfg-input" type="password" id="ai-key-input" placeholder="API Key" oninput="saveAiKey(this.value)">
+              <input class="ai-cfg-input" type="password" id="ai-key-input" placeholder="API Key" oninput="saveAiKey(this.value)" autocomplete="new-password">
               <button class="ai-test-btn" type="submit">测试连接</button>
             </div>
           </form>

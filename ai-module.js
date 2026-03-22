@@ -200,6 +200,94 @@ async function claudeCall({ task, model, max_tokens, messages }) {
   }
 }
 
+// 判断当前 provider 是否支持图片输入
+function providerSupportsVision() {
+  const cfg = getAiConfig();
+  if (cfg.provider === 'claude') return true;
+  if (cfg.provider === 'gemini') return true;
+  if (cfg.provider === 'openai' && (cfg.model.includes('gpt-4o') || cfg.model.includes('gpt-4-vision'))) return true;
+  return false; // custom（含 GLM）不支持
+}
+
+// 获取当前 provider 名称，用于提示
+function getProviderName() {
+  const cfg = getAiConfig();
+  const p = AI_PROVIDERS[cfg.provider];
+  return p ? p.name : cfg.provider;
+}
+
+// 支持图片的 claudeCall 变体
+// images: [{ base64: '...', mimeType: 'image/png' }, ...]
+async function claudeCallWithVision({ task, max_tokens, images, textPrompt }) {
+  const t0  = Date.now();
+  const cfg = getAiConfig();
+  const provider = AI_PROVIDERS[cfg.provider] || AI_PROVIDERS.claude;
+  const usedModel = cfg.model;
+
+  const log = { id: Date.now(), time: new Date().toLocaleString(), task, model: usedModel, provider: cfg.provider, in: 0, out: 0, dur: 0, status: 'ok', error: '' };
+
+  let endpoint;
+  if (cfg.provider === 'custom') {
+    const base = cfg.proxy.replace(/\/+$/, '');
+    endpoint = base.endsWith('/chat/completions') ? base : base + '/chat/completions';
+  } else {
+    endpoint = typeof provider.endpoint === 'function'
+      ? provider.endpoint(cfg.proxy, usedModel, cfg.key)
+      : provider.endpoint;
+  }
+
+  const headers = provider.buildHeaders(cfg.key, cfg.proxy);
+
+  // 按 provider 构建含图片的消息体
+  let body;
+  if (cfg.provider === 'claude') {
+    const content = [
+      ...images.map(img => ({
+        type: 'image',
+        source: { type: 'base64', media_type: img.mimeType, data: img.base64 }
+      })),
+      { type: 'text', text: textPrompt }
+    ];
+    body = { model: usedModel, max_tokens: max_tokens || cfg.maxTokens, messages: [{ role: 'user', content }] };
+  } else if (cfg.provider === 'openai') {
+    const content = [
+      ...images.map(img => ({
+        type: 'image_url',
+        image_url: { url: `data:${img.mimeType};base64,${img.base64}` }
+      })),
+      { type: 'text', text: textPrompt }
+    ];
+    body = { model: usedModel, max_tokens: max_tokens || cfg.maxTokens, messages: [{ role: 'user', content }] };
+  } else if (cfg.provider === 'gemini') {
+    const parts = [
+      ...images.map(img => ({ inline_data: { mime_type: img.mimeType, data: img.base64 } })),
+      { text: textPrompt }
+    ];
+    body = { contents: [{ role: 'user', parts }], generationConfig: { maxOutputTokens: max_tokens || cfg.maxTokens } };
+  } else {
+    throw new Error('当前模型不支持图片识别');
+  }
+
+  try {
+    const resp = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body) });
+    const data = await resp.json();
+    log.dur = ((Date.now() - t0) / 1000).toFixed(2);
+    const parsed = provider.parseResponse(data);
+    if (parsed.usage) { log.in = parsed.usage.input_tokens || 0; log.out = parsed.usage.output_tokens || 0; }
+    if (!resp.ok || parsed.error) { log.status = 'err'; log.error = parsed.error || `HTTP ${resp.status}`; }
+    aiLogs.unshift(log);
+    if (aiLogs.length > 200) aiLogs = aiLogs.slice(0, 200);
+    try { localStorage.setItem(window.STORAGE_KEY.AI_LOGS, JSON.stringify(aiLogs)); } catch(e) {}
+    return { ...data, _parsed: parsed };
+  } catch(e) {
+    log.dur = ((Date.now() - t0) / 1000).toFixed(2);
+    log.status = 'err'; log.error = e.message;
+    aiLogs.unshift(log);
+    try { localStorage.setItem(window.STORAGE_KEY.AI_LOGS, JSON.stringify(aiLogs)); } catch(e2) {}
+    throw e;
+  }
+}
+
 function clearAiLogs() {
   aiLogs = [];
   try { localStorage.removeItem(window.STORAGE_KEY.AI_LOGS); } catch(e) {}
@@ -442,6 +530,9 @@ export {
   CUSTOM_ROUTE,
   // AI 调用
   claudeCall,
+  claudeCallWithVision,
+  providerSupportsVision,
+  getProviderName,
   aiLogs,
   clearAiLogs,
   getAiLogs,
