@@ -59,6 +59,16 @@ async function loadModalFilePanel(projectId) {
     return;
   }
 
+  // 清除之前的分析结果显示
+  const analysisDivs = ['modalContractAnalysis', 'modalAgreementAnalysis', 'modalQuoteAnalysis'];
+  analysisDivs.forEach(id => {
+    const div = document.getElementById(id);
+    if (div) {
+      div.style.display = 'none';
+      div.innerHTML = '';
+    }
+  });
+
   if (!window.fsRootHandle) {
     // 根目录未配置，清空所有文件网格
     ['modalContractFileGrid', 'modalAgreementFileGrid', 'modalTechPlanFileGrid', 'modalQuoteFileGrid', 'modalOtherFileGrid'].forEach(id => {
@@ -1256,26 +1266,29 @@ function renderAgreementAnalysis(data, analysisDiv, projectId) {
     ].filter(Boolean);
 
     if (analysisDiv) {
-      // 存储识别结果到全局变量，供确认按钮使用
-      window.aiAgreementAnalysisResult = {
+    // 存储识别结果到项目对象，供确认按钮使用
+    const project = projects.find(p => p.id === projectId);
+    if (project) {
+      project._aiAnalysisResult = {
+        type: 'agreement',
         result: result,
-        projectId: projectId,
         analysisDivId: analysisDiv.id
       };
-      
-      analysisDiv.innerHTML = `
-        <div class="contract-analysis">
-          <div style="font-size:.65rem;color:#7eccd8;margin-bottom:8px;display:flex;align-items:center;gap:5px">
-            <span>✅ 识别完成</span><span style="color:#ddd">·</span><span style="color:#aaa">请确认识别结果后再写入项目</span>
-          </div>
-          ${result.brief ? `<div style="font-size:.76rem;color:var(--ink);font-weight:600;margin-bottom:8px;padding:6px 10px;background:rgba(21,101,192,.05);border-radius:6px;border-left:2px solid var(--s1)">${result.brief}</div>` : ''}
-          <div class="ca-chips">${chips.length ? chips.join('') : '<span class="ca-chip none">未识别到具体类型</span>'}</div>
-          <div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end">
-            <button class="btn-cancel" style="padding:6px 16px;font-size:.75rem" onclick="cancelAgreementAIAnalysis()">取消</button>
-            <button class="btn-save" style="padding:6px 16px;font-size:.75rem" onclick="confirmAgreementAIAnalysis()">确认写入项目</button>
-          </div>
-        </div>`;
     }
+    
+    analysisDiv.innerHTML = `
+      <div class="contract-analysis">
+        <div style="font-size:.65rem;color:#7eccd8;margin-bottom:8px;display:flex;align-items:center;gap:5px">
+          <span>✅ 识别完成</span><span style="color:#ddd">·</span><span style="color:#aaa">请确认识别结果后再写入项目</span>
+        </div>
+        ${result.brief ? `<div style="font-size:.76rem;color:var(--ink);font-weight:600;margin-bottom:8px;padding:6px 10px;background:rgba(21,101,192,.05);border-radius:6px;border-left:2px solid var(--s1)">${result.brief}</div>` : ''}
+        <div class="ca-chips">${chips.length ? chips.join('') : '<span class="ca-chip none">未识别到具体类型</span>'}</div>
+        <div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end">
+          <button class="btn-cancel" style="padding:6px 16px;font-size:.75rem" onclick="cancelAgreementAIAnalysis('${projectId}')">取消</button>
+          <button class="btn-save" style="padding:6px 16px;font-size:.75rem" onclick="confirmAgreementAIAnalysis('${projectId}')">确认写入项目</button>
+        </div>
+      </div>`;
+  }
   } catch(e) {
     const rawText = data._parsed?.text || data.choices?.[0]?.message?.content || data.content?.filter(b=>b.type==='text').map(b=>b.text).join('') || '';
     analysisDiv.innerHTML = `<div class="contract-analysis" style="color:#e53935;font-size:.75rem">❌ 解析失败：${e.message}
@@ -1291,39 +1304,35 @@ ${rawText.slice(0,500) || '（空）'}
 }
 
 // 确认技术协议AI分析结果并写入项目
-function confirmAgreementAIAnalysis() {
-  if (!window.aiAgreementAnalysisResult) return;
+function confirmAgreementAIAnalysis(projectId) {
+  const project = projects.find(p => p.id === projectId);
+  if (!project || !project._aiAnalysisResult) return;
   
-  const { result, projectId, analysisDivId } = window.aiAgreementAnalysisResult;
+  const { result, analysisDivId } = project._aiAnalysisResult;
   
-  if (projectId) {
-    const idx = projects.findIndex(p => p.id === projectId);
-    if (idx !== -1) {
-      projects[idx].deliveryTags = {
-        wireless_hardware: !!result.wireless_hardware,
-        wired_hardware:    !!result.wired_hardware,
-        software:          !!result.software,
-        other:             result.other || '',
-        _fromAi: true
-      };
-      if (result.brief) {
-        projects[idx].deliveryBrief = result.brief;
-        // 同步两个Tab的brief字段（如果Modal当前打开的是这个项目）
-        const briefElements = document.querySelectorAll('#f-delivery-brief');
-        briefElements.forEach(el => {
-          if (el && editingId === projectId) {
-            el.value = result.brief;
-          }
-        });
+  project.deliveryTags = {
+    wireless_hardware: !!result.wireless_hardware,
+    wired_hardware:    !!result.wired_hardware,
+    software:          !!result.software,
+    other:             result.other || '',
+    _fromAi: true
+  };
+  if (result.brief) {
+    project.deliveryBrief = result.brief;
+    // 同步两个Tab的brief字段（如果Modal当前打开的是这个项目）
+    const briefElements = document.querySelectorAll('#f-delivery-brief');
+    briefElements.forEach(el => {
+      if (el && editingId === projectId) {
+        el.value = result.brief;
       }
-      // 同步两个Tab的交付标签
-      setDtags(projects[idx].deliveryTags);
-      markProjectModified(projectId);
-      save();
-      refreshView();
-      showToast('✅ 技术协议识别完成，交付内容已写入项目');
-    }
+    });
   }
+  // 同步两个Tab的交付标签
+  setDtags(project.deliveryTags);
+  markProjectModified(projectId);
+  save();
+  refreshView();
+  showToast('✅ 技术协议识别完成，交付内容已写入项目');
   
   // 清除当前识别结果的UI（只清除自己的容器）
   if (analysisDivId) {
@@ -1334,12 +1343,16 @@ function confirmAgreementAIAnalysis() {
     }
   }
   
-  delete window.aiAgreementAnalysisResult;
+  // 清除项目中的识别结果
+  delete project._aiAnalysisResult;
 }
 
 // 取消技术协议AI分析结果
-function cancelAgreementAIAnalysis() {
-  delete window.aiAgreementAnalysisResult;
+function cancelAgreementAIAnalysis(projectId) {
+  const project = projects.find(p => p.id === projectId);
+  if (project) {
+    delete project._aiAnalysisResult;
+  }
   // 清除临时分析结果显示区域
   const analysisDiv = document.getElementById('f-delivery-analysis') || 
                       document.getElementById('agreementAnalysis') || 
@@ -1400,19 +1413,26 @@ function renderQuoteAnalysis(data, analysisDiv, projectId) {
          </div>`
       : '';
 
+    // 存储识别结果到项目对象，供确认按钮使用
+    const project = projects.find(p => p.id === projectId);
+    if (project) {
+      project._aiAnalysisResult = {
+        type: 'quote',
+        quote: result.quote,
+        deliveryTags: deliveryTags
+      };
+    }
+
     analysisDiv.innerHTML = `
       <div class="contract-analysis">
         <div style="font-size:.65rem;color:#7eccd8;margin-bottom:8px">✅ 识别完成 · 请确认以下信息</div>
         <div style="font-size:.76rem;color:var(--ink);font-weight:600;margin-bottom:8px;padding:6px 10px;background:rgba(230,81,0,.05);border-radius:6px;border-left:2px solid var(--sc)">💰 报价：¥${result.quote || '?'}万</div>
         ${deliveryHtml}
         <div style="margin-top:12px;display:flex;gap:8px">
-          <button class="btn-cancel" style="padding:6px 16px;font-size:.72rem" onclick="cancelQuoteAIAnalysis()">取消</button>
-          <button class="btn-save" style="padding:6px 16px;font-size:.72rem" onclick="confirmQuoteAIAnalysis('${projectId}', '${encodeURIComponent(JSON.stringify({quote: result.quote, deliveryTags}))}')">确认写入</button>
+          <button class="btn-cancel" style="padding:6px 16px;font-size:.72rem" onclick="cancelQuoteAIAnalysis('${projectId}')">取消</button>
+          <button class="btn-save" style="padding:6px 16px;font-size:.72rem" onclick="confirmQuoteAIAnalysis('${projectId}')">确认写入</button>
         </div>
       </div>`;
-
-    // 保存结果到全局变量，等待确认
-    window.aiQuoteAnalysisResult = { quote: result.quote, deliveryTags };
 
   } catch(e) {
     const rawText = data._parsed?.text || data.choices?.[0]?.message?.content || data.content?.filter(b=>b.type==='text').map(b=>b.text).join('') || '';
@@ -1428,36 +1448,44 @@ ${rawText.slice(0,500) || '（空）'}
   }
 }
 
-function confirmQuoteAIAnalysis(projectId, encodedData) {
-  const data = JSON.parse(decodeURIComponent(encodedData));
-  const idx = projects.findIndex(p => p.id === projectId);
-  if (idx !== -1) {
-    projects[idx].quote = data.quote;
-    projects[idx].deliveryTags = { ...data.deliveryTags, _fromAi: true };
-    if (data.deliveryTags.brief) {
-      projects[idx].deliveryBrief = data.deliveryTags.brief;
-    }
-    
-    const quoteEl = document.getElementById('f-quote');
-    if (quoteEl && editingId === projectId) quoteEl.value = data.quote;
-    if (editingId === projectId) {
-      setDtags(projects[idx].deliveryTags);
-      const briefEl = document.getElementById('f-delivery-brief');
-      if (briefEl && data.deliveryTags.brief) {
-        briefEl.value = data.deliveryTags.brief;
-        syncDeliveryBrief(data.deliveryTags.brief);
-      }
-    }
-    save();
-    refreshView();
-    showToast('✅ 方案报价识别完成，报价和交付内容已写入项目');
+function confirmQuoteAIAnalysis(projectId) {
+  const project = projects.find(p => p.id === projectId);
+  if (!project || !project._aiAnalysisResult) return;
+  
+  const { quote, deliveryTags } = project._aiAnalysisResult;
+  
+  project.quote = quote;
+  project.deliveryTags = { ...deliveryTags, _fromAi: true };
+  if (deliveryTags.brief) {
+    project.deliveryBrief = deliveryTags.brief;
   }
+  
+  const quoteEl = document.getElementById('f-quote');
+  if (quoteEl && editingId === projectId) quoteEl.value = quote;
+  if (editingId === projectId) {
+    setDtags(project.deliveryTags);
+    const briefEl = document.getElementById('f-delivery-brief');
+    if (briefEl && deliveryTags.brief) {
+      briefEl.value = deliveryTags.brief;
+      syncDeliveryBrief(deliveryTags.brief);
+    }
+  }
+  save();
+  refreshView();
+  showToast('✅ 方案报价识别完成，报价和交付内容已写入项目');
+  
   const analysisDiv = document.getElementById('modalQuoteAnalysis');
   if (analysisDiv) analysisDiv.innerHTML = '';
+  
+  // 清除项目中的识别结果
+  delete project._aiAnalysisResult;
 }
 
-function cancelQuoteAIAnalysis() {
-  delete window.aiQuoteAnalysisResult;
+function cancelQuoteAIAnalysis(projectId) {
+  const project = projects.find(p => p.id === projectId);
+  if (project) {
+    delete project._aiAnalysisResult;
+  }
   const analysisDiv = document.getElementById('modalQuoteAnalysis');
   if (analysisDiv) analysisDiv.innerHTML = '';
 }
@@ -1559,12 +1587,16 @@ function renderContractAnalysis(data, analysisDiv) {
       </div>` : '';
 
     if (analysisDiv) {
-      // 存储识别结果到全局变量，供确认按钮使用
-      window.aiAnalysisResult = {
-        result: result,
-        projectId: currentEditProjectId || fsCurrentProjectId,
-        analysisDivId: analysisDiv.id
-      };
+      const projectId = currentEditProjectId || fsCurrentProjectId;
+      // 存储识别结果到项目对象，供确认按钮使用
+      const project = projects.find(p => p.id === projectId);
+      if (project) {
+        project._aiAnalysisResult = {
+          type: 'contract',
+          result: result,
+          analysisDivId: analysisDiv.id
+        };
+      }
       
       analysisDiv.innerHTML = `
         <div class="contract-analysis">
@@ -1583,8 +1615,8 @@ function renderContractAnalysis(data, analysisDiv) {
             ${payments.length ? paymentRows : '<div style="color:#ccc;font-size:.75rem">未识别到回款节点</div>'}
           </div>
           <div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end">
-            <button class="btn-cancel" style="padding:6px 16px;font-size:.75rem" onclick="cancelAIAnalysis()">取消</button>
-            <button class="btn-save" style="padding:6px 16px;font-size:.75rem" onclick="confirmAIAnalysis()">确认写入项目</button>
+            <button class="btn-cancel" style="padding:6px 16px;font-size:.75rem" onclick="cancelAIAnalysis('${projectId}')">取消</button>
+            <button class="btn-save" style="padding:6px 16px;font-size:.75rem" onclick="confirmAIAnalysis('${projectId}')">确认写入项目</button>
           </div>
         </div>`;
     }
@@ -1598,147 +1630,143 @@ function renderContractAnalysis(data, analysisDiv) {
 }
 
 // 确认AI分析结果并写入项目
-function confirmAIAnalysis() {
-  if (!window.aiAnalysisResult) return;
+function confirmAIAnalysis(projectId) {
+  const project = projects.find(p => p.id === projectId);
+  if (!project || !project._aiAnalysisResult) return;
   
-  const { result, projectId, analysisDivId } = window.aiAnalysisResult;
+  const { result, analysisDivId } = project._aiAnalysisResult;
   const d = result.delivery || {};
   const payments = result.payment || [];
   const contractAmountYuan = (result.contractAmount != null) ? Number(result.contractAmount) : null;
   const contractAmountWan  = contractAmountYuan != null ? +(contractAmountYuan / 10000).toFixed(4).replace(/\.?0+$/, '') : null;
   
-  if (projectId) {
-    const idx = projects.findIndex(p => p.id === projectId);
-    if (idx !== -1) {
-      // 回款节点：标记为AI来源，完全重新创建，不保留原有数据
-      const newNodes = payments.map((row, i) => {
-        let ratio = row.ratio || '';
-        let amount = row.amount || '';
-        
-        // 根据合同总金额和百分比自动计算金额，或根据金额自动计算百分比
-        if (contractAmountYuan != null) {
-          if (ratio && !amount) {
-            // 有百分比无金额，自动计算金额
-            const ratioValue = parseFloat(ratio.replace('%', '')) / 100;
-            amount = String(contractAmountYuan * ratioValue / 10000);
-          } else if (amount && !ratio) {
-            // 有金额无百分比，自动计算百分比
-            const amountValue = parseFloat(amount) * 10000;
-            const ratioValue = (amountValue / contractAmountYuan) * 100;
-            ratio = ratioValue.toFixed(0) + '%';
-          }
-        }
-        
-        return {
-          condition:          row.condition || '',
-          ratio:              ratio,
-          amount:             amount,
-          contractAmountYuan: contractAmountYuan != null && ratio ? Math.round(contractAmountYuan * parseFloat(ratio.replace('%', '')) / 100) : '',
-          actualAmount:       '',
-          done:               false,
-          _fromAi:            true
-        };
-      });
-      projects[idx].paymentNodes = newNodes;
-      // 删除原有催款任务
-      projects[idx].collectTasks = [];
-      // 清空DOM中的催款任务
-      const collectList = document.getElementById('f-collect-list');
-      if (collectList) {
-        collectList.innerHTML = '<button class="btn-add-row" onclick="addCollectRow({}, true)">+ 添加催款任务</button>';
+  // 回款节点：标记为AI来源，完全重新创建，不保留原有数据
+  const newNodes = payments.map((row, i) => {
+    let ratio = row.ratio || '';
+    let amount = row.amount || '';
+    
+    // 根据合同总金额和百分比自动计算金额，或根据金额自动计算百分比
+    if (contractAmountYuan != null) {
+      if (ratio && !amount) {
+        // 有百分比无金额，自动计算金额
+        const ratioValue = parseFloat(ratio.replace('%', '')) / 100;
+        amount = String(contractAmountYuan * ratioValue / 10000);
+      } else if (amount && !ratio) {
+        // 有金额无百分比，自动计算百分比
+        const amountValue = parseFloat(amount) * 10000;
+        const ratioValue = (amountValue / contractAmountYuan) * 100;
+        ratio = ratioValue.toFixed(0) + '%';
       }
-      // 交付标签
-      projects[idx].deliveryTags = { ...d, _fromAi: true };
-      // 交付内容：AI识别结果更新到项目数据
-      const briefElements = document.querySelectorAll('#f-delivery-brief');
-      const noteElements = document.querySelectorAll('#f-delivery-note');
-      if (briefElements.length > 0) {
-        const briefValue = briefElements[0].value.trim();
-        if (briefValue) {
-          projects[idx].deliveryBrief = briefValue;
-        }
-      }
-      if (noteElements.length > 0) {
-        const noteValue = noteElements[0].value.trim();
-        if (noteValue) {
-          projects[idx].deliveryNote = noteValue;
-        }
-      }
-      // 合同金额：AI识别结果与已有记录不一致时自动更新
-      let contractUpdated = false;
-      if (contractAmountWan != null) {
-        const existingContract = parseFloat(projects[idx].contract) || 0;
-        const diff = Math.abs(existingContract - contractAmountWan);
-        if (diff > 0.001) {
-          projects[idx].contract = String(contractAmountWan);
-          contractUpdated = true;
-        }
-      }
-      // 已回款：从节点汇总
-      projects[idx].collected = calcCollectedFromNodes(newNodes, projects[idx].contract);
-      // 重算回款进度
-      const c = parseFloat(projects[idx].contract) || 0;
-      const r = parseFloat(projects[idx].collected) || 0;
-      projects[idx].paymentPct = c > 0 ? Math.min(100, Math.round(r / c * 100)) : 0;
-      save();
-      refreshView();
-      
-      // 重新渲染相关UI
-      if (currentEditProjectId) {
-        const p = projects.find(x => x.id === currentEditProjectId);
-        if (p) {
-          renderPaymentNodes(p);
-          // 刷新交付标签
-          setDtags(p.deliveryTags || {});
-          // 刷新交付内容
-          briefElements.forEach(el => {
-            el.value = p.deliveryBrief || '';
-          });
-          noteElements.forEach(el => {
-            el.value = p.deliveryNote || '';
-          });
-          // 刷新合同金额
-          if (document.getElementById('f-contract')) {
-            document.getElementById('f-contract').value = p.contract || '';
-          }
-          // 刷新催款任务
-          const collectList = document.getElementById('f-collect-list');
-          if (collectList) {
-            collectList.innerHTML = '';
-            const collectTasks = p.collectTasks||[];
-            if (collectTasks.length > 0) {
-              // 添加标注行
-              const labelRow = document.createElement('div');
-              labelRow.style.display = 'flex';
-              labelRow.style.gap = '6px';
-              labelRow.style.padding = '6px 10px';
-              labelRow.style.background = 'var(--paper2)';
-              labelRow.style.borderRadius = '6px';
-              labelRow.style.marginBottom = '6px';
-              labelRow.innerHTML = `
-                <div style="width: 14px;"></div>
-                <div style="width: 130px; font-size: 0.68rem; color: #888;">日期</div>
-                <div style="width: 120px; font-size: 0.68rem; color: #888;">金额</div>
-                <div style="width: 80px; font-size: 0.68rem; color: #888;">负责人</div>
-                <div style="flex: 1; font-size: 0.68rem; color: #888;">备注</div>
-                <div style="width: 20px;"></div>
-              `;
-              collectList.appendChild(labelRow);
-            }
-            collectTasks.forEach(t=>addCollectRow(t, false));
-            if (collectTasks.length === 0) {
-              collectList.innerHTML = '<button class="btn-add-row" onclick="addCollectRow({}, true)">+ 添加催款任务</button>';
-            }
-          }
-        }
-      }
-      
-      const toastMsg = contractUpdated
-        ? `✅ 合同识别完成，合同金额已更新为 ${contractAmountWan}万元`
-        : '✅ 合同识别完成，数据已写入项目';
-      showToast(toastMsg);
+    }
+    
+    return {
+      condition:          row.condition || '',
+      ratio:              ratio,
+      amount:             amount,
+      contractAmountYuan: contractAmountYuan != null && ratio ? Math.round(contractAmountYuan * parseFloat(ratio.replace('%', '')) / 100) : '',
+      actualAmount:       '',
+      done:               false,
+      _fromAi:            true
+    };
+  });
+  project.paymentNodes = newNodes;
+  // 删除原有催款任务
+  project.collectTasks = [];
+  // 清空DOM中的催款任务
+  const collectList = document.getElementById('f-collect-list');
+  if (collectList) {
+    collectList.innerHTML = '<button class="btn-add-row" onclick="addCollectRow({}, true)">+ 添加催款任务</button>';
+  }
+  // 交付标签
+  project.deliveryTags = { ...d, _fromAi: true };
+  // 交付内容：AI识别结果更新到项目数据
+  const briefElements = document.querySelectorAll('#f-delivery-brief');
+  const noteElements = document.querySelectorAll('#f-delivery-note');
+  if (briefElements.length > 0) {
+    const briefValue = briefElements[0].value.trim();
+    if (briefValue) {
+      project.deliveryBrief = briefValue;
     }
   }
+  if (noteElements.length > 0) {
+    const noteValue = noteElements[0].value.trim();
+    if (noteValue) {
+      project.deliveryNote = noteValue;
+    }
+  }
+  // 合同金额：AI识别结果与已有记录不一致时自动更新
+  let contractUpdated = false;
+  if (contractAmountWan != null) {
+    const existingContract = parseFloat(project.contract) || 0;
+    const diff = Math.abs(existingContract - contractAmountWan);
+    if (diff > 0.001) {
+      project.contract = String(contractAmountWan);
+      contractUpdated = true;
+    }
+  }
+  // 已回款：从节点汇总
+  project.collected = calcCollectedFromNodes(newNodes, project.contract);
+  // 重算回款进度
+  const c = parseFloat(project.contract) || 0;
+  const r = parseFloat(project.collected) || 0;
+  project.paymentPct = c > 0 ? Math.min(100, Math.round(r / c * 100)) : 0;
+  save();
+  refreshView();
+  
+  // 重新渲染相关UI
+  if (currentEditProjectId) {
+    const p = projects.find(x => x.id === currentEditProjectId);
+    if (p) {
+      renderPaymentNodes(p);
+      // 刷新交付标签
+      setDtags(p.deliveryTags || {});
+      // 刷新交付内容
+      briefElements.forEach(el => {
+        el.value = p.deliveryBrief || '';
+      });
+      noteElements.forEach(el => {
+        el.value = p.deliveryNote || '';
+      });
+      // 刷新合同金额
+      if (document.getElementById('f-contract')) {
+        document.getElementById('f-contract').value = p.contract || '';
+      }
+      // 刷新催款任务
+      const collectList = document.getElementById('f-collect-list');
+      if (collectList) {
+        collectList.innerHTML = '';
+        const collectTasks = p.collectTasks||[];
+        if (collectTasks.length > 0) {
+          // 添加标注行
+          const labelRow = document.createElement('div');
+          labelRow.style.display = 'flex';
+          labelRow.style.gap = '6px';
+          labelRow.style.padding = '6px 10px';
+          labelRow.style.background = 'var(--paper2)';
+          labelRow.style.borderRadius = '6px';
+          labelRow.style.marginBottom = '6px';
+          labelRow.innerHTML = `
+            <div style="width: 14px;"></div>
+            <div style="width: 130px; font-size: 0.68rem; color: #888;">日期</div>
+            <div style="width: 120px; font-size: 0.68rem; color: #888;">金额</div>
+            <div style="width: 80px; font-size: 0.68rem; color: #888;">负责人</div>
+            <div style="flex: 1; font-size: 0.68rem; color: #888;">备注</div>
+            <div style="width: 20px;"></div>
+          `;
+          collectList.appendChild(labelRow);
+        }
+        collectTasks.forEach(t=>addCollectRow(t, false));
+        if (collectTasks.length === 0) {
+          collectList.innerHTML = '<button class="btn-add-row" onclick="addCollectRow({}, true)">+ 添加催款任务</button>';
+        }
+      }
+    }
+  }
+  
+  const toastMsg = contractUpdated
+    ? `✅ 合同识别完成，合同金额已更新为 ${contractAmountWan}万元`
+    : '✅ 合同识别完成，数据已写入项目';
+  showToast(toastMsg);
   
   // 清除当前识别结果的UI（只清除自己的容器）
   if (analysisDivId) {
@@ -1749,12 +1777,16 @@ function confirmAIAnalysis() {
     }
   }
   
-  delete window.aiAnalysisResult;
+  // 清除项目中的识别结果
+  delete project._aiAnalysisResult;
 }
 
 // 取消AI分析结果
-function cancelAIAnalysis() {
-  delete window.aiAnalysisResult;
+function cancelAIAnalysis(projectId) {
+  const project = projects.find(p => p.id === projectId);
+  if (project) {
+    delete project._aiAnalysisResult;
+  }
   // 隐藏分析结果
   const analysisDiv = document.getElementById('contractAnalysis') || document.getElementById('modalContractAnalysis');
   if (analysisDiv) {
