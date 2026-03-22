@@ -756,6 +756,51 @@ function addDefaultPaymentNode(p) {
   }
 }
 
+// 更新项目活跃度
+function updateProjectActivity(project) {
+  // 如果是执行中或已完成项目，始终设为活跃
+  if (project.stage === STAGE.DELIVERING || project.stage === STAGE.COMPLETED) {
+    project.active = "active";
+    return;
+  }
+  
+  // 对于洽谈中项目，根据最近进度更新时间判断
+  if (project.stage === STAGE.NEGOTIATING) {
+    const progress = project.monthlyProgress || [];
+    if (progress.length === 0) {
+      // 没有进度记录，设为不活跃
+      project.active = "inactive";
+      return;
+    }
+    
+    // 找到最近的进度记录
+    const sortedProgress = [...progress].sort((a, b) => {
+      const [yearA, monthA] = a.month.match(/(\d{4})年(\d+)月/).slice(1).map(Number);
+      const [yearB, monthB] = b.month.match(/(\d{4})年(\d+)月/).slice(1).map(Number);
+      return yearB - yearA || monthB - monthA;
+    });
+    
+    const latestProgress = sortedProgress[0];
+    const [latestYear, latestMonth] = latestProgress.month.match(/(\d{4})年(\d+)月/).slice(1).map(Number);
+    
+    // 获取当前日期
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1; // 月份从0开始，需要加1
+    
+    // 计算月份差
+    const monthDiff = (currentYear - latestYear) * 12 + (currentMonth - latestMonth);
+    
+    if (monthDiff > 1) {
+      // 超过1个月没有更新，设为不活跃
+      project.active = "inactive";
+    } else {
+      // 1个月内有更新，设为活跃
+      project.active = "active";
+    }
+  }
+}
+
 // 变更项目合同阶段
 function moveStage(id, newStage) {
   const p = projects.find(x => x.id === id);
@@ -775,6 +820,10 @@ function moveStage(id, newStage) {
   if (oldStage === STAGE.NEGOTIATING && newStage === STAGE.DELIVERING) {
     organizeFilesForProjectStart(p.id);
     addDefaultPaymentNode(p);
+  }
+  // 如果切换到执行中或已完成，自动设置为活跃
+  if (newStage === STAGE.DELIVERING || newStage === STAGE.COMPLETED) {
+    p.active = "active";
   }
   markProjectModified(id);
   save();
@@ -850,6 +899,7 @@ export {
   getProjectDirName,
   moveStage,
   addDefaultPaymentNode,
+  updateProjectActivity,
   deleteProject,
   clearAll,
 };

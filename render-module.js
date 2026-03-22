@@ -33,11 +33,31 @@ function render() {
 
     if (!body) return;
 
+    // 排序：活跃度 > 最新更新时间 > 项目名称
+    const sortedProjects = cols[key].sort((a, b) => {
+      // 1. 活跃度排序：活跃的排在前面
+      if (a.active !== b.active) {
+        return a.active === 'active' ? -1 : 1;
+      }
+      
+      // 2. 最新更新时间排序：更新时间晚的排在前面
+      if (a.updatedAt && b.updatedAt) {
+        return new Date(b.updatedAt) - new Date(a.updatedAt);
+      } else if (a.updatedAt) {
+        return -1;
+      } else if (b.updatedAt) {
+        return 1;
+      }
+      
+      // 3. 项目名称排序：按字母顺序
+      return a.name.localeCompare(b.name);
+    });
+
     // DocumentFragment 批量写入，只触发一次回流
     const fragment = document.createDocumentFragment();
     const wrapper  = document.createElement('div');
-    wrapper.innerHTML = cols[key].length
-      ? cols[key].map(p => cardHTML(p, key)).join('')
+    wrapper.innerHTML = sortedProjects.length
+      ? sortedProjects.map(p => cardHTML(p, key)).join('')
       : '<div class="empty-state">暂无项目</div>';
     while (wrapper.firstChild) fragment.appendChild(wrapper.firstChild);
     body.innerHTML = '';
@@ -206,13 +226,28 @@ function cardHTML(p, colKey) {
   if (p.stage === STAGE.DELIVERING)  actionBtns += `<button class="btn-sm btn-done" onclick="moveStage('${p.id}',${STAGE.COMPLETED})">→ 已完结</button>`;
   actionBtns += `<button class="btn-sm btn-del" onclick="deleteProject('${p.id}')">✕</button>`;
 
+  // 提取项目来源标签
+  const sourceTag = p.channel ? `<span class="card-tag source-tag">🌐 ${esc(p.channel)}</span>` : '';
+  
+  // 移除metaHtml中的项目来源标签
+  const filteredMetaHtml = (p.source || p.owner || p.product || (p.stage === STAGE.NEGOTIATING && p.洽谈状态)) ? `
+    <div class="card-meta">
+      ${p.source  ? `<span class="card-tag">📌 ${esc(p.source)}</span>`  : ''}
+      ${p.owner   ? `<span class="card-tag">👤 ${esc(p.owner)}</span>`   : ''}
+      ${p.product ? `<span class="card-tag">📦 ${esc(p.product)}</span>` : ''}
+      ${p.stage === STAGE.NEGOTIATING && p.洽谈状态 ? `<span class="card-tag">💬 ${esc(p.洽谈状态)}</span>` : ''}
+    </div>` : '';
+
   const html = `
   <div class="card" data-s="${sAttr}">
     <div class="card-top">
-      <div class="card-name" onclick="editProject('${p.id}')">${esc(p.name)}</div>
+      <div class="card-header">
+        ${sourceTag}
+        <div class="card-name" onclick="editProject('${p.id}')">${esc(p.name)}</div>
+      </div>
       <span class="card-active ${p.active === 'inactive' ? 'off' : 'on'}">${p.active === 'inactive' ? '🔴 不活跃' : '🟢 活跃'}</span>
     </div>
-    ${updatedHtml}${logHtml}${metaHtml}${amtHtml}${contractInfoHtml}${deliveryHtml}${paymentHtml}${descHtml}${todoHtml}
+    ${updatedHtml}${logHtml}${filteredMetaHtml}${amtHtml}${contractInfoHtml}${deliveryHtml}${paymentHtml}${descHtml}${todoHtml}
     <div class="card-actions">${actionBtns}</div>
   </div>`;
 

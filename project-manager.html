@@ -145,6 +145,9 @@
   .card[data-s="2"] { border-left-color:var(--s2); opacity:.88; }
 
   .card-top { display:flex; justify-content:space-between; align-items:flex-start; gap:6px; margin-bottom:4px; }
+  .card-header { display:flex; align-items:center; gap:8px; flex:1; min-width:0; }
+  .card-header .source-tag { font-size:.62rem; background:var(--paper2); color:var(--ink-light); padding:2px 7px; border-radius:10px; flex-shrink:0; }
+  .card-header .card-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .card-name {
     font-family:'Noto Serif SC',serif; font-size:.88rem; font-weight:700; color:var(--ink);
     cursor:pointer; transition:color .15s;

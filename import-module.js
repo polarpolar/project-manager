@@ -117,7 +117,8 @@ function _parseRowObj(obj) {
     : [];
 
   delete obj.stageLabel;
-  obj.active = obj.active || 'active';
+  // 不使用外部导入的active字段，由系统自行判断
+  delete obj.active;
   return obj;
 }
 
@@ -156,7 +157,7 @@ async function parseExcel(buf, filename) {
     // 识别进度列
     const progressColMap = await identifyProgressColumns(headers);
     if (DEBUG) {
-      console.log('识别到的进度列:', progressColMap);
+      if (DEBUG) console.log('识别到的进度列:', progressColMap);
     }
 
     const filteredRows = rows.slice(1).filter(r => r.some(c => c !== ''));
@@ -175,19 +176,11 @@ async function parseExcel(buf, filename) {
       const progress = extractProgressFromRow(r, headers, progressColMap);
       if (progress.length > 0) {
         obj.monthlyProgress = progress;
-        if (DEBUG) {
-          console.log('提取到的进度数据:', progress);
-        }
       }
       const result = _parseRowObj(obj);
-      if (DEBUG && result.monthlyProgress) {
-        console.log('处理后的进度数据:', result.monthlyProgress);
-      }
       return result;
     }).filter(p => p.name);
-    if (DEBUG) {
-      console.log('导入预览数据:', pendingImport);
-    }
+
     _renderImportPreview(filename);
   } catch(err) {
     showImportError('解析失败：' + err.message);
@@ -410,10 +403,20 @@ async function confirmImport() {
         p.monthlyProgress = [];
       }
 
+      // 新项目默认活跃度为active
+      p.active = 'active';
+
       projects.push(p);
       added++;
     }
   });
+  // 更新所有项目的活跃度
+  projects.forEach(project => {
+    if (window.updateProjectActivity) {
+      window.updateProjectActivity(project);
+    }
+  });
+  
   closeImport(); save(); refreshView();
 
   // 导入完成后自动关联文件夹
@@ -634,9 +637,6 @@ async function fetchYuqueDoc() {
         // 缓存进度列映射
         if (result.progressColMap) {
           window.yuqueProgressColMap = result.progressColMap;
-          if (DEBUG) {
-            console.log('语雀AI解析识别到的进度列:', result.progressColMap);
-          }
         }
       } else {
         setYuqueStatus(`已读取「${docTitle}」，正在解析表格…`, true);
@@ -649,9 +649,6 @@ async function fetchYuqueDoc() {
         if (headers) {
           const progressColMap = await identifyProgressColumns(headers);
           window.yuqueProgressColMap = progressColMap;
-          if (DEBUG) {
-            console.log('语雀模板解析识别到的进度列:', progressColMap);
-          }
         }
       }
     } else {
@@ -665,8 +662,10 @@ async function fetchYuqueDoc() {
     if (!Array.isArray(rawProjects) || !rawProjects.length) throw new Error('未识别到项目数据，请确认文档包含项目列表表格');
 
     yuquePendingImport = rawProjects.filter(p => p.name).map(p => {
+      // 创建项目对象，不包含AI解析的active字段
+      const { active, ...rest } = p;
       const project = {
-        ...p,
+        ...rest,
         stage: typeof p.stage === 'number' ? p.stage : (STAGE_MAP_YUQUE[p.stage] ?? 0),
         todos: [], collectTasks: [], logs: [], active: 'active',
         monthlyProgress: p.monthlyProgress || [] // 使用从AI解析中获取的进度数据
@@ -711,14 +710,8 @@ async function fetchYuqueDoc() {
         }
       }
       
-      if (DEBUG) {
-        console.log('语雀项目原始数据:', p);
-      }
       return project;
     });
-    if (DEBUG) {
-      console.log('语雀导入预览数据（处理前）:', yuquePendingImport);
-    }
     
 
 
@@ -972,18 +965,7 @@ function renderYuquePreview(docTitle) {
   if (!yuquePendingImport.length) { setYuqueStatus('⚠️ 未识别到项目数据', false, true); return; }
   setYuqueStatus(`✅ 从「${docTitle}」识别到 <b>${yuquePendingImport.length}</b> 个项目`, false);
   
-  // 直接在页面上显示调试信息
-  if (DEBUG) {
-    console.log('语雀导入预览数据:', yuquePendingImport);
-    console.log('语雀进度列映射:', window.yuqueProgressColMap);
-    
-    // 检查是否有项目包含进度数据
-    const projectsWithProgress = yuquePendingImport.filter(p => p.monthlyProgress && p.monthlyProgress.length > 0);
-    console.log('包含进度数据的项目数量:', projectsWithProgress.length);
-    if (projectsWithProgress.length > 0) {
-      console.log('第一个包含进度数据的项目:', projectsWithProgress[0]);
-    }
-  }
+
 
   // 判断项目是新增还是更新：通过唯一代码或项目编号匹配
   const existCodes = new Set(projects.map(p => p.projectCode).filter(Boolean));
@@ -1123,16 +1105,10 @@ async function confirmYuqueImport() {
             
             if (isMatch) {
               const incomingProgress = extractProgressFromRow(row, headers, window.yuqueProgressColMap);
-              if (DEBUG) {
-                console.log('为项目「' + p.name + '」提取到的进度数据:', incomingProgress);
-              }
               if (incomingProgress.length > 0) {
                 const existingProgress = existingProject.monthlyProgress || [];
                 const mergedProgress = mergeMonthlyProgress(existingProgress, incomingProgress);
                 p.monthlyProgress = mergedProgress;
-                if (DEBUG) {
-                  console.log('合并后的进度数据:', mergedProgress);
-                }
                 progressUpdated++;
               }
               break;
@@ -1277,6 +1253,11 @@ async function confirmYuqueImport() {
     }
   }
 
+  // 更新所有项目的活跃度
+  projects.forEach(project => {
+    window.updateProjectActivity(project);
+  });
+  
   showToast(`语雀导入：新增 ${added} 个，更新 ${updated} 个，其中 ${progressUpdated} 个项目有新进度`);
   closeImport(); save(); refreshView();
 }

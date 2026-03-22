@@ -100,41 +100,58 @@ function onStageChange() {
     const logTab = document.querySelector('.m-tab[onclick="switchModalTab(\'log\',this)"]');
     
     if (basicTab && deliveryTab && progressTab && filesTab && logTab) {
+      // 保存当前激活的Tab
+      let activeTabId = null;
+      const activeTab = modalTabs.querySelector('.m-tab.active');
+      if (activeTab) {
+        const onclick = activeTab.getAttribute('onclick');
+        const match = onclick.match(/switchModalTab\('(\w+)',this\)/);
+        if (match) {
+          activeTabId = match[1];
+        }
+      }
+      
       // 移除所有Tab
+      const tabsToAdd = [];
+      if (stage === STAGE.NEGOTIATING) {
+        // 洽谈中：基本信息 / 交付情况 / 项目进度 / 本地文件 / 更新日志
+        tabsToAdd.push(basicTab, deliveryTab, progressTab, filesTab, logTab);
+      } else if (stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) {
+        // 执行中/已完结：基本信息 / 回款管理 / 交付情况 / 项目进度 / 本地文件 / 更新日志
+        if (paymentTab) {
+          tabsToAdd.push(basicTab, paymentTab, deliveryTab, progressTab, filesTab, logTab);
+        }
+      } else {
+        // 已终止：基本信息 / 交付情况 / 项目进度 / 本地文件 / 更新日志
+        tabsToAdd.push(basicTab, deliveryTab, progressTab, filesTab, logTab);
+      }
+      
+      // 清空现有Tab（使用removeChild保留节点引用）
       while (modalTabs.firstChild) {
         modalTabs.removeChild(modalTabs.firstChild);
       }
       
-      if (stage === STAGE.NEGOTIATING) {
-        // 洽谈中：基本信息 / 交付情况 / 项目进度 / 本地文件 / 更新日志
-        modalTabs.appendChild(basicTab);
-        modalTabs.appendChild(deliveryTab);
-        modalTabs.appendChild(progressTab);
-        modalTabs.appendChild(filesTab);
-        modalTabs.appendChild(logTab);
-      } else if (stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) {
-        // 执行中/已完结：基本信息 / 回款管理 / 交付情况 / 项目进度 / 本地文件 / 更新日志
-        if (paymentTab) {
-          modalTabs.appendChild(basicTab);
-          modalTabs.appendChild(paymentTab);
-          modalTabs.appendChild(deliveryTab);
-          modalTabs.appendChild(progressTab);
-          modalTabs.appendChild(filesTab);
-          modalTabs.appendChild(logTab);
+      // 添加Tab并重新激活
+      tabsToAdd.forEach(tab => {
+        modalTabs.appendChild(tab);
+      });
+      
+      // 激活之前的Tab或第一个Tab
+      if (activeTabId) {
+        const tabToActivate = modalTabs.querySelector(`.m-tab[onclick="switchModalTab('${activeTabId}',this)"]`);
+        if (tabToActivate) {
+          tabToActivate.classList.add('active');
+        } else {
+          const firstTab = modalTabs.querySelector('.m-tab');
+          if (firstTab) {
+            firstTab.classList.add('active');
+          }
         }
       } else {
-        // 已终止：基本信息 / 交付情况 / 项目进度 / 本地文件 / 更新日志
-        modalTabs.appendChild(basicTab);
-        modalTabs.appendChild(deliveryTab);
-        modalTabs.appendChild(progressTab);
-        modalTabs.appendChild(filesTab);
-        modalTabs.appendChild(logTab);
-      }
-      
-      // 激活第一个Tab
-      const firstTab = modalTabs.querySelector('.m-tab');
-      if (firstTab) {
-        firstTab.classList.add('active');
+        const firstTab = modalTabs.querySelector('.m-tab');
+        if (firstTab) {
+          firstTab.classList.add('active');
+        }
       }
     }
   }
@@ -182,15 +199,26 @@ function onContractDateChange() {
 }
 
 function switchModalTab(tab, el) {
-  console.log('switchModalTab called:', tab, 'currentEditProjectId:', currentEditProjectId);
+  if (DEBUG) console.log('switchModalTab called:', tab, 'currentEditProjectId:', currentEditProjectId);
+  
+  // 移除所有Tab的激活状态
   document.querySelectorAll('.m-tab').forEach(t => t.classList.remove('active'));
+  
+  // 移除所有Tab内容的激活状态
   document.querySelectorAll('.m-tab-body').forEach(b => b.classList.remove('active'));
+  
+  // 激活当前Tab
   el.classList.add('active');
-  document.getElementById('mtab-' + tab).classList.add('active');
+  
+  // 激活对应的Tab内容
+  const tabBody = document.getElementById('mtab-' + tab);
+  if (tabBody) {
+    tabBody.classList.add('active');
+  }
   
   // 切换到本地文件标签页时更新目录显示和模块显示
   if (tab === 'files' && currentEditProjectId) {
-    console.log('切换到文件标签页，准备加载文件面板');
+    if (DEBUG) console.log('切换到文件标签页，准备加载文件面板');
     updateRootBar(currentEditProjectId);
     
     const p = projects.find(x => x.id === currentEditProjectId);
@@ -220,7 +248,7 @@ function switchModalTab(tab, el) {
     loadModalFilePanel(p.id);
   } else if (tab === 'progress' && currentEditProjectId) {
     // 切换到进度标签页时渲染进度内容
-    console.log('切换到进度标签页，准备渲染进度内容');
+    if (DEBUG) console.log('切换到进度标签页，准备渲染进度内容');
     const p = projects.find(x => x.id === currentEditProjectId);
     if (p) {
       renderMonthlyProgress(p);
@@ -1004,13 +1032,13 @@ function editProject(id) {
     if (elements.fCost) elements.fCost.value = p.cost||'';
     if (elements.fCollected) elements.fCollected.value = p.collected||'';
     
-    // 3. 调用onStageChange来更新UI元素的显示状态
-    onStageChange();
-    
-    // 4. 同步基本信息Tab的镜像字段
+    // 3. 同步基本信息Tab的镜像字段
     if (elements.fContractMirror) elements.fContractMirror.value = p.contract||'';
     if (elements.fCollectedMirror) elements.fCollectedMirror.value = p.collected||'';
     if (elements.fDeliveryNote) elements.fDeliveryNote.value = p.deliveryNote||'';
+    
+    // 4. 调用onStageChange来更新UI元素的显示状态
+    onStageChange();
     
     // 5. 更新交付说明字段
     const briefElements = document.querySelectorAll('#f-delivery-brief');
