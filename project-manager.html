@@ -10,18 +10,21 @@
 <link rel="preload" href="./db.js" as="script">
 <!-- 外部脚本 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
-<!-- 内联关键CSS -->
+<!-- 样式系统 -->
+<link rel="stylesheet" href="css/variables.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/board.css">
+<link rel="stylesheet" href="css/modal.css">
+<link rel="stylesheet" href="css/sidebar.css">
+<link rel="stylesheet" href="css/file-panel.css">
+<link rel="stylesheet" href="css/ai-analysis.css">
+<link rel="stylesheet" href="css/panels.css">
+
+<!-- 内联关键CSS（逐步迁移到外部文件） -->
 <style>
-  :root {
-    --ink: #1a0533; --ink-light: #5b3478;
-    --paper: #f8f0ff; --paper2: #f0e6ff; --paper3: #e6d4f7;
-    --accent: #7b1fa2; --accent2: #9c27b0; --gold: #ce93d8;
-    --s0: #6a1b9a;        /* 洽谈 */
-    --s1: #1565c0;        /* 交付中 */
-    --sc: #e65100;        /* 催款中 */
-    --s2: #2e7d32;        /* 已完结 */
-    --shadow: rgba(26,5,51,0.12);
-  }
+  /* 注意：以下样式正在逐步迁移到 css/ 目录下的文件中
+     迁移完成后，此 style 标签将被完全移除 */
   * { box-sizing: border-box; margin:0; padding:0; }
   body { font-family:'Noto Sans SC',sans-serif; background:var(--paper); color:var(--ink); min-height:100vh; }
 
