@@ -1526,22 +1526,37 @@ function confirmQuoteAIAnalysis(projectId) {
   
   const { quote, deliveryTags } = project._aiAnalysisResult;
   
+  // 更新报价信息到报价模块
   project.quote = quote;
+  
+  // 更新产品信息到交付情况模块
   project.deliveryTags = { ...deliveryTags, _fromAi: true };
   if (deliveryTags.brief) {
     project.deliveryBrief = deliveryTags.brief;
   }
   
+  // 更新UI元素
   const quoteEl = document.getElementById('f-quote');
   if (quoteEl && editingId === projectId) quoteEl.value = quote;
+  
   if (editingId === projectId) {
+    // 更新交付标签
     setDtags(project.deliveryTags);
+    
+    // 更新交付内容简介
     const briefEl = document.getElementById('f-delivery-brief');
     if (briefEl && deliveryTags.brief) {
       briefEl.value = deliveryTags.brief;
       syncDeliveryBrief(deliveryTags.brief);
     }
+    
+    // 同步到交付情况Tab
+    const noteEl = document.getElementById('f-delivery-note');
+    if (noteEl && deliveryTags.brief) {
+      noteEl.value = deliveryTags.brief;
+    }
   }
+  
   save();
   refreshView();
   showToast('✅ 方案报价识别完成，报价和交付内容已写入项目');
