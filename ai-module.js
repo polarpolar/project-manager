@@ -16,7 +16,34 @@ const AI_CALL_CONFIG = {
   batchSize: 20, // 批量处理大小
 };
 
-// 加载 AI 配置
+// ── 多 Provider 管理 ──────────────────────
+const PROVIDER_LIST_KEY = 'pmAiProviders';
+const TASK_SLOTS_KEY    = 'pmAiTaskSlots';
+
+const TASK_SLOT_DEFS = {
+  default:  { label: '默认模型',      desc: '未单独配置的任务',         icon: '🤖' },
+  document: { label: '文档解析',      desc: '语雀导入、列名识别',        icon: '📄' },
+  contract: { label: '合同/协议识别', desc: '文字型 PDF 识别',           icon: '📝' },
+  vision:   { label: '图像识别',      desc: '扫描件 PDF、图片',          icon: '🖼️' },
+  advanced: { label: '复杂推理',      desc: '台账筛选等长上下文任务',    icon: '🧠' },
+};
+
+const TASK_TO_SLOT = {
+  '合同文本解析':     'contract',
+  '合同PDF解析':      'contract',
+  '合同扫描件识别':   'vision',
+  '技术协议PDF解析':  'contract',
+  '方案报价PDF解析':  'contract',
+  '语雀文档解析':     'document',
+  '语雀表格列名识别': 'document',
+  '进度列识别':       'document',
+  '台账AI筛选':       'advanced',
+  '文件名分类':       'default',
+  '对话测试':         'default',
+  'API连接测试':      'default',
+};
+
+// 加载 AI 配置（向后兼容）
 function getAiConfig() {
   return {
     provider:    localStorage.getItem(window.STORAGE_KEY.AI_PROVIDER)     || 'claude',
@@ -34,6 +61,117 @@ function saveAiModel(v)       { try { localStorage.setItem(window.STORAGE_KEY.AI
 function saveAiProvider(v)    { try { localStorage.setItem(window.STORAGE_KEY.AI_PROVIDER, v); } catch(e) {} }
 function saveModelPolicy(v)   { try { localStorage.setItem(window.STORAGE_KEY.AI_MODEL_POLICY, v); } catch(e) {} }
 function saveAiMaxTokens(v)   { try { localStorage.setItem(window.STORAGE_KEY.AI_MAX_TOKENS, parseInt(v) || 2000); } catch(e) {} }
+
+function getProviderList() {
+  try {
+    const data = localStorage.getItem(PROVIDER_LIST_KEY);
+    if (data) return JSON.parse(data);
+  } catch(e) {}
+  const cfg = getAiConfig();
+  return [{ id: 'default', name: '默認配置', type: cfg.provider, proxy: cfg.proxy, key: cfg.key, model: cfg.model, maxTokens: cfg.maxTokens, supportsVision: _inferVision(cfg.provider, cfg.model) }];
+}
+
+function saveProviderList(list) { try { localStorage.setItem(PROVIDER_LIST_KEY, JSON.stringify(list)); } catch(e) {} }
+
+function getTaskSlots() {
+  try { const d = localStorage.getItem(TASK_SLOTS_KEY); if (d) return JSON.parse(d); } catch(e) {}
+  return { default: 'default', document: 'default', contract: 'default', vision: 'default', advanced: 'default' };
+}
+
+function saveTaskSlots(slots) { try { localStorage.setItem(TASK_SLOTS_KEY, JSON.stringify(slots)); } catch(e) {} }
+
+function _inferVision(type, model) {
+  if (type === 'claude' || type === 'gemini') return true;
+  if (type === 'openai' && model && (model.includes('gpt-4o') || model.includes('vision'))) return true;
+  if (type === 'custom') {
+    const m = (model || '').toLowerCase();
+    if (m.includes('glm-4v') || m.includes('glm-4.5v') || m.includes('glm-4.6v') || m.includes('vision') || m.includes('vl') || m.includes('kimi') || m.includes('moonshot')) return true;
+  }
+  return false;
+}
+
+function getProviderForTask(task) {
+  const slotId = TASK_TO_SLOT[task] || 'default';
+  const slots  = getTaskSlots();
+  const pid    = slots[slotId] || slots['default'] || 'default';
+  const list   = getProviderList();
+  return list.find(p => p.id === pid) || list[0] || null;
+}
+
+function _buildCallParams(entry) {
+  const type = entry.type || 'custom';
+  const provider = AI_PROVIDERS[type] || AI_PROVIDERS.custom;
+  const proxy = (entry.proxy || '').replace(/\/+$/, '');
+  const model = entry.model || '', key = entry.key || '', maxTokens = entry.maxTokens || 2000;
+  let endpoint;
+  if (type === 'custom') { endpoint = proxy.endsWith('/chat/completions') ? proxy : proxy + '/chat/completions'; }
+  else { endpoint = typeof provider.endpoint === 'function' ? provider.endpoint(proxy, model, key) : provider.endpoint; }
+  return { provider, endpoint, model, key, proxy, maxTokens };
+}
+
+function _pushLog(log) {
+  aiLogs.unshift(log);
+  if (aiLogs.length > 200) aiLogs = aiLogs.slice(0, 200);
+  try { localStorage.setItem(window.STORAGE_KEY.AI_LOGS, JSON.stringify(aiLogs)); } catch(e) {}
+}
+
+async function _doCall({ task, max_tokens, messages, entry }) {
+  const t0 = Date.now();
+  const { provider, endpoint, model, key, proxy, maxTokens } = _buildCallParams(entry);
+  const log = { id: Date.now(), time: new Date().toLocaleString(), task, model, provider: entry.type, in: 0, out: 0, dur: 0, status: 'ok', error: '' };
+  try {
+    const resp = await fetch(endpoint, { method: 'POST', headers: provider.buildHeaders(key, proxy), body: JSON.stringify(provider.buildBody(model, max_tokens || maxTokens, messages)) });
+    const data = await resp.json();
+    log.dur = ((Date.now() - t0) / 1000).toFixed(2);
+    const parsed = provider.parseResponse(data);
+    if (parsed.usage) { log.in = parsed.usage.input_tokens || 0; log.out = parsed.usage.output_tokens || 0; }
+    if (!resp.ok || parsed.error) { log.status = 'err'; log.error = parsed.error || `HTTP ${resp.status}`; }
+    _pushLog(log); return { ...data, _parsed: parsed };
+  } catch(e) { log.dur = ((Date.now() - t0) / 1000).toFixed(2); log.status = 'err'; log.error = e.message; _pushLog(log); throw e; }
+}
+
+async function _doVisionCall({ task, max_tokens, images, textPrompt, entry }) {
+  const t0 = Date.now();
+  const { provider, endpoint, model, key, proxy, maxTokens } = _buildCallParams(entry);
+  const log = { id: Date.now(), time: new Date().toLocaleString(), task, model, provider: entry.type, in: 0, out: 0, dur: 0, status: 'ok', error: '' };
+  const type = entry.type;
+  let body;
+  if (type === 'claude') {
+    body = { model, max_tokens: max_tokens || maxTokens, messages: [{ role: 'user', content: [...images.map(img => ({ type: 'image', source: { type: 'base64', media_type: img.mimeType, data: img.base64 } })), { type: 'text', text: textPrompt }] }] };
+  } else if (type === 'gemini') {
+    body = { contents: [{ role: 'user', parts: [...images.map(img => ({ inline_data: { mime_type: img.mimeType, data: img.base64 } })), { text: textPrompt }] }], generationConfig: { maxOutputTokens: max_tokens || maxTokens } };
+  } else {
+    body = { model, max_tokens: max_tokens || maxTokens, messages: [{ role: 'user', content: [...images.map(img => ({ type: 'image_url', image_url: { url: `data:${img.mimeType};base64,${img.base64}` } })), { type: 'text', text: textPrompt }] }] };
+  }
+  try {
+    const resp = await fetch(endpoint, { method: 'POST', headers: provider.buildHeaders(key, proxy), body: JSON.stringify(body) });
+    const data = await resp.json();
+    log.dur = ((Date.now() - t0) / 1000).toFixed(2);
+    const parsed = provider.parseResponse(data);
+    if (parsed.usage) { log.in = parsed.usage.input_tokens || 0; log.out = parsed.usage.output_tokens || 0; }
+    if (!resp.ok || parsed.error) { log.status = 'err'; log.error = parsed.error || `HTTP ${resp.status}`; }
+    _pushLog(log); return { ...data, _parsed: parsed };
+  } catch(e) { log.dur = ((Date.now() - t0) / 1000).toFixed(2); log.status = 'err'; log.error = e.message; _pushLog(log); throw e; }
+}
+
+async function claudeCallForTask({ task, max_tokens, messages }) {
+  const entry = getProviderForTask(task);
+  if (!entry) throw new Error('未找到可用的 AI 配置');
+  return _doCall({ task, max_tokens, messages, entry });
+}
+
+async function claudeCallWithVisionForTask({ task, max_tokens, images, textPrompt }) {
+  const slots = getTaskSlots();
+  const pid   = slots['vision'] || slots['default'] || 'default';
+  const list  = getProviderList();
+  const entry = list.find(p => p.id === pid) || list[0];
+  if (!entry) throw new Error('未找到图像识别配置');
+  if (!entry.supportsVision && !_inferVision(entry.type, entry.model)) {
+    throw new Error(`当前图像识别模型（${entry.name}）不支持图片输入，请在 AI 控制台配置支持视觉的模型`);
+  }
+  return _doVisionCall({ task, max_tokens, images, textPrompt, entry });
+}
+
 
 // ╔══════════════════════════════════════════╗
 // ║  MODULE: ai-service（AI 调用层）          ║
@@ -154,145 +292,46 @@ const CUSTOM_ROUTE = '/custom';
 let aiLogs = [];
 try { aiLogs = JSON.parse(localStorage.getItem(window.STORAGE_KEY.AI_LOGS) || '[]'); } catch(e) { aiLogs = []; }
 
+// claudeCall：优先用任务槽位系统，兜底用旧配置
 async function claudeCall({ task, model, max_tokens, messages }) {
-  const t0  = Date.now();
-  const cfg = getAiConfig();
+  const entry = getProviderForTask(task);
+  if (entry) return _doCall({ task, max_tokens, messages, entry });
+  // 兜底：旧配置
+  const t0 = Date.now(), cfg = getAiConfig();
   const provider = AI_PROVIDERS[cfg.provider] || AI_PROVIDERS.claude;
-
-  // 模型策略：fixed=全部用cfg.model；auto=复杂任务升级高级模型
   let usedModel = cfg.model;
   if (cfg.modelPolicy === 'auto' && TASK_MODEL_OVERRIDE[task] === 'advanced' && cfg.provider !== 'custom') {
     usedModel = provider.models[provider.models.length - 1].id;
   }
-
   const log = { id: Date.now(), time: new Date().toLocaleString(), task, model: usedModel, provider: cfg.provider, in: 0, out: 0, dur: 0, status: 'ok', error: '' };
-
   let endpoint;
-  if (cfg.provider === 'custom') {
-    const base = cfg.proxy.replace(/\/+$/, '');
-    endpoint = base.endsWith('/chat/completions') ? base : base + '/chat/completions';
-  } else {
-    endpoint = typeof provider.endpoint === 'function'
-      ? provider.endpoint(cfg.proxy, usedModel, cfg.key)
-      : provider.endpoint;
-  }
-
-  const headers = provider.buildHeaders(cfg.key, cfg.proxy);
-  const body    = provider.buildBody(usedModel, max_tokens || cfg.maxTokens, messages);
-
+  if (cfg.provider === 'custom') { const base = cfg.proxy.replace(/\/+$/, ''); endpoint = base.endsWith('/chat/completions') ? base : base + '/chat/completions'; }
+  else { endpoint = typeof provider.endpoint === 'function' ? provider.endpoint(cfg.proxy, usedModel, cfg.key) : provider.endpoint; }
   try {
-    const resp = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body) });
-    const data = await resp.json();
-    log.dur = ((Date.now() - t0) / 1000).toFixed(2);
+    const resp = await fetch(endpoint, { method: 'POST', headers: provider.buildHeaders(cfg.key, cfg.proxy), body: JSON.stringify(provider.buildBody(usedModel, max_tokens || cfg.maxTokens, messages)) });
+    const data = await resp.json(); log.dur = ((Date.now() - t0) / 1000).toFixed(2);
     const parsed = provider.parseResponse(data);
     if (parsed.usage) { log.in = parsed.usage.input_tokens || 0; log.out = parsed.usage.output_tokens || 0; }
     if (!resp.ok || parsed.error) { log.status = 'err'; log.error = parsed.error || `HTTP ${resp.status}`; }
-    aiLogs.unshift(log);
-    if (aiLogs.length > 200) aiLogs = aiLogs.slice(0, 200);
-    try { localStorage.setItem(window.STORAGE_KEY.AI_LOGS, JSON.stringify(aiLogs)); } catch(e) {}
-    return { ...data, _parsed: parsed };
-  } catch(e) {
-    log.dur = ((Date.now() - t0) / 1000).toFixed(2);
-    log.status = 'err'; log.error = e.message;
-    aiLogs.unshift(log);
-    try { localStorage.setItem(window.STORAGE_KEY.AI_LOGS, JSON.stringify(aiLogs)); } catch(e2) {}
-    throw e;
-  }
+    _pushLog(log); return { ...data, _parsed: parsed };
+  } catch(e) { log.dur = ((Date.now() - t0) / 1000).toFixed(2); log.status = 'err'; log.error = e.message; _pushLog(log); throw e; }
 }
 
-// 判断当前 provider 是否支持图片输入
+// 向后兼容：判断视觉槽位是否支持图片
 function providerSupportsVision() {
-  const cfg = getAiConfig();
-  if (cfg.provider === 'claude') return true;
-  if (cfg.provider === 'gemini') return true;
-  if (cfg.provider === 'openai' && (cfg.model.includes('gpt-4o') || cfg.model.includes('gpt-4-vision'))) return true;
-  // custom provider：根据模型名判断
-  if (cfg.provider === 'custom') {
-    const m = cfg.model.toLowerCase();
-    if (m.includes('glm-4v') || m.includes('glm-4.5v') || m.includes('glm-4.6v') ||
-        m.includes('vision') || m.includes('-v') || m.includes('vl') ||
-        m.includes('kimi') || m.includes('moonshot')) return true;
-  }
-  return false;
+  const slots = getTaskSlots(), list = getProviderList();
+  const entry = list.find(p => p.id === (slots['vision'] || slots['default'])) || list[0];
+  return !!(entry && (entry.supportsVision || _inferVision(entry.type, entry.model)));
 }
 
-// 获取当前 provider 名称，用于提示
 function getProviderName() {
   const cfg = getAiConfig();
-  const p = AI_PROVIDERS[cfg.provider];
-  return p ? p.name : cfg.provider;
+  return (AI_PROVIDERS[cfg.provider] || {}).name || cfg.provider;
 }
 
-// 支持图片的 claudeCall 变体
-// images: [{ base64: '...', mimeType: 'image/png' }, ...]
+// 向后兼容：视觉调用走 vision 槽位
 async function claudeCallWithVision({ task, max_tokens, images, textPrompt }) {
-  const t0  = Date.now();
-  const cfg = getAiConfig();
-  const provider = AI_PROVIDERS[cfg.provider] || AI_PROVIDERS.claude;
-  const usedModel = cfg.model;
-
-  const log = { id: Date.now(), time: new Date().toLocaleString(), task, model: usedModel, provider: cfg.provider, in: 0, out: 0, dur: 0, status: 'ok', error: '' };
-
-  let endpoint;
-  if (cfg.provider === 'custom') {
-    const base = cfg.proxy.replace(/\/+$/, '');
-    endpoint = base.endsWith('/chat/completions') ? base : base + '/chat/completions';
-  } else {
-    endpoint = typeof provider.endpoint === 'function'
-      ? provider.endpoint(cfg.proxy, usedModel, cfg.key)
-      : provider.endpoint;
-  }
-
-  const headers = provider.buildHeaders(cfg.key, cfg.proxy);
-
-  // 按 provider 构建含图片的消息体
-  let body;
-  if (cfg.provider === 'claude') {
-    const content = [
-      ...images.map(img => ({
-        type: 'image',
-        source: { type: 'base64', media_type: img.mimeType, data: img.base64 }
-      })),
-      { type: 'text', text: textPrompt }
-    ];
-    body = { model: usedModel, max_tokens: max_tokens || cfg.maxTokens, messages: [{ role: 'user', content }] };
-  } else if (cfg.provider === 'openai') {
-    const content = [
-      ...images.map(img => ({
-        type: 'image_url',
-        image_url: { url: `data:${img.mimeType};base64,${img.base64}` }
-      })),
-      { type: 'text', text: textPrompt }
-    ];
-    body = { model: usedModel, max_tokens: max_tokens || cfg.maxTokens, messages: [{ role: 'user', content }] };
-  } else if (cfg.provider === 'gemini') {
-    const parts = [
-      ...images.map(img => ({ inline_data: { mime_type: img.mimeType, data: img.base64 } })),
-      { text: textPrompt }
-    ];
-    body = { contents: [{ role: 'user', parts }], generationConfig: { maxOutputTokens: max_tokens || cfg.maxTokens } };
-  } else {
-    throw new Error('当前模型不支持图片识别');
-  }
-
-  try {
-    const resp = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body) });
-    const data = await resp.json();
-    log.dur = ((Date.now() - t0) / 1000).toFixed(2);
-    const parsed = provider.parseResponse(data);
-    if (parsed.usage) { log.in = parsed.usage.input_tokens || 0; log.out = parsed.usage.output_tokens || 0; }
-    if (!resp.ok || parsed.error) { log.status = 'err'; log.error = parsed.error || `HTTP ${resp.status}`; }
-    aiLogs.unshift(log);
-    if (aiLogs.length > 200) aiLogs = aiLogs.slice(0, 200);
-    try { localStorage.setItem(window.STORAGE_KEY.AI_LOGS, JSON.stringify(aiLogs)); } catch(e) {}
-    return { ...data, _parsed: parsed };
-  } catch(e) {
-    log.dur = ((Date.now() - t0) / 1000).toFixed(2);
-    log.status = 'err'; log.error = e.message;
-    aiLogs.unshift(log);
-    try { localStorage.setItem(window.STORAGE_KEY.AI_LOGS, JSON.stringify(aiLogs)); } catch(e2) {}
-    throw e;
-  }
+  return claudeCallWithVisionForTask({ task, max_tokens, images, textPrompt });
 }
 
 function clearAiLogs() {
@@ -523,7 +562,7 @@ async function classifyFileNames(names) {
 
 // 导出模块
 export {
-  // AI 配置
+  // AI 配置（向后兼容）
   getAiConfig,
   saveAiProxy,
   saveAiKey,
@@ -531,13 +570,24 @@ export {
   saveAiProvider,
   saveModelPolicy,
   saveAiMaxTokens,
+  // 多 Provider 管理
+  getProviderList,
+  saveProviderList,
+  getTaskSlots,
+  saveTaskSlots,
+  TASK_SLOT_DEFS,
+  TASK_TO_SLOT,
+  _inferVision,
+  _doCall,
   // AI 服务商
   AI_PROVIDERS,
   TASK_MODEL_OVERRIDE,
   CUSTOM_ROUTE,
   // AI 调用
   claudeCall,
+  claudeCallForTask,
   claudeCallWithVision,
+  claudeCallWithVisionForTask,
   providerSupportsVision,
   getProviderName,
   aiLogs,

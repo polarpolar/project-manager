@@ -77,7 +77,7 @@
       <span class="sb-icon">📁</span><span class="sb-label">项目文件</span>
     </button>
     <div class="sb-sep"></div>
-    <button class="sb-btn" onclick="openImport()">
+    <button class="sb-btn" onclick="if (typeof openImport === 'function') { openImport(); } else { showToast('模块正在加载，请稍候...'); }">
       <span class="sb-icon">📥</span><span class="sb-label">导入 Excel</span>
     </button>
     <button class="sb-btn" onclick="openMonitor()">
@@ -882,13 +882,32 @@
     </div>
     <!-- Tabs -->
     <div class="monitor-tabs">
-      <div class="monitor-tab active" onclick="switchMonitorTab('config',this)">⚙️ 配置</div>
+      <div class="monitor-tab active" onclick="switchMonitorTab('providers',this)">🔌 模型配置</div>
+      <div class="monitor-tab" onclick="switchMonitorTab('slots',this)">⚙️ 功能配置</div>
+      <div class="monitor-tab" onclick="switchMonitorTab('config',this)">🔧 高级</div>
       <div class="monitor-tab" onclick="switchMonitorTab('logs',this)">📋 调用日志</div>
     </div>
     <div class="monitor-body">
 
-      <!-- 配置 Tab -->
-      <div id="mtab-config" class="monitor-tab-body active">
+      <!-- 模型配置 Tab -->
+      <div id="mtab-providers" class="monitor-tab-body active">
+        <div class="ai-cfg-section">
+          <div class="ai-cfg-label">已配置的 AI Provider</div>
+          <div id="ai-provider-list"><!-- 由 renderProviderList() 填充 --></div>
+        </div>
+      </div>
+
+      <!-- 功能配置 Tab -->
+      <div id="mtab-slots" class="monitor-tab-body">
+        <div class="ai-cfg-section">
+          <div class="ai-cfg-label">功能 → 模型 映射</div>
+          <div style="font-size:.65rem;color:#555;margin-bottom:12px">为不同功能指定使用哪个 Provider，未单独配置的任务使用「默认模型」</div>
+          <div id="ai-task-slots"><!-- 由 renderTaskSlots() 填充 --></div>
+        </div>
+      </div>
+
+      <!-- 高级配置 Tab -->
+      <div id="mtab-config" class="monitor-tab-body">
 
         <!-- 服务商选择 -->
         <div class="ai-cfg-section">
@@ -1069,6 +1088,51 @@ if (typeof render === 'function') render();
       <button class="btn-cancel" onclick="closeFolderMatch()">取消</button>
       <button class="btn-hdr" onclick="acceptAllFolderMatches()" style="background:#4caf50">全部同意</button>
       <button class="btn-save" onclick="confirmFolderMatches()">确认</button>
+    </div>
+  </div>
+</div>
+
+<!-- Provider 编辑弹窗 -->
+<div id="ai-provider-editor" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);align-items:center;justify-content:center;z-index:2000">
+  <div class="ape-modal">
+    <div class="ape-title">配置 AI Provider</div>
+
+    <div class="ape-label">名称</div>
+    <input class="ape-input" id="ape-name" placeholder="如：GLM 日常、Claude 视觉">
+
+    <div class="ape-label">类型</div>
+    <div class="ape-type-grid" style="margin-bottom:14px">
+      <button class="ape-type-btn" data-type="claude" onclick="selectProviderType('claude')">🤖<br>Claude</button>
+      <button class="ape-type-btn" data-type="openai" onclick="selectProviderType('openai')">✨<br>OpenAI</button>
+      <button class="ape-type-btn" data-type="gemini" onclick="selectProviderType('gemini')">💎<br>Gemini</button>
+      <button class="ape-type-btn active" data-type="custom" onclick="selectProviderType('custom')">🔧<br>自定义</button>
+    </div>
+
+    <div class="ape-label">模型名称</div>
+    <input class="ape-input" id="ape-model" placeholder="如 glm-4.5-air、claude-sonnet-4-20250514">
+
+    <div class="ape-label">代理地址 / API Base</div>
+    <input class="ape-input" id="ape-proxy" placeholder="https://open.bigmodel.cn/api/paas/v4">
+
+    <div class="ape-label">API Key</div>
+    <input class="ape-input" id="ape-key" type="password" placeholder="API Key" autocomplete="new-password">
+
+    <div class="ape-label">Max Tokens</div>
+    <input class="ape-input" id="ape-tokens" type="number" value="4000" min="100" max="32768">
+
+    <div class="ape-vision-row">
+      <input type="checkbox" id="ape-vision">
+      <label for="ape-vision">支持图片识别（视觉模型）</label>
+    </div>
+
+    <div class="ape-test-row">
+      <button class="ai-prov-btn" onclick="testProviderConnection()">🔗 测试连接</button>
+      <span id="ape-test-status"></span>
+    </div>
+
+    <div class="ape-footer">
+      <button class="ape-btn cancel" onclick="closeProviderEditor()">取消</button>
+      <button class="ape-btn primary" onclick="saveProviderEditor()">保存</button>
     </div>
   </div>
 </div>

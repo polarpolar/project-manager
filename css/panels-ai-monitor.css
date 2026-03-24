@@ -301,3 +301,56 @@
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* ── 多 Provider 管理 ── */
+.ai-prov-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+.ai-prov-icon { font-size: 1.3rem; flex-shrink: 0; }
+.ai-prov-info { flex: 1; min-width: 0; }
+.ai-prov-name { font-size: .8rem; font-weight: 600; color: #ddd; margin-bottom: 3px; }
+.ai-prov-meta { font-size: .63rem; color: #555; }
+.ai-prov-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.ai-prov-used { font-size: .6rem; color: #7eccd8; background: rgba(126,204,216,0.1); border: 1px solid rgba(126,204,216,0.2); border-radius: 10px; padding: 2px 8px; }
+.ai-prov-btn { font-size: .65rem; padding: 3px 10px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06); color: #aaa; cursor: pointer; font-family: inherit; }
+.ai-prov-btn:hover { background: rgba(255,255,255,0.1); color: #ddd; }
+.ai-prov-btn.danger { border-color: rgba(229,57,53,0.3); color: #e57373; }
+.ai-prov-btn.danger:hover { background: rgba(229,57,53,0.1); }
+.ai-prov-add { width: 100%; padding: 10px; background: rgba(126,204,216,0.05); border: 1px dashed rgba(126,204,216,0.2); border-radius: 8px; color: #7eccd8; font-size: .75rem; cursor: pointer; font-family: inherit; margin-top: 4px; }
+.ai-prov-add:hover { background: rgba(126,204,216,0.1); }
+
+/* ── 功能槽位 ── */
+.ai-slot-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; margin-bottom: 8px; }
+.ai-slot-icon { font-size: 1.1rem; flex-shrink: 0; width: 24px; text-align: center; }
+.ai-slot-info { flex: 1; min-width: 0; }
+.ai-slot-label { font-size: .78rem; font-weight: 600; color: #ccc; margin-bottom: 2px; }
+.ai-slot-desc { font-size: .62rem; color: #555; }
+.ai-slot-select { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 5px 8px; font-size: .7rem; color: #aaa; font-family: inherit; outline: none; cursor: pointer; min-width: 110px; }
+.ai-slot-select:focus { border-color: rgba(126,204,216,0.4); }
+.ai-slot-select option { background: #1a1a2e; }
+
+/* ── Provider 编辑弹窗 ── */
+.ape-modal { background: #1a1a2e; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 24px; width: 90%; max-width: 460px; max-height: 85vh; overflow-y: auto; }
+.ape-title { font-size: .9rem; font-weight: 700; color: #eee; margin-bottom: 20px; }
+.ape-label { font-size: .68rem; color: #7eccd8; margin-bottom: 6px; font-weight: 600; }
+.ape-input { width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 8px 10px; font-size: .75rem; color: #ccc; font-family: inherit; outline: none; box-sizing: border-box; margin-bottom: 14px; }
+.ape-input:focus { border-color: rgba(126,204,216,0.4); }
+.ape-type-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; }
+.ape-type-btn { background: rgba(255,255,255,0.03); border: 1.5px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px 6px; text-align: center; cursor: pointer; font-size: .65rem; color: #888; font-family: inherit; line-height: 1.5; }
+.ape-type-btn.active { background: rgba(126,204,216,0.1); border-color: rgba(126,204,216,0.4); color: #7eccd8; }
+.ape-vision-row { display: flex; align-items: center; gap: 8px; font-size: .72rem; color: #aaa; margin-bottom: 14px; }
+.ape-test-row { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+#ape-test-status { font-size: .7rem; color: #666; }
+.ape-footer { display: flex; justify-content: flex-end; gap: 10px; }
+.ape-btn { padding: 8px 18px; border-radius: 6px; font-size: .75rem; font-weight: 600; cursor: pointer; font-family: inherit; border: none; }
+.ape-btn.primary { background: #7eccd8; color: #1a1a2e; }
+.ape-btn.primary:hover { background: #9ed8e2; }
+.ape-btn.cancel { background: rgba(255,255,255,0.06); color: #888; border: 1px solid rgba(255,255,255,0.1); }
+.ape-btn.cancel:hover { background: rgba(255,255,255,0.1); }

@@ -6,6 +6,151 @@
 
 let chatHistory = [];
 
+// ── 多 Provider 管理 UI ──────────────────
+
+function renderProviderList() {
+  const list   = getProviderList();
+  const slots  = getTaskSlots();
+  const usedIds = new Set(Object.values(slots));
+  const container = document.getElementById('ai-provider-list');
+  if (!container) return;
+  container.innerHTML = list.map(p => {
+    const pi = AI_PROVIDERS[p.type] || AI_PROVIDERS.custom;
+    const isUsed = usedIds.has(p.id);
+    return `
+      <div class="ai-prov-item">
+        <div class="ai-prov-icon">${pi.icon || '🔧'}</div>
+        <div class="ai-prov-info">
+          <div class="ai-prov-name">${p.name}</div>
+          <div class="ai-prov-meta">${pi.name} · ${p.model || '未设置模型'}${p.supportsVision ? ' · 🖼️' : ''}</div>
+        </div>
+        <div class="ai-prov-actions">
+          ${isUsed ? '<span class="ai-prov-used">使用中</span>' : ''}
+          <button class="ai-prov-btn" onclick="editProvider('${p.id}')">编辑</button>
+          ${!isUsed && list.length > 1 ? `<button class="ai-prov-btn danger" onclick="deleteProvider('${p.id}')">删除</button>` : ''}
+        </div>
+      </div>`;
+  }).join('') + `<button class="ai-prov-add" onclick="addProvider()">＋ 添加配置</button>`;
+}
+
+function renderTaskSlots() {
+  const slots = getTaskSlots();
+  const list  = getProviderList();
+  const container = document.getElementById('ai-task-slots');
+  if (!container) return;
+  container.innerHTML = Object.entries(TASK_SLOT_DEFS).map(([slotId, def]) => {
+    const cur = slots[slotId] || slots['default'] || '';
+    const opts = list.map(p => `<option value="${p.id}" ${cur === p.id ? 'selected' : ''}>${p.name}</option>`).join('');
+    return `
+      <div class="ai-slot-row">
+        <div class="ai-slot-icon">${def.icon}</div>
+        <div class="ai-slot-info">
+          <div class="ai-slot-label">${def.label}</div>
+          <div class="ai-slot-desc">${def.desc}</div>
+        </div>
+        <select class="ai-slot-select" onchange="saveSlot('${slotId}', this.value)">${opts}</select>
+      </div>`;
+  }).join('');
+}
+
+function saveSlot(slotId, providerId) {
+  const slots = getTaskSlots();
+  slots[slotId] = providerId;
+  saveTaskSlots(slots);
+}
+
+function addProvider() {
+  showProviderEditor({ id: 'p_' + Date.now(), name: '新配置', type: 'custom', proxy: '', key: '', model: '', maxTokens: 4000, supportsVision: false });
+}
+
+function editProvider(id) {
+  const entry = getProviderList().find(p => p.id === id);
+  if (entry) showProviderEditor(entry);
+}
+
+function deleteProvider(id) {
+  if (!confirm('确定删除这个配置？')) return;
+  saveProviderList(getProviderList().filter(p => p.id !== id));
+  renderProviderList();
+  renderTaskSlots();
+}
+
+function showProviderEditor(entry) {
+  const overlay = document.getElementById('ai-provider-editor');
+  if (!overlay) return;
+  document.getElementById('ape-name').value     = entry.name || '';
+  document.getElementById('ape-proxy').value    = entry.proxy || '';
+  document.getElementById('ape-key').value      = entry.key || '';
+  document.getElementById('ape-model').value    = entry.model || '';
+  document.getElementById('ape-tokens').value   = entry.maxTokens || 4000;
+  document.getElementById('ape-vision').checked = !!(entry.supportsVision || (entry.type === 'claude') || (entry.type === 'gemini'));
+  document.querySelectorAll('.ape-type-btn').forEach(b => b.classList.toggle('active', b.dataset.type === (entry.type || 'custom')));
+  document.getElementById('ape-test-status').textContent = '';
+  overlay.dataset.editId = entry.id;
+  overlay.style.display  = 'flex';
+}
+
+function selectProviderType(type) {
+  document.querySelectorAll('.ape-type-btn').forEach(b => b.classList.toggle('active', b.dataset.type === type));
+  if (type === 'claude' || type === 'gemini') document.getElementById('ape-vision').checked = true;
+  const hints = { claude: 'https://claudeapi.xxx.workers.dev', openai: 'https://claudeapi.xxx.workers.dev', gemini: 'https://claudeapi.xxx.workers.dev', custom: 'https://open.bigmodel.cn/api/paas/v4' };
+  const el = document.getElementById('ape-proxy');
+  if (!el.value) el.placeholder = hints[type] || '';
+}
+
+function saveProviderEditor() {
+  const overlay = document.getElementById('ai-provider-editor');
+  const id   = overlay.dataset.editId;
+  const type = document.querySelector('.ape-type-btn.active')?.dataset.type || 'custom';
+  const entry = {
+    id,
+    name:           document.getElementById('ape-name').value.trim()  || '未命名',
+    type,
+    proxy:          document.getElementById('ape-proxy').value.trim(),
+    key:            document.getElementById('ape-key').value.trim(),
+    model:          document.getElementById('ape-model').value.trim(),
+    maxTokens:      parseInt(document.getElementById('ape-tokens').value) || 4000,
+    supportsVision: document.getElementById('ape-vision').checked,
+  };
+  const list = getProviderList();
+  const idx  = list.findIndex(p => p.id === id);
+  if (idx >= 0) list[idx] = entry; else list.push(entry);
+  saveProviderList(list);
+  if (list.length === 1) {
+    const slots = getTaskSlots();
+    Object.keys(slots).forEach(k => slots[k] = id);
+    saveTaskSlots(slots);
+  }
+  overlay.style.display = 'none';
+  renderProviderList();
+  renderTaskSlots();
+}
+
+function closeProviderEditor() {
+  const overlay = document.getElementById('ai-provider-editor');
+  if (overlay) overlay.style.display = 'none';
+}
+
+async function testProviderConnection() {
+  const type  = document.querySelector('.ape-type-btn.active')?.dataset.type || 'custom';
+  const proxy = document.getElementById('ape-proxy').value.trim();
+  const key   = document.getElementById('ape-key').value.trim();
+  const model = document.getElementById('ape-model').value.trim();
+  const statusEl = document.getElementById('ape-test-status');
+  statusEl.textContent = '测试中…'; statusEl.style.color = '#888';
+  try {
+    const result = await _doCall({ task: 'API连接测试', max_tokens: 50, messages: [{ role: 'user', content: '回复ok' }], entry: { id: '_test', name: '测试', type, proxy, key, model, maxTokens: 200 } });
+    const text = result._parsed?.text || '';
+    statusEl.textContent = '✅ 连接成功' + (text ? `：${text.slice(0, 30)}` : '');
+    statusEl.style.color = '#81c784';
+  } catch(e) {
+    statusEl.textContent = '❌ ' + e.message;
+    statusEl.style.color = '#e57373';
+  }
+}
+
+
+
 function selectProvider(id) {
   saveAiProvider(id);
   document.querySelectorAll('.ai-provider-btn').forEach(b => b.classList.remove('active'));
@@ -130,6 +275,8 @@ function openMonitor() {
   const h = document.getElementById('ai-chat-history');
   if (h) h.innerHTML = '<div id="ai-chat-placeholder" style="color:#333;font-size:.7rem;text-align:center;padding:12px 0">发送消息以测试当前配置的模型</div>';
   loadAiConfig();
+  renderProviderList();
+  renderTaskSlots();
   renderMonitor();
   document.getElementById('monitorPanel').classList.add('open');
 }
@@ -695,6 +842,18 @@ export {
   openMonitor,
   closeMonitor,
   renderMonitor,
+  // 多 Provider 管理
+  renderProviderList,
+  renderTaskSlots,
+  saveSlot,
+  addProvider,
+  editProvider,
+  deleteProvider,
+  showProviderEditor,
+  selectProviderType,
+  saveProviderEditor,
+  closeProviderEditor,
+  testProviderConnection,
   // 沙盒
   openSandbox,
   closeSandbox,
