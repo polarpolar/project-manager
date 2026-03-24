@@ -399,8 +399,47 @@ function importFromLocalStorage() {
       okText: '保存',
       onOk: () => {
         try {
+          // 存储项目数据和回收站数据
           localStorage.setItem(STORAGE_KEY.PROJECTS, JSON.stringify(projects));
           localStorage.setItem(STORAGE_KEY.RECYCLE, JSON.stringify(recycleBin));
+          
+          // 存储AI配置
+          if (window.aiConfig) {
+            localStorage.setItem(STORAGE_KEY.AI_PROVIDER, window.aiConfig.provider);
+            localStorage.setItem(STORAGE_KEY.AI_MODEL, window.aiConfig.model);
+            localStorage.setItem(STORAGE_KEY.AI_KEY, window.aiConfig.key);
+            localStorage.setItem(STORAGE_KEY.AI_PROXY, window.aiConfig.proxy);
+            localStorage.setItem(STORAGE_KEY.AI_MODEL_POLICY, window.aiConfig.modelPolicy);
+            localStorage.setItem(STORAGE_KEY.AI_MAX_TOKENS, window.aiConfig.maxTokens);
+          }
+          
+          // 存储语雀配置
+          const yuqueProxy = document.getElementById('yuque-proxy')?.value.trim();
+          const yuqueToken = document.getElementById('yuque-token')?.value.trim();
+          const yuqueUrl = document.getElementById('yuque-url')?.value.trim();
+          if (yuqueProxy) localStorage.setItem(STORAGE_KEY.YUQUE_PROXY, yuqueProxy);
+          if (yuqueToken) localStorage.setItem(STORAGE_KEY.YUQUE_TOKEN, yuqueToken);
+          if (yuqueUrl) localStorage.setItem(STORAGE_KEY.YUQUE_URL, yuqueUrl);
+          
+          // 存储解析模式
+          localStorage.setItem(STORAGE_KEY.PARSE_MODE, getParseMode());
+          
+          // 存储侧边栏状态
+          const sidebarCollapsed = document.getElementById('sidebar')?.classList.contains('collapsed') ? '1' : '0';
+          localStorage.setItem(STORAGE_KEY.SB_COLLAPSED, sidebarCollapsed);
+          
+          // 存储项目文件夹映射
+          if (window.projectDirMap) {
+            const dirMap = {};
+            for (const [projectId, dirHandle] of Object.entries(window.projectDirMap)) {
+              // 只存储文件夹名，不存储 FileSystemDirectoryHandle
+              if (dirHandle.name) {
+                dirMap[projectId] = dirHandle.name;
+              }
+            }
+            localStorage.setItem('pmDirMap', JSON.stringify(dirMap));
+          }
+          
           showToast('数据已存入缓存');
         } catch (saveError) {
           if (DEBUG) console.error('存入缓存失败：', saveError);
