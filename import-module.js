@@ -248,6 +248,27 @@ function getLatestProgressTime(project) {
 
 // 获取项目的变化内容
 function getProjectChanges(existing, incoming) {
+  const fieldLabels = {
+    'name': '项目名称',
+    'source': '客户名称',
+    'owner': '负责人',
+    'product': '产品选型',
+    'desc': '项目简介',
+    'stage': '项目阶段',
+    'quote': '报价金额',
+    'contract': '合同金额',
+    'cost': '成本评估',
+    'collected': '已回款金额',
+    'channel': '项目来源',
+    'contractDate': '合同日期'
+  };
+  
+  const stageLabels = {
+    0: '洽谈中',
+    1: '已签单·执行中',
+    2: '已完结'
+  };
+  
   const importantFields = ['name', 'source', 'owner', 'product', 'desc', 'stage', 'quote', 'contract', 'cost', 'collected', 'channel', 'contractDate'];
   const changes = [];
   
@@ -257,13 +278,34 @@ function getProjectChanges(existing, incoming) {
 
     // 只有当导入值不是 undefined 时，才比较差异
     if (incomingVal !== undefined) {
+      // 格式化值
+      let formattedExisting = existingVal;
+      let formattedIncoming = incomingVal;
+      
+      // 处理阶段值
+      if (field === 'stage') {
+        formattedExisting = stageLabels[existingVal] || existingVal || '无';
+        formattedIncoming = stageLabels[incomingVal] || incomingVal || '无';
+      }
+      // 处理金额值，保留4位小数
+      else if (['quote', 'contract', 'cost', 'collected'].includes(field)) {
+        if (existingVal) {
+          const num = parseFloat(existingVal);
+          formattedExisting = isNaN(num) ? existingVal : num.toFixed(4);
+        }
+        if (incomingVal) {
+          const num = parseFloat(incomingVal);
+          formattedIncoming = isNaN(num) ? incomingVal : num.toFixed(4);
+        }
+      }
+      
       // 如果两边都有值且不相等，说明有变化
-      if (existingVal && incomingVal && String(existingVal).trim() !== String(incomingVal).trim()) {
-        changes.push(`${field}: ${String(existingVal).trim()} → ${String(incomingVal).trim()}`);
+      if (formattedExisting && formattedIncoming && String(formattedExisting).trim() !== String(formattedIncoming).trim()) {
+        changes.push(`${fieldLabels[field] || field}: ${String(formattedExisting).trim()} → ${String(formattedIncoming).trim()}`);
       }
       // 如果系统中没有值但导入中有值，也算变化
-      if (!existingVal && incomingVal) {
-        changes.push(`${field}: 无 → ${String(incomingVal).trim()}`);
+      if (!formattedExisting && formattedIncoming) {
+        changes.push(`${fieldLabels[field] || field}: 无 → ${String(formattedIncoming).trim()}`);
       }
     }
   }

@@ -97,11 +97,12 @@
 
 .import-project-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
-  padding: 5px 0;
+  padding: 8px 0;
   border-bottom: 1px solid var(--paper);
   font-size: .78rem;
+  position: relative;
 }
 
 .import-project-item:last-child {
@@ -118,6 +119,7 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  margin-top: 1px;
 }
 
 .import-project-tag.added    { background: #e8f5e9; color: var(--s2); }
@@ -149,10 +151,13 @@
 .import-project-changes {
   margin-top: 6px;
   margin-left: 26px; /* 与项目标签对齐 */
-  padding: 6px 8px;
-  background: var(--paper2);
+  padding: 8px 10px;
+  background: var(--paper);
+  border: 1px solid var(--paper2);
   border-radius: var(--radius-sm);
   font-size: .68rem;
+  width: calc(100% - 26px);
+  box-sizing: border-box;
 }
 
 .import-changes-title {
