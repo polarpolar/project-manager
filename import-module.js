@@ -197,12 +197,28 @@ function hasProjectChanged(existing, incoming) {
 
     // 只有当导入值不是 undefined 时，才比较差异
     if (incomingVal !== undefined) {
+      // 格式化值，与 getProjectChanges 函数保持一致
+      let formattedExisting = existingVal;
+      let formattedIncoming = incomingVal;
+      
+      // 处理金额值，保留4位小数
+      if (['quote', 'contract', 'cost', 'collected'].includes(field)) {
+        if (existingVal) {
+          const num = parseFloat(existingVal);
+          formattedExisting = isNaN(num) ? existingVal : num.toFixed(4);
+        }
+        if (incomingVal) {
+          const num = parseFloat(incomingVal);
+          formattedIncoming = isNaN(num) ? incomingVal : num.toFixed(4);
+        }
+      }
+      
       // 如果两边都有值且不相等，说明有变化
-      if (existingVal && incomingVal && String(existingVal).trim() !== String(incomingVal).trim()) {
+      if (formattedExisting && formattedIncoming && String(formattedExisting).trim() !== String(formattedIncoming).trim()) {
         return true;
       }
       // 如果系统中没有值但导入中有值，也算变化
-      if (!existingVal && incomingVal) {
+      if (!formattedExisting && formattedIncoming) {
         return true;
       }
     }
