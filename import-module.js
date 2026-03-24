@@ -231,6 +231,71 @@ function hasProjectChanged(existing, incoming) {
   return false;
 }
 
+// 获取项目的最新进度时间
+function getLatestProgressTime(project) {
+  const progress = project.monthlyProgress || [];
+  if (progress.length === 0) return null;
+  
+  // 按月份排序，最新的在前面
+  const sortedProgress = [...progress].sort((a, b) => {
+    const [yearA, monthA] = a.month.match(/(\d{4})年(\d+)月/).slice(1).map(Number);
+    const [yearB, monthB] = b.month.match(/(\d{4})年(\d+)月/).slice(1).map(Number);
+    return yearB - yearA || monthB - monthA;
+  });
+  
+  return sortedProgress[0].month;
+}
+
+// 获取项目的变化内容
+function getProjectChanges(existing, incoming) {
+  const importantFields = ['name', 'source', 'owner', 'product', 'desc', 'stage', 'quote', 'contract', 'cost', 'collected', 'channel', 'contractDate'];
+  const changes = [];
+  
+  for (const field of importantFields) {
+    const existingVal = existing[field];
+    const incomingVal = incoming[field];
+
+    // 只有当导入值不是 undefined 时，才比较差异
+    if (incomingVal !== undefined) {
+      // 如果两边都有值且不相等，说明有变化
+      if (existingVal && incomingVal && String(existingVal).trim() !== String(incomingVal).trim()) {
+        changes.push(`${field}: ${String(existingVal).trim()} → ${String(incomingVal).trim()}`);
+      }
+      // 如果系统中没有值但导入中有值，也算变化
+      if (!existingVal && incomingVal) {
+        changes.push(`${field}: 无 → ${String(incomingVal).trim()}`);
+      }
+    }
+  }
+  
+  // 检查进度数据是否有变化
+  const existingProgress = existing.monthlyProgress || [];
+  const incomingProgress = incoming.monthlyProgress || [];
+  
+  // 只有当导入的进度数据不是 undefined 时，才比较差异
+  if (incomingProgress !== undefined) {
+    if (existingProgress.length !== incomingProgress.length) {
+      changes.push(`进度数据: ${existingProgress.length} 条 → ${incomingProgress.length} 条`);
+    } else if (existingProgress.length > 0) {
+      // 检查是否有进度内容变化
+      let progressChanged = false;
+      for (let i = 0; i < existingProgress.length; i++) {
+        const existingItem = existingProgress[i];
+        const incomingItem = incomingProgress[i];
+        if (incomingItem && (existingItem.month !== incomingItem.month || existingItem.content !== incomingItem.content)) {
+          progressChanged = true;
+          break;
+        }
+      }
+      if (progressChanged) {
+        changes.push('进度数据内容已更新');
+      }
+    }
+  }
+  
+  return changes;
+}
+
 function _renderImportPreview(filename) {
   // 判断项目是新增还是更新：通过唯一代码或项目编号匹配
   const existCodes = new Set(projects.map(p => p.projectCode).filter(Boolean));
@@ -319,6 +384,8 @@ async function confirmImport() {
 
   // 本次导入中已生成的唯一代码集合
   const usedCodesInThisImport = new Set();
+  // 记录本次新增的项目id，用于活跃度分析时区分新旧项目
+  const newProjectIds = new Set();
 
   pendingImport.forEach(p => {
     let idx = -1;
@@ -408,6 +475,7 @@ async function confirmImport() {
 
       projects.push(p);
       added++;
+      newProjectIds.add(p.id); // 记录新增项目id
     }
   });
   // 收集新增和更新的项目信息
@@ -415,11 +483,12 @@ async function confirmImport() {
   const updatedProjects = [];
   const activeChanges = { activeAdded: 0, inactiveAdded: 0 };
   
-  // 分析活跃度变化
+  // 分析活跃度变化（新增项目跳过，它们已经在上面设为 active）
   projects.forEach(project => {
     if (window.updateProjectActivity) {
+      const isNew = newProjectIds.has(project.id);
       const oldActive = project.active;
-      window.updateProjectActivity(project);
+      window.updateProjectActivity(project, isNew);
       if (oldActive !== project.active) {
         if (project.active === 'active') {
           activeChanges.activeAdded++;
@@ -1113,6 +1182,14 @@ async function confirmYuqueImport() {
 
   // 本次导入中已生成的唯一代码集合（避免同一批次导入中重复）
   const usedCodesInThisImport = new Set();
+  // 记录本次新增的项目id，用于活跃度分析时区分新旧项目
+  const newYuqueProjectIds = new Set();
+  // 记录本次更新的项目，用于后续收集 updatedProjects 数组
+  const updatedProjectIds = new Set();
+  // 记录更新项目的变化内容
+  const projectChanges = new Map();
+  // 记录项目的最新进度时间
+  const projectLatestProgress = new Map();
 
   yuquePendingImport.forEach(p => {
     let idx = -1;
@@ -1134,6 +1211,16 @@ async function confirmYuqueImport() {
         const existingProject = projects[currentIdx];
         // 检查项目是否有变化
         if (hasProjectChanged(existingProject, p)) {
+          // 记录项目变化内容
+          const changes = getProjectChanges(existingProject, p);
+          if (changes.length > 0) {
+            projectChanges.set(projects[currentIdx].id, changes);
+          }
+          // 记录项目最新进度时间
+          const latestProgress = getLatestProgressTime(p);
+          if (latestProgress) {
+            projectLatestProgress.set(projects[currentIdx].id, latestProgress);
+          }
           // 更新时保留原有唯一代码
           const oldCode = originalProjects[idx].projectCode || '';
           const oldUniqueCode = oldCode.slice(-4);
@@ -1183,6 +1270,7 @@ async function confirmYuqueImport() {
         }
           projects[currentIdx] = { ...projects[currentIdx], ...p, id: projects[currentIdx].id };
           importedNames.push({ name: p.name, projectCode: projects[currentIdx].projectCode });
+          updatedProjectIds.add(projects[currentIdx].id); // 记录更新的项目ID
           updated++;
         }
       }
@@ -1281,6 +1369,7 @@ async function confirmYuqueImport() {
       }
       
       projects.push(p);
+      newYuqueProjectIds.add(p.id); // 记录新增项目id
       importedNames.push({ name: p.name, projectCode: p.projectCode, id: p.id });
       added++;
     }
@@ -1324,11 +1413,13 @@ async function confirmYuqueImport() {
   const updatedProjects = [];
   const activeChanges = { activeAdded: 0, inactiveAdded: 0 };
   
-  // 分析活跃度变化
+  // 分析活跃度变化（新增项目传 isNew=true，已有项目传 false）
   projects.forEach(project => {
+    const isNew = newYuqueProjectIds.has(project.id);
     const oldActive = project.active;
-    window.updateProjectActivity(project);
-    if (oldActive !== project.active) {
+    window.updateProjectActivity(project, isNew);
+    // 只有原有的项目（有 oldActive）才计入活跃度变化
+    if (oldActive !== undefined && oldActive !== project.active) {
       if (project.active === 'active') {
         activeChanges.activeAdded++;
         project._justActivated = true;
@@ -1340,8 +1431,15 @@ async function confirmYuqueImport() {
   });
   
   // 收集新增和更新的项目
+  // 收集更新的项目
+  projects.forEach(project => {
+    if (updatedProjectIds.has(project.id)) {
+      updatedProjects.push(project);
+    }
+  });
+  
+  // 收集新增的项目
   yuquePendingImport.forEach(p => {
-    let isAdded = true;
     let idx = -1;
     
     // 优先通过唯一代码匹配
@@ -1353,22 +1451,7 @@ async function confirmYuqueImport() {
       idx = originalProjects.findIndex(x => x.projectCode === p.projectCode);
     }
     
-    if (idx >= 0) {
-      // 找到当前系统中对应的项目进行更新
-      const currentIdx = projects.findIndex(x => x.projectCode && x.projectCode.endsWith(originalProjects[idx].projectCode.slice(-4)));
-      if (currentIdx >= 0) {
-        const existingProject = projects[currentIdx];
-        // 检查项目是否有变化
-        if (hasProjectChanged(existingProject, p)) {
-          // 找到更新的项目
-          const updatedProject = projects.find(x => x.projectCode === originalProjects[idx].projectCode);
-          if (updatedProject) {
-            updatedProjects.push(updatedProject);
-          }
-        }
-      }
-      isAdded = false;
-    } else {
+    if (idx === -1) {
       // 找到新增的项目
       const newProject = projects.find(x => x.projectCode === p.projectCode);
       if (newProject) {
@@ -1378,13 +1461,13 @@ async function confirmYuqueImport() {
   });
   
   // 显示确认弹窗
-  await showImportConfirmation(added, updated, progressUpdated, addedProjects, updatedProjects, activeChanges);
+  await showImportConfirmation(added, updated, progressUpdated, addedProjects, updatedProjects, activeChanges, projectChanges, projectLatestProgress);
   
   closeImport(); save(); refreshView();
 }
 
 // 显示导入确认弹窗
-function showImportConfirmation(added, updated, progressUpdated, addedProjects, updatedProjects, activeChanges) {
+function showImportConfirmation(added, updated, progressUpdated, addedProjects, updatedProjects, activeChanges, projectChanges = new Map(), projectLatestProgress = new Map()) {
   const modal = document.createElement('div');
   modal.className = 'import-confirmation-modal';
   
@@ -1454,9 +1537,38 @@ function showImportConfirmation(added, updated, progressUpdated, addedProjects, 
       <div class="import-project-section">
         <div class="import-section-title">更新项目 (${updated})</div>
         <div class="import-project-items">
-          ${updatedProjects.map((p, index) => `
+          ${updatedProjects.map((p, index) => {
+            const changes = projectChanges.get(p.id) || [];
+            return `
             <div class="import-project-item">
               <span class="import-project-tag updated">${index + 1}</span>
+              ${p.channel ? `<span class="import-project-channel">🌐 ${p.channel}</span>` : ''}
+              <span class="import-project-name">${p.name}</span>
+              ${p.projectCode ? `<span class="import-project-code">${p.projectCode}</span>` : ''}
+              ${changes.length > 0 ? `
+                <div class="import-project-changes">
+                  <div class="import-changes-title">更新内容：</div>
+                  <ul class="import-changes-list">
+                    ${changes.map(change => `<li>${change}</li>`).join('')}
+                  </ul>
+                </div>
+              ` : ''}
+            </div>
+          `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  if (activeChanges && (activeChanges.activeAdded > 0)) {
+    html += `
+      <div class="import-project-section">
+        <div class="import-section-title">转为活跃 (${activeChanges.activeAdded})</div>
+        <div class="import-project-items">
+          ${activeProjects.map((p, index) => `
+            <div class="import-project-item">
+              <span class="import-project-tag active">${index + 1}</span>
               ${p.channel ? `<span class="import-project-channel">🌐 ${p.channel}</span>` : ''}
               <span class="import-project-name">${p.name}</span>
               ${p.projectCode ? `<span class="import-project-code">${p.projectCode}</span>` : ''}
@@ -1472,14 +1584,18 @@ function showImportConfirmation(added, updated, progressUpdated, addedProjects, 
       <div class="import-project-section">
         <div class="import-section-title">转为非活跃 (${activeChanges.inactiveAdded})</div>
         <div class="import-project-items">
-          ${inactiveProjects.map((p, index) => `
+          ${inactiveProjects.map((p, index) => {
+            const latestProgress = projectLatestProgress.get(p.id) || getLatestProgressTime(p);
+            return `
             <div class="import-project-item">
               <span class="import-project-tag inactive">${index + 1}</span>
               ${p.channel ? `<span class="import-project-channel">🌐 ${p.channel}</span>` : ''}
               <span class="import-project-name">${p.name}</span>
               ${p.projectCode ? `<span class="import-project-code">${p.projectCode}</span>` : ''}
+              ${latestProgress ? `<span class="import-project-progress">（最新进度：${latestProgress}）</span>` : ''}
             </div>
-          `).join('')}
+          `;
+          }).join('')}
         </div>
       </div>
     `;

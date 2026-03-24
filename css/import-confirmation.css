@@ -122,6 +122,7 @@
 
 .import-project-tag.added    { background: #e8f5e9; color: var(--s2); }
 .import-project-tag.updated  { background: #e3f2fd; color: var(--s1); }
+.import-project-tag.active   { background: #e3f2fd; color: var(--s1); }
 .import-project-tag.inactive { background: var(--paper2); color: #999; }
 
 .import-project-name {
@@ -142,6 +143,40 @@
   background: var(--paper2);
   padding: 1px 6px;
   border-radius: 10px;
+}
+
+/* ── 更新内容 ── */
+.import-project-changes {
+  margin-top: 6px;
+  margin-left: 26px; /* 与项目标签对齐 */
+  padding: 6px 8px;
+  background: var(--paper2);
+  border-radius: var(--radius-sm);
+  font-size: .68rem;
+}
+
+.import-changes-title {
+  font-weight: 600;
+  color: var(--ink-light);
+  margin-bottom: 4px;
+}
+
+.import-changes-list {
+  margin: 0;
+  padding-left: 16px;
+  color: var(--ink);
+}
+
+.import-changes-list li {
+  margin-bottom: 2px;
+  line-height: 1.2;
+}
+
+/* ── 最新进度时间 ── */
+.import-project-progress {
+  color: #999;
+  font-size: .65rem;
+  margin-left: auto;
 }
 
 /* ── 底部按钮 ── */
