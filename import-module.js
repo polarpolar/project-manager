@@ -949,8 +949,14 @@ async function parseTableWithClaude(table, docTitle) {
       let val = String(row[i] || '').trim();
       if (field.endsWith('_yuan')) {
         const n = parseFloat(val);
-        obj[field.replace('_yuan', '')] = isNaN(n) ? '' : (n / 10000).toFixed(2);
-      } else { obj[field] = val; }
+        obj[field.replace('_yuan', '')] = isNaN(n) ? '' : (n / 10000).toFixed(4);
+      } else if (['quote', 'contract', 'cost', 'collected'].includes(field)) {
+        // 对于金额字段，保留4位小数
+        const n = parseFloat(val);
+        obj[field] = isNaN(n) ? val : n.toFixed(4);
+      } else { 
+        obj[field] = val; 
+      }
     });
     return _parseRowObj(obj);
   }).filter(p => p.name);
@@ -1127,11 +1133,26 @@ async function parseYuqueDocWithClaude(content, title) {
   if (data.error) throw new Error('AI 解析失败：' + data.error.message);
   const text = (data._parsed?.text || data.content?.filter(b => b.type === 'text').map(b => b.text).join('') || '').replace(/```json|```/g, '').trim();
   const projects = JSON.parse(text);
-  // 确保每个项目都有monthlyProgress字段
-  return projects.map(p => ({
-    ...p,
-    monthlyProgress: p.monthlyProgress || []
-  }));
+  // 确保每个项目都有monthlyProgress字段，并处理金额字段保留4位小数
+  return projects.map(p => {
+    const processedProject = {
+      ...p,
+      monthlyProgress: p.monthlyProgress || []
+    };
+    
+    // 处理金额字段，保留4位小数
+    const amountFields = ['quote', 'contract', 'cost', 'collected'];
+    amountFields.forEach(field => {
+      if (processedProject[field] !== undefined) {
+        const num = parseFloat(processedProject[field]);
+        if (!isNaN(num)) {
+          processedProject[field] = num.toFixed(4);
+        }
+      }
+    });
+    
+    return processedProject;
+  });
 }
 
 function renderYuquePreview(docTitle) {
