@@ -88,6 +88,42 @@ function showProviderEditor(entry) {
   document.getElementById('ape-test-status').textContent = '';
   overlay.dataset.editId = entry.id;
   overlay.style.display  = 'flex';
+  
+  // 加载对应模型的对话历史
+  loadChatTestHistory(entry.id);
+}
+
+function loadChatTestHistory(modelId) {
+  const history = document.getElementById('ape-chat-history');
+  if (!history) return;
+  
+  // 清空当前历史
+  history.innerHTML = '';
+  
+  // 获取该模型的对话历史
+  const modelHistory = window.chatTestHistory[modelId] || [];
+  
+  if (modelHistory.length === 0) {
+    // 显示占位符
+    const placeholder = document.createElement('div');
+    placeholder.style.cssText = 'color:#999;font-size:.7rem;text-align:center;padding:16px 0';
+    placeholder.textContent = '发送消息以测试当前配置的模型';
+    history.appendChild(placeholder);
+  } else {
+    // 显示历史消息
+    modelHistory.forEach(msg => {
+      const bubble = document.createElement('div');
+      if (msg.role === 'user') {
+        bubble.style.cssText = 'background:rgba(79,70,229,.15);border:1px solid rgba(79,70,229,.25);border-radius:8px 8px 8px 0;padding:8px 12px;align-self:flex-start;max-width:80%;font-size:.7rem;line-height:1.4;color:#ffffff';
+      } else {
+        bubble.style.cssText = 'background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:8px 8px 0 8px;padding:8px 12px;align-self:flex-end;max-width:80%;font-size:.7rem;line-height:1.4;color:#ffffff';
+      }
+      bubble.textContent = msg.content;
+      history.appendChild(bubble);
+    });
+    // 滚动到底部
+    history.scrollTop = history.scrollHeight;
+  }
 }
 
 function selectProviderType(type) {
@@ -151,43 +187,9 @@ async function testProviderConnection() {
 
 
 
-function selectProvider(id) {
-  saveAiProvider(id);
-  document.querySelectorAll('.ai-provider-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('provider-' + id)?.classList.add('active');
-  updateModelSelect(id);
-  updateProxyHint(id);
-}
+// sendProviderChatTest 函数已移至 ai-module.js
 
-function updateProxyHint(providerId) {
-  const hint = document.getElementById('ai-proxy-hint');
-  const hints = {
-    claude:  '填写 Cloudflare Worker 地址，如：https://claudeapi.xxx.workers.dev',
-    openai:  '填写 Cloudflare Worker 地址，如：https://claudeapi.xxx.workers.dev',
-    gemini:  '填写 Cloudflare Worker 地址，如：https://claudeapi.xxx.workers.dev',
-    custom:  '直接填写 API base 地址，如 https://open.bigmodel.cn/api/paas/v4（/chat/completions 会自动补全）'
-  };
-  hint.textContent = hints[providerId] || '';
-  hint.style.display = 'block';
-}
 
-function updateModelSelect(providerId) {
-  const cfg = getAiConfig();
-  const provider = AI_PROVIDERS[providerId] || AI_PROVIDERS.claude;
-  const sel = document.getElementById('ai-model-select');
-  const inp = document.getElementById('ai-model-input');
-  if (providerId === 'custom') {
-    sel.style.display = 'none';
-    inp.style.display = 'block';
-    inp.value = cfg.model || '';
-  } else {
-    sel.style.display = 'block';
-    inp.style.display = 'none';
-    sel.innerHTML = provider.models.map(m =>
-      `<option value="${m.id}" ${cfg.model === m.id ? 'selected' : ''}>${m.label}</option>`
-    ).join('');
-  }
-}
 
 function switchMonitorTab(tab, el) {
   document.querySelectorAll('.monitor-tab').forEach(t => t.classList.remove('active'));
@@ -197,84 +199,7 @@ function switchMonitorTab(tab, el) {
   if (tab === 'logs') renderMonitor();
 }
 
-function loadAiConfig() {
-  const cfg = getAiConfig();
-  document.getElementById('ai-proxy-input').value = cfg.proxy;
-  document.getElementById('ai-key-input').value   = cfg.key;
-  document.getElementById('ai-max-tokens').value  = cfg.maxTokens;
-  document.querySelectorAll('.ai-provider-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('provider-' + cfg.provider)?.classList.add('active');
-  updateModelSelect(cfg.provider);
-  updateProxyHint(cfg.provider);
-  const mpEl = document.getElementById(cfg.modelPolicy === 'fixed' ? 'mp-fixed' : 'mp-auto');
-  if (mpEl) mpEl.checked = true;
-}
-
-async function sendTestChat() {
-  const input = document.getElementById('ai-chat-input');
-  const msg = input.value.trim();
-  if (!msg) return;
-  input.value = '';
-
-  const history = document.getElementById('ai-chat-history');
-  const placeholder = document.getElementById('ai-chat-placeholder');
-  if (placeholder) placeholder.remove();
-
-  const userBubble = document.createElement('div');
-  userBubble.className = 'chat-bubble user';
-  userBubble.textContent = msg;
-  history.appendChild(userBubble);
-
-  const thinkBubble = document.createElement('div');
-  thinkBubble.className = 'chat-bubble ai thinking';
-  thinkBubble.textContent = '思考中…';
-  history.appendChild(thinkBubble);
-  history.scrollTop = history.scrollHeight;
-
-  const sendBtn = document.getElementById('ai-chat-send');
-  sendBtn.disabled = true;
-  chatHistory.push({ role: 'user', content: msg });
-
-  try {
-    const data = await claudeCall({ task: '对话测试', max_tokens: 800, messages: chatHistory });
-    const reply = data._parsed?.text || '';
-    chatHistory.push({ role: 'assistant', content: reply });
-    thinkBubble.className = 'chat-bubble ai';
-    thinkBubble.textContent = reply || '（空响应）';
-  } catch(e) {
-    thinkBubble.className = 'chat-bubble err';
-    thinkBubble.textContent = '❌ ' + e.message;
-    chatHistory.pop();
-  } finally {
-    sendBtn.disabled = false;
-    history.scrollTop = history.scrollHeight;
-  }
-}
-
-async function testAiConnection() {
-  const statusEl = document.getElementById('ai-conn-status');
-  const btn = document.querySelector('[onclick="testAiConnection()"]');
-  statusEl.textContent = '测试中…'; statusEl.style.color = '#666';
-  if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; }
-  try {
-    const cfg = getAiConfig();
-    const data = await claudeCall({ task: 'API连接测试', max_tokens: cfg.maxTokens, messages: [{ role: 'user', content: '回复ok' }] });
-    const p = AI_PROVIDERS[cfg.provider];
-    const parsed = p.parseResponse(data);
-    if (parsed.error) throw new Error(parsed.error);
-    statusEl.textContent = '✅ 连接成功'; statusEl.style.color = '#81c784';
-  } catch(e) {
-    statusEl.textContent = '❌ ' + e.message; statusEl.style.color = '#e57373';
-  } finally {
-    if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
-  }
-}
-
 function openMonitor() {
-  chatHistory = [];
-  const h = document.getElementById('ai-chat-history');
-  if (h) h.innerHTML = '<div id="ai-chat-placeholder" style="color:#333;font-size:.7rem;text-align:center;padding:12px 0">发送消息以测试当前配置的模型</div>';
-  loadAiConfig();
   renderProviderList();
   renderTaskSlots();
   renderMonitor();
@@ -832,13 +757,7 @@ function initDragAndDrop() {
 
 export {
   // AI 监控
-  selectProvider,
-  updateProxyHint,
-  updateModelSelect,
   switchMonitorTab,
-  loadAiConfig,
-  sendTestChat,
-  testAiConnection,
   openMonitor,
   closeMonitor,
   renderMonitor,

@@ -154,6 +154,69 @@ async function _doVisionCall({ task, max_tokens, images, textPrompt, entry }) {
   } catch(e) { log.dur = ((Date.now() - t0) / 1000).toFixed(2); log.status = 'err'; log.error = e.message; _pushLog(log); throw e; }
 }
 
+async function sendProviderChatTest() {
+  const input = document.getElementById('ape-chat-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+
+  const history = document.getElementById('ape-chat-history');
+  const placeholder = history.querySelector('div[style*="color:#999"]');
+  if (placeholder) placeholder.remove();
+
+  // 获取当前编辑的模型ID
+  const overlay = document.getElementById('ai-provider-editor');
+  const modelId = overlay ? overlay.dataset.editId : 'default';
+
+  // 确保该模型的对话历史存在
+  if (!window.chatTestHistory[modelId]) {
+    window.chatTestHistory[modelId] = [];
+  }
+
+  // 添加用户消息到历史
+  window.chatTestHistory[modelId].push({ role: 'user', content: msg });
+
+  // 添加用户消息到界面
+  const userBubble = document.createElement('div');
+  userBubble.style.cssText = 'background:rgba(79,70,229,.15);border:1px solid rgba(79,70,229,.25);border-radius:8px 8px 8px 0;padding:8px 12px;align-self:flex-start;max-width:80%;font-size:.7rem;line-height:1.4;color:#ffffff';
+  userBubble.textContent = msg;
+  history.appendChild(userBubble);
+
+  // 添加 AI 思考消息
+  const thinkBubble = document.createElement('div');
+  thinkBubble.style.cssText = 'background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:8px 8px 0 8px;padding:8px 12px;align-self:flex-end;max-width:80%;font-size:.7rem;line-height:1.4;color:#ffffff';
+  thinkBubble.textContent = '思考中…';
+  history.appendChild(thinkBubble);
+  history.scrollTop = history.scrollHeight;
+
+  // 获取当前编辑的 Provider 配置
+  const type  = document.querySelector('.ape-type-btn.active')?.dataset.type || 'custom';
+  const proxy = document.getElementById('ape-proxy').value.trim();
+  const key   = document.getElementById('ape-key').value.trim();
+  const model = document.getElementById('ape-model').value.trim();
+  const maxTokens = parseInt(document.getElementById('ape-tokens').value) || 4000;
+
+  try {
+    const result = await _doCall({ 
+      task: '对话测试', 
+      max_tokens: 800, 
+      messages: [{ role: 'user', content: msg }], 
+      entry: { id: '_test', name: '测试', type, proxy, key, model, maxTokens } 
+    });
+    const reply = result._parsed?.text || '';
+    thinkBubble.textContent = reply || '（空响应）';
+    // 添加 AI 回复到历史
+    window.chatTestHistory[modelId].push({ role: 'assistant', content: reply || '（空响应）' });
+  } catch(e) {
+    thinkBubble.style.color = '#e57373';
+    thinkBubble.textContent = '❌ ' + e.message;
+    // 添加错误信息到历史
+    window.chatTestHistory[modelId].push({ role: 'assistant', content: '❌ ' + e.message });
+  } finally {
+    history.scrollTop = history.scrollHeight;
+  }
+}
+
 async function claudeCallForTask({ task, max_tokens, messages }) {
   const entry = getProviderForTask(task);
   if (!entry) throw new Error('未找到可用的 AI 配置');
@@ -291,6 +354,9 @@ const CUSTOM_ROUTE = '/custom';
 // AI 调用日志
 let aiLogs = [];
 try { aiLogs = JSON.parse(localStorage.getItem(window.STORAGE_KEY.AI_LOGS) || '[]'); } catch(e) { aiLogs = []; }
+
+// 对话测试历史（按模型配置ID存储）
+let chatTestHistory = {};
 
 // claudeCall：优先用任务槽位系统，兜底用旧配置
 async function claudeCall({ task, model, max_tokens, messages }) {
@@ -593,6 +659,7 @@ export {
   aiLogs,
   clearAiLogs,
   getAiLogs,
+  sendProviderChatTest,
   // 文件分类
   classifyFileNames,
   clearAiClassificationCache

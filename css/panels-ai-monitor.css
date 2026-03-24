@@ -122,71 +122,7 @@
   color: #555;
 }
 
-/* 模型选择 */
-.ai-model-select {
-  width: 100%;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
-  padding: 8px 12px;
-  font-size: 0.75rem;
-  color: #ccc;
-  font-family: inherit;
-  outline: none;
-  cursor: pointer;
-}
 
-.ai-model-select:focus {
-  border-color: rgba(126, 204, 216, 0.4);
-}
-
-.ai-model-select option {
-  background: #1a1a2e;
-  color: #ccc;
-}
-
-/* 服务商网格 */
-.ai-provider-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-}
-
-.ai-provider-btn {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1.5px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
-  padding: 14px 10px;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.ai-provider-btn:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.15);
-}
-
-.ai-provider-btn.active {
-  background: rgba(126, 204, 216, 0.1);
-  border-color: rgba(126, 204, 216, 0.4);
-  box-shadow: 0 0 20px rgba(126, 204, 216, 0.1);
-}
-
-.ai-provider-icon {
-  font-size: 1.4rem;
-  margin-bottom: 6px;
-}
-
-.ai-provider-name {
-  font-size: 0.72rem;
-  color: #aaa;
-  font-weight: 500;
-}
-
-.ai-provider-btn.active .ai-provider-name {
-  color: #7eccd8;
-}
 
 /* AI状态 */
 .ai-status {
@@ -246,49 +182,6 @@
   padding: 60px 20px;
   color: #555;
   font-size: 0.8rem;
-}
-
-/* 对话测试气泡 */
-.chat-bubble {
-  padding: 10px 14px;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  line-height: 1.5;
-  max-width: 85%;
-  word-wrap: break-word;
-}
-
-.chat-bubble.user {
-  background: rgba(126, 204, 216, 0.15);
-  border: 1px solid rgba(126, 204, 216, 0.25);
-  color: #7eccd8;
-  align-self: flex-end;
-  border-bottom-right-radius: 4px;
-}
-
-.chat-bubble.ai {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #ccc;
-  align-self: flex-start;
-  border-bottom-left-radius: 4px;
-}
-
-.chat-bubble.thinking {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: #666;
-  font-style: italic;
-  align-self: flex-start;
-  border-bottom-left-radius: 4px;
-}
-
-.chat-bubble.err {
-  background: rgba(229, 57, 53, 0.1);
-  border: 1px solid rgba(229, 57, 53, 0.2);
-  color: #e57373;
-  align-self: flex-start;
-  border-bottom-left-radius: 4px;
 }
 
 /* 响应式 */

@@ -73,7 +73,7 @@
       "desc": "共17台设备监测",
       "product": "无线/有线、本地化",
       "owner": "苏奕玮",
-      "quote": "",
+      "quote": "46.557",
       "contract": "",
       "contractDate": "",
       "stage": 0,
@@ -84,7 +84,7 @@
       "projectCode": "C26030WB7",
       "id": "0WB7",
       "deliveryTags": {
-        "wireless_hardware": false,
+        "wireless_hardware": true,
         "wired_hardware": true,
         "software": true,
         "other": true
@@ -92,12 +92,12 @@
       "cost": "",
       "collected": "",
       "deliveryNote": "",
-      "deliveryBrief": "本安传感器×30套，监测云盒×3套，服务器×1，软件开发调试",
+      "deliveryBrief": "本安振温传感器×30套，智能监测云盒×3套，数采服务器×1套，无线传输单元×3套",
       "terminationReason": "",
       "paymentPct": 0,
       "paymentNodes": [],
       "洽谈状态": "需求沟通",
-      "updatedAt": "2026-03-19 14:49",
+      "updatedAt": "2026-03-24 17:07",
       "monthlyProgress": [
         {
           "month": "2026年3月",
@@ -145,7 +145,7 @@
         "other": false
       },
       "洽谈状态": "需求沟通",
-      "updatedAt": "2026-03-21 23:39",
+      "updatedAt": "2026-03-24 17:03",
       "_justActivated": false,
       "_justDeactivated": false
     },
@@ -158,7 +158,7 @@
       "product": "有线方案",
       "owner": "毛娜",
       "quote": "",
-      "contract": "27.55",
+      "contract": "27.5450",
       "contractDate": "2025-10-17",
       "stage": 2,
       "todos": [],
@@ -203,20 +203,25 @@
       "desc": "提交核主泵相关算法代码",
       "product": "软件/算法开发",
       "owner": "武通达",
-      "quote": "60.00",
+      "quote": "60.0000",
       "contract": "",
       "contractDate": "",
       "stage": 0,
       "todos": [],
       "collectTasks": [],
       "logs": [],
-      "active": "inactive",
+      "active": "active",
       "projectCode": "C26036PP3",
       "id": "6PP3",
       "paymentNodes": [],
-      "monthlyProgress": [],
-      "_justDeactivated": false,
-      "_justActivated": false
+      "monthlyProgress": [
+        {
+          "month": "2026年3月",
+          "content": "所有安装包及能交付的代码提供给我们就好，写个说明哪个文件大概是干什么的就好，我提给动装，等他们反馈意见"
+        }
+      ],
+      "_justActivated": false,
+      "_justDeactivated": false
     },
     {
       "channel": "佳电",
@@ -250,7 +255,7 @@
       "product": "V03、G01",
       "owner": "毛娜",
       "quote": "",
-      "contract": "63.12",
+      "contract": "63.1180",
       "contractDate": "2025-06-25",
       "stage": 2,
       "todos": [],
@@ -310,7 +315,7 @@
       "product": "有线方案",
       "owner": "苏奕玮",
       "quote": "",
-      "contract": "16.23",
+      "contract": "16.2280",
       "contractDate": "2025-04-25",
       "stage": 2,
       "todos": [],
@@ -379,7 +384,7 @@
       "product": "V01",
       "owner": "毛娜",
       "quote": "",
-      "contract": "7.75",
+      "contract": "7.7480",
       "contractDate": "2025-10-28",
       "stage": 2,
       "todos": [],
@@ -434,7 +439,7 @@
       "product": "V01",
       "owner": "毛娜",
       "quote": "",
-      "contract": "30.69",
+      "contract": "30.6940",
       "contractDate": "2025-10-08",
       "stage": 2,
       "todos": [],
@@ -479,8 +484,8 @@
       "desc": "IT运维大模型",
       "product": "AI大模型应用",
       "owner": "苏奕玮",
-      "quote": "96.00",
-      "contract": "89.20",
+      "quote": "96.0000",
+      "contract": "89.2000",
       "contractDate": "",
       "stage": 1,
       "todos": [],
@@ -558,7 +563,7 @@
       "desc": "2支v01",
       "product": "v01",
       "owner": "苏奕玮",
-      "quote": "0.71",
+      "quote": "0.7070",
       "contract": "",
       "contractDate": "",
       "stage": 0,
@@ -587,7 +592,7 @@
       "product": "有线监测方案（定制）、软件开发",
       "owner": "苏奕玮",
       "quote": "",
-      "contract": "128.95",
+      "contract": "128.953",
       "contractDate": "2025-07-29",
       "stage": 1,
       "paymentNodes": [
@@ -629,8 +634,49 @@
         }
       ],
       "todos": [],
-      "collectTasks": [],
-      "logs": [],
+      "collectTasks": [
+        {
+          "done": true,
+          "date": "2026-03-22",
+          "amount": "51.5812",
+          "owner": "苏奕玮",
+          "note": "待催：乙方完成上线运行并由甲方验收签字确认，并收到乙方开具的合同总额40%的增值税专用发票后30个工作日内"
+        }
+      ],
+      "logs": [
+        {
+          "time": "2026-03-22 11:52",
+          "text": "📦 节点「合同签订后收到乙方提供全额30%银行履约保函并收到乙方开具合同总额30%的增值税专用发票后30个工作日内」交付任务已完成"
+        },
+        {
+          "time": "2026-03-22 11:52",
+          "text": "💰 节点「合同签订后收到乙方提供全额30%银行履约保函并收到乙方开具合同总额30%的增值税专用发票后30个工作日内」回款已到账 · 0.00万"
+        },
+        {
+          "time": "2026-03-22 11:52",
+          "text": "📦 节点「收到货物完成安装，并收到乙方开具合同总额20%的增值税专用发票后30个工作日内」交付任务已完成"
+        },
+        {
+          "time": "2026-03-22 11:52",
+          "text": "💰 节点「收到货物完成安装，并收到乙方开具合同总额20%的增值税专用发票后30个工作日内」回款已到账 · 0.00万"
+        },
+        {
+          "time": "2026-03-22 11:52",
+          "text": "📦 节点「乙方完成上线运行并由甲方验收签字确认，并收到乙方开具的合同总额40%的增值税专用发票后30个工作日内」交付任务已完成"
+        },
+        {
+          "time": "2026-03-22 11:52",
+          "text": "📦 节点「合同签订后收到乙方提供全额30%银行履约保函并收到乙方开具合同总额30%的增值税专用发票后30个工作日内」交付任务已完成\n💰 节点「合同签订后收到乙方提供全额30%银行履约保函并收到乙方开具合同总额30%的增值税专用发票后30个工作日内」回款已到账 · 0.00万\n📦 节点「收到货物完成安装，并收到乙方开具合同总额20%的增值税专用发票后30个工作日内」交付任务已完成\n💰 节点「收到货物完成安装，并收到乙方开具合同总额20%的增值税专用发票后30个工作日内」回款已到账 · 0.00万\n📦 节点「乙方完成上线运行并由甲方验收签字确认，并收到乙方开具的合同总额40%的增值税专用发票后30个工作日内」交付任务已完成"
+        },
+        {
+          "time": "2026-03-23 14:17",
+          "text": "💰 节点「乙方完成上线运行并由甲方验收签字确认，并收到乙方开具的合同总额40%的增值税专用发票后30个工作日内」回款已到账 · 0.01万"
+        },
+        {
+          "time": "2026-03-23 14:17",
+          "text": "💰 节点「乙方完成上线运行并由甲方验收签字确认，并收到乙方开具的合同总额40%的增值税专用发票后30个工作日内」回款已到账 · 0.01万"
+        }
+      ],
       "active": "active",
       "projectCode": "P2507QL0X",
       "id": "QL0X",
@@ -661,7 +707,7 @@
       "product": "有线方案",
       "owner": "苏奕玮",
       "quote": "",
-      "contract": "49.82",
+      "contract": "49.8240",
       "contractDate": "2026-01-07",
       "stage": 1,
       "paymentNodes": [
@@ -697,7 +743,7 @@
       "desc": "计划二期采购",
       "product": "/",
       "owner": "苏奕玮",
-      "quote": "49.28",
+      "quote": "49.2830",
       "contract": "",
       "contractDate": "",
       "stage": 0,
@@ -749,7 +795,7 @@
       "product": "有线方案",
       "owner": "苏奕玮",
       "quote": "",
-      "contract": "6.72",
+      "contract": "6.7183",
       "contractDate": "2025-10-21",
       "stage": 2,
       "todos": [],
@@ -822,8 +868,8 @@
       "desc": "采购2台E03+其他硬件",
       "product": "E03",
       "owner": "苏奕玮",
-      "quote": "4.71",
-      "contract": "4.71",
+      "quote": "4.7089",
+      "contract": "4.7089",
       "contractDate": "",
       "stage": 1,
       "todos": [],
@@ -858,7 +904,12 @@
       "collectTasks": [],
       "logs": [],
       "active": "active",
-      "monthlyProgress": [],
+      "monthlyProgress": [
+        {
+          "month": "2026年3月",
+          "content": "完成初步方案"
+        }
+      ],
       "projectCode": "C2603EJOL",
       "id": "EJOL",
       "_justActivated": false,
@@ -904,6 +955,6 @@
     "sbCollapsed": null,
     "fsRootName": "2026年项目管理"
   },
-  "exportDate": "2026-03-24T07:16:44.312Z",
+  "exportDate": "2026-03-24T09:32:08.133Z",
   "version": "1.4"
 }

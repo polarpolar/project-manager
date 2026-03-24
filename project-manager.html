@@ -884,7 +884,6 @@
     <div class="monitor-tabs">
       <div class="monitor-tab active" onclick="switchMonitorTab('providers',this)">🔌 模型配置</div>
       <div class="monitor-tab" onclick="switchMonitorTab('slots',this)">⚙️ 功能配置</div>
-      <div class="monitor-tab" onclick="switchMonitorTab('config',this)">🔧 高级</div>
       <div class="monitor-tab" onclick="switchMonitorTab('logs',this)">📋 调用日志</div>
     </div>
     <div class="monitor-body">
@@ -904,94 +903,6 @@
           <div style="font-size:.65rem;color:#555;margin-bottom:12px">为不同功能指定使用哪个 Provider，未单独配置的任务使用「默认模型」</div>
           <div id="ai-task-slots"><!-- 由 renderTaskSlots() 填充 --></div>
         </div>
-      </div>
-
-      <!-- 高级配置 Tab -->
-      <div id="mtab-config" class="monitor-tab-body">
-
-        <!-- 服务商选择 -->
-        <div class="ai-cfg-section">
-          <div class="ai-cfg-label">AI 服务商</div>
-          <div class="ai-provider-grid">
-            <div class="ai-provider-btn active" id="provider-claude" onclick="selectProvider('claude')">
-              <div class="ai-provider-icon">🤖</div>
-              <div class="ai-provider-name">Claude</div>
-            </div>
-            <div class="ai-provider-btn" id="provider-openai" onclick="selectProvider('openai')">
-              <div class="ai-provider-icon">✨</div>
-              <div class="ai-provider-name">OpenAI</div>
-            </div>
-            <div class="ai-provider-btn" id="provider-gemini" onclick="selectProvider('gemini')">
-              <div class="ai-provider-icon">💎</div>
-              <div class="ai-provider-name">Gemini</div>
-            </div>
-            <div class="ai-provider-btn" id="provider-custom" onclick="selectProvider('custom')">
-              <div class="ai-provider-icon">🔧</div>
-              <div class="ai-provider-name">自定义</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 模型选择 -->
-        <div class="ai-cfg-section">
-          <div class="ai-cfg-label">模型</div>
-          <select class="ai-model-select" id="ai-model-select" onchange="saveAiModel(this.value)"></select>
-          <input class="ai-cfg-input" id="ai-model-input" placeholder="输入模型名称，如 glm-4-flash、glm-4-plus…" oninput="saveAiModel(this.value)" style="display:none;margin-top:0">
-          <!-- 模型策略 -->
-          <div style="display:flex;gap:8px;margin-top:10px">
-            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:.72rem;color:#888">
-              <input type="radio" name="model-policy" value="auto" id="mp-auto" onchange="saveModelPolicy('auto')" checked>
-              <span>🚀 自动选择</span>
-              <span style="font-size:.62rem;color:#444">（快速任务用轻量模型，复杂任务升级高级模型）</span>
-            </label>
-          </div>
-          <div style="display:flex;gap:8px;margin-top:6px">
-            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:.72rem;color:#888">
-              <input type="radio" name="model-policy" value="fixed" id="mp-fixed" onchange="saveModelPolicy('fixed')">
-              <span>📌 全部使用此模型</span>
-              <span style="font-size:.62rem;color:#444">（所有任务都用上方选择的模型）</span>
-            </label>
-          </div>
-        </div>
-
-        <!-- 代理 & Key -->
-        <div class="ai-cfg-section">
-          <div class="ai-cfg-label">代理地址 & API Key</div>
-          <div class="ai-cfg-row">
-            <input class="ai-cfg-input" id="ai-proxy-input" placeholder="https://your-proxy.workers.dev" oninput="saveAiProxy(this.value)">
-            <span class="ai-cfg-tag">代理地址</span>
-          </div>
-          <div id="ai-proxy-hint" style="font-size:.63rem;color:#444;margin-bottom:8px;display:none"></div>
-          <form onsubmit="event.preventDefault(); testAiConnection();">
-            <div class="ai-cfg-row">
-              <input class="ai-cfg-input" type="password" id="ai-key-input" placeholder="API Key" oninput="saveAiKey(this.value)" autocomplete="new-password">
-              <button class="ai-test-btn" type="submit">测试连接</button>
-            </div>
-          </form>
-          <div class="ai-status" id="ai-conn-status"></div>
-        </div>
-
-        <!-- Token 配置 -->
-        <div class="ai-cfg-section">
-          <div class="ai-cfg-label">模型配置</div>
-          <div class="ai-cfg-row">
-            <input class="ai-cfg-input" id="ai-max-tokens" type="number" min="10" max="32768" placeholder="最大输出 Token 数（默认 2000）" oninput="saveAiMaxTokens(this.value)">
-            <span class="ai-cfg-tag">max_tokens</span>
-          </div>
-        </div>
-
-        <!-- 测试对话框 -->
-        <div class="ai-cfg-section">
-          <div class="ai-cfg-label">对话测试</div>
-          <div id="ai-chat-history" style="max-height:200px;overflow-y:auto;margin-bottom:8px;display:flex;flex-direction:column;gap:6px">
-            <div id="ai-chat-placeholder" style="color:#666;font-size:.7rem;text-align:center;padding:12px 0">发送消息以测试当前配置的模型</div>
-          </div>
-          <div style="display:flex;gap:8px">
-            <input class="ai-cfg-input" id="ai-chat-input" placeholder="输入消息，按 Enter 发送…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendTestChat()}">
-            <button class="ai-test-btn" id="ai-chat-send" onclick="sendTestChat()">发送</button>
-          </div>
-        </div>
-
       </div>
 
       <!-- 日志 Tab -->
@@ -1129,6 +1040,20 @@ if (typeof render === 'function') render();
       <button class="ai-prov-btn" onclick="testProviderConnection()">🔗 测试连接</button>
       <span id="ape-test-status"></span>
     </div>
+
+    <!-- 对话测试面板 -->
+    <div id="ape-chat-test" style="margin-top:16px;margin-bottom:16px;padding:16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px">
+      <div style="font-size:.8rem;font-weight:600;color:#7eccd8;margin-bottom:12px">💬 对话测试</div>
+      <div id="ape-chat-history" style="max-height:200px;overflow-y:auto;margin-bottom:12px;display:flex;flex-direction:column;gap:8px">
+        <div style="color:#999;font-size:.75rem;text-align:center;padding:16px 0">发送消息以测试当前配置的模型</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:stretch">
+        <input class="ape-input" id="ape-chat-input" placeholder="输入消息，按 Enter 发送…" style="flex:1;height:36px;border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:0 12px;font-size:.75rem;background:rgba(255,255,255,.05);color:#ffffff;outline:none">
+        <button class="ai-prov-btn" onclick="sendProviderChatTest()" style="padding:0 16px;height:36px;border:1px solid rgba(255,255,255,.15);border-radius:6px;font-size:.75rem;background:rgba(255,255,255,.08);color:#ffffff;cursor:pointer;display:flex;align-items:center;justify-content:center">发送</button>
+      </div>
+    </div>
+
+
 
     <div class="ape-footer">
       <button class="ape-btn cancel" onclick="closeProviderEditor()">取消</button>
