@@ -1097,7 +1097,13 @@ function parseBodySheet(bodySheetStr, docTitle) {
         if (YUAN_FIELDS.has(field)) {
           const n = parseFloat(raw);
           p[field.replace('_yuan', '')] = isNaN(n) ? '' : (n / 10000).toFixed(4).replace(/\.?0+$/, '');
-        } else { p[field] = raw; }
+        } else if (['quote', 'contract', 'cost', 'collected'].includes(field)) {
+          // 对于金额字段，保留4位小数
+          const n = parseFloat(raw);
+          p[field] = isNaN(n) ? raw : n.toFixed(4);
+        } else { 
+          p[field] = raw; 
+        }
       }
       const stageRaw = p.stage || '';
       const numPfx   = stageRaw.match(/^(\d+)/)?.[1];
@@ -1563,10 +1569,12 @@ function showImportConfirmation(added, updated, progressUpdated, addedProjects, 
         <div class="import-project-items">
           ${addedProjects.map((p, index) => `
             <div class="import-project-item">
-              <span class="import-project-tag added">${index + 1}</span>
-              ${p.channel ? `<span class="import-project-channel">🌐 ${p.channel}</span>` : ''}
-              <span class="import-project-name">${p.name}</span>
-              ${p.projectCode ? `<span class="import-project-code">${p.projectCode}</span>` : ''}
+              <div class="import-project-header">
+                <span class="import-project-tag added">${index + 1}</span>
+                ${p.channel ? `<span class="import-project-channel">🌐 ${p.channel}</span>` : ''}
+                <span class="import-project-name">${p.name}</span>
+                ${p.projectCode ? `<span class="import-project-code">${p.projectCode}</span>` : ''}
+              </div>
             </div>
           `).join('')}
         </div>
@@ -1583,10 +1591,12 @@ function showImportConfirmation(added, updated, progressUpdated, addedProjects, 
             const changes = projectChanges.get(p.id) || [];
             return `
             <div class="import-project-item">
-              <span class="import-project-tag updated">${index + 1}</span>
-              ${p.channel ? `<span class="import-project-channel">🌐 ${p.channel}</span>` : ''}
-              <span class="import-project-name">${p.name}</span>
-              ${p.projectCode ? `<span class="import-project-code">${p.projectCode}</span>` : ''}
+              <div class="import-project-header">
+                <span class="import-project-tag updated">${index + 1}</span>
+                ${p.channel ? `<span class="import-project-channel">🌐 ${p.channel}</span>` : ''}
+                <span class="import-project-name">${p.name}</span>
+                ${p.projectCode ? `<span class="import-project-code">${p.projectCode}</span>` : ''}
+              </div>
               ${changes.length > 0 ? `
                 <div class="import-project-changes">
                   <div class="import-changes-title">更新内容：</div>
@@ -1610,10 +1620,12 @@ function showImportConfirmation(added, updated, progressUpdated, addedProjects, 
         <div class="import-project-items">
           ${activeProjects.map((p, index) => `
             <div class="import-project-item">
-              <span class="import-project-tag active">${index + 1}</span>
-              ${p.channel ? `<span class="import-project-channel">🌐 ${p.channel}</span>` : ''}
-              <span class="import-project-name">${p.name}</span>
-              ${p.projectCode ? `<span class="import-project-code">${p.projectCode}</span>` : ''}
+              <div class="import-project-header">
+                <span class="import-project-tag active">${index + 1}</span>
+                ${p.channel ? `<span class="import-project-channel">🌐 ${p.channel}</span>` : ''}
+                <span class="import-project-name">${p.name}</span>
+                ${p.projectCode ? `<span class="import-project-code">${p.projectCode}</span>` : ''}
+              </div>
             </div>
           `).join('')}
         </div>
@@ -1630,11 +1642,13 @@ function showImportConfirmation(added, updated, progressUpdated, addedProjects, 
             const latestProgress = projectLatestProgress.get(p.id) || getLatestProgressTime(p);
             return `
             <div class="import-project-item">
-              <span class="import-project-tag inactive">${index + 1}</span>
-              ${p.channel ? `<span class="import-project-channel">🌐 ${p.channel}</span>` : ''}
-              <span class="import-project-name">${p.name}</span>
-              ${p.projectCode ? `<span class="import-project-code">${p.projectCode}</span>` : ''}
-              ${latestProgress ? `<span class="import-project-progress">（最新进度：${latestProgress}）</span>` : ''}
+              <div class="import-project-header">
+                <span class="import-project-tag inactive">${index + 1}</span>
+                ${p.channel ? `<span class="import-project-channel">🌐 ${p.channel}</span>` : ''}
+                <span class="import-project-name">${p.name}</span>
+                ${p.projectCode ? `<span class="import-project-code">${p.projectCode}</span>` : ''}
+                ${latestProgress ? `<span class="import-project-progress">（最新进度：${latestProgress}）</span>` : ''}
+              </div>
             </div>
           `;
           }).join('')}

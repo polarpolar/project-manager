@@ -97,12 +97,18 @@
 
 .import-project-item {
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 8px 0;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 0;
   border-bottom: 1px solid var(--paper);
   font-size: .78rem;
   position: relative;
+}
+
+.import-project-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .import-project-item:last-child {
@@ -130,12 +136,15 @@
 .import-project-name {
   flex: 1;
   color: var(--ink);
+  white-space: normal;
+  word-break: break-word;
 }
 
 .import-project-code {
   color: #bbb;
   font-size: .68rem;
   white-space: nowrap;
+  margin-left: auto;
 }
 
 .import-project-channel {
