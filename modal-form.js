@@ -75,6 +75,13 @@ function onStageChange() {
     if (DEBUG) console.log('报价/预算金额字段显示状态:', (stage === STAGE.NEGOTIATING || stage === STAGE.TERMINATED) ? 'block' : 'none');
   }
   
+  // 显示/隐藏回款管理标题（洽谈中和已终止项目不显示）
+  const paymentTitle = document.getElementById('f-payment-title');
+  if (paymentTitle) {
+    paymentTitle.style.display = (stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'block' : 'none';
+    if (DEBUG) console.log('回款管理标题显示状态:', (stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'block' : 'none');
+  }
+  
   // 显示/隐藏交付内容和内容简介字段（已终止项目不显示）
   if (deliveryContentGroup) {
     deliveryContentGroup.style.display = (stage === STAGE.NEGOTIATING || stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'block' : 'none';
