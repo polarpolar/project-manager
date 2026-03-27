@@ -44,6 +44,11 @@
 - 交付内容描述（可由 AI 自动识别技术协议生成）
 - 补充说明（交付细节、安装调试情况、客户反馈等）
 
+**项目进度**
+- 从语雀同步的月度进度数据
+- 进度内容展示和折叠
+- 支持按月份查看项目进展
+
 **本地文件（File System Access API）**
 - 绑定本地磁盘文件夹（持久化权限）
 - 文件自动分类展示：合同 / 技术协议 / 技术方案 / 方案报价 / 其他
@@ -190,7 +195,7 @@
 | 语言 | 原生 HTML5 + CSS3 + JavaScript（ES2020+）|
 | 框架 | 无框架，纯 Vanilla JS |
 | 模块化 | ES Module + 动态导入 (`import()`) |
-| 样式 | 模块化 CSS 架构，CSS Variables 主题系统，9个独立样式文件 |
+| 样式 | 模块化 CSS 架构，CSS Variables 主题系统，11个独立样式文件 |
 | 字体 | Google Fonts（Noto Serif SC / Noto Sans SC）|
 | 第三方库 | [SheetJS (xlsx)](https://sheetjs.com/) v0.18.5 |
 | 数据存储 | IndexedDB（主存储）+ localStorage（缓存/快速加载）|
@@ -210,14 +215,17 @@ project-manager/
 ├── project-manager.html  # 主 HTML 文件，仅包含 DOM 结构（样式已完全外部化）
 │
 ├── css/                  # 样式系统目录（完全模块化）
-│   ├── variables.css     # CSS 变量定义（设计系统）
-│   ├── base.css          # 基础重置与布局框架
-│   ├── components.css    # 通用 UI 组件（按钮、卡片、标签）
-│   ├── modal.css         # 弹窗与表单样式
-│   ├── sidebar.css       # 左侧导航栏样式
-│   ├── file-panel.css    # 文件面板样式
-│   ├── ai-analysis.css   # AI 识别结果展示样式
-│   └── panels.css        # 侧边栏面板样式（待办、台账、导入、监控）
+│   ├── variables.css            # CSS 变量定义（设计系统）
+│   ├── base.css                 # 基础重置与布局框架
+│   ├── components.css           # 通用 UI 组件（按钮、卡片、标签）
+│   ├── board.css                # 看板视图样式
+│   ├── modal.css                # 弹窗与表单样式
+│   ├── sidebar.css              # 左侧导航栏样式
+│   ├── file-panel.css           # 文件面板样式
+│   ├── ai-analysis.css          # AI 识别结果展示样式
+│   ├── panels.css               # 侧边栏面板样式（待办、台账、导入、监控）
+│   ├── panels-ai-monitor.css    # AI 监控面板样式
+│   └── import-confirmation.css  # 导入确认面板样式
 │
 ├── project-module.js     # 项目管理核心模块（常量、数据管理、回收站）
 ├── render-module.js      # 渲染模块（看板视图、卡片、统计）
@@ -425,7 +433,7 @@ http://localhost:8787
 
 ## CSS 架构
 
-本项目采用完全模块化的 CSS 架构，将原本内联在 HTML 中的样式分离为 8 个独立样式文件，实现关注点分离和更好的可维护性。
+本项目采用完全模块化的 CSS 架构，将原本内联在 HTML 中的样式分离为 11 个独立样式文件，实现关注点分离和更好的可维护性。
 
 ### 重构成果
 
@@ -433,21 +441,24 @@ http://localhost:8787
 |------|--------|--------|------|
 | HTML 内联 CSS | ~970 行 | 0 行 | ✅ 完全移除 |
 | HTML 总行数 | ~2000 行 | ~1070 行 | ✅ 减少 47% |
-| CSS 文件数 | 0 | 8 个模块 | ✅ 完全模块化 |
+| CSS 文件数 | 0 | 11 个模块 | ✅ 完全模块化 |
 | 缓存能力 | 无 | 完全支持 | ✅ 浏览器缓存 |
 
 ### 文件结构
 
 ```
 css/
-├── variables.css      # 38 行   - 设计系统变量定义
-├── base.css           # 138 行  - 基础重置与布局框架
-├── components.css     # 564 行  - 通用 UI 组件（按钮、卡片、标签）
-├── modal.css          # 630 行  - 弹窗与表单样式
-├── sidebar.css        # 187 行  - 左侧导航栏样式
-├── file-panel.css     # 408 行  - 文件面板 + 交付标签
-├── ai-analysis.css    # 165 行  - AI 合同识别结果样式
-└── panels.css         # 873 行  - 待办/台账/导入/监控面板样式
+├── variables.css            # 38 行   - 设计系统变量定义
+├── base.css                 # 138 行  - 基础重置与布局框架
+├── components.css           # 564 行  - 通用 UI 组件（按钮、卡片、标签）
+├── board.css                # 新增    - 看板视图样式
+├── modal.css                # 630 行  - 弹窗与表单样式
+├── sidebar.css              # 187 行  - 左侧导航栏样式
+├── file-panel.css           # 408 行  - 文件面板 + 交付标签
+├── ai-analysis.css          # 165 行  - AI 合同识别结果样式
+├── panels.css               # 873 行  - 待办/台账/导入/监控面板样式
+├── panels-ai-monitor.css    # 新增    - AI 监控面板样式
+└── import-confirmation.css  # 新增    - 导入确认面板样式
 ```
 
 ### 加载顺序
@@ -464,12 +475,15 @@ css/
 <!-- 3. 组件（通用 UI） -->
 <link rel="stylesheet" href="css/components.css">
 
-<!-- 4-9. 模块（具体功能） -->
+<!-- 4-11. 模块（具体功能） -->
+<link rel="stylesheet" href="css/board.css">
 <link rel="stylesheet" href="css/modal.css">
 <link rel="stylesheet" href="css/sidebar.css">
 <link rel="stylesheet" href="css/file-panel.css">
 <link rel="stylesheet" href="css/ai-analysis.css">
 <link rel="stylesheet" href="css/panels.css">
+<link rel="stylesheet" href="css/panels-ai-monitor.css">
+<link rel="stylesheet" href="css/import-confirmation.css">
 ```
 
 ### 设计系统变量
@@ -516,7 +530,15 @@ css/
 
 ## 版本说明
 
-当前版本：**v1.5**
+当前版本：**v1.6**
+
+### v1.6 更新内容（CSS 架构完善）
+
+- **CSS 架构完善**：新增 `board.css`、`panels-ai-monitor.css`、`import-confirmation.css` 等样式文件，实现更细粒度的模块化
+- **样式加载优化**：调整样式文件加载顺序，确保层叠正确
+- **项目进度功能**：新增项目进度 Tab，支持从语雀同步月度进度数据
+- **AI 监控面板**：优化 AI 控制台，支持多模型配置和任务映射
+- **导入确认功能**：新增导入确认面板，提升数据导入体验
 
 ### v1.5 更新内容（CSS 架构重构）
 
