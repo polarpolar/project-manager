@@ -196,10 +196,17 @@ function loadFromLocalStorage() {
       try {
         projects = JSON.parse(raw);
         // 确保每个项目都有 monthlyProgress 字段
-        projects = projects.map(p => ({
-          monthlyProgress: [],
-          ...p
-        }));
+        // 数据迁移：旧字段 source → 新字段 customer
+        projects = projects.map(p => {
+          const migrated = { ...p };
+          if (!migrated.customer && migrated.source) {
+            migrated.customer = migrated.source;
+          }
+          return {
+            monthlyProgress: [],
+            ...migrated
+          };
+        });
         if (DEBUG) console.log('loadFromLocalStorage: 项目数据加载成功，数量：', projects.length);
         hasData = true;
       } catch (parseError) {
@@ -761,6 +768,7 @@ function updateCodePrefix(code, newStage, contractDate) {
 // 获取项目目录名（文件夹命名规则：{项目来源}{日期}-{项目名称}）
 function getProjectDirName(p) {
   const channel = p.channel || '';
+  const customer = p.customer || p.source || '';  // 兼容旧数据
   let dateStr = '';
 
   if (p.contractDate) {
@@ -778,7 +786,8 @@ function getProjectDirName(p) {
   }
 
   const name = (p.name || '未命名').replace(/[\\/:*?"<>|]/g, '_');
-  return channel + dateStr + '-' + name;
+  const customerPart = customer ? `-${customer}` : '';
+  return channel + dateStr + customerPart + '-' + name;
 }
 
 // 添加默认回款节点（验收后100%回款）

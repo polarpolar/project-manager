@@ -78,7 +78,8 @@ function renderTodosPanel() {
           daysLabel = yr+'年' + (mo>0?mo+'月':'') + (dy>0?dy+'天':'');
         }
       }
-      collectRows.push({ projectName: p.name, client: p.source||'—', startDate: t.date||'', amount: t.amount||'', owner: t.owner||'—', note: t.note||'', daysDiff, daysLabel, projectId: p.id });
+      const customerName = p.customer || p.source || '—';  // 兼容旧数据
+collectRows.push({ projectName: p.name, client: customerName, startDate: t.date||'', amount: t.amount||'', owner: t.owner||'—', note: t.note||'', daysDiff, daysLabel, projectId: p.id });
     });
   });
   collectRows.sort((a,b) => b.daysDiff - a.daysDiff);

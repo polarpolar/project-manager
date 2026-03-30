@@ -95,7 +95,7 @@ function renderLedger() {
         <td class="l-name"><div class="l-name-inner" title="${esc(p.name)}" onclick="editProject('${p.id}');closeLedger()">${esc(p.name)}</div></td>
         <td>${stageLabel}</td>
         <td style="color:#888;font-size:.7rem">${p.channel||'—'}</td>
-        <td style="color:#888;font-size:.7rem">${p.source||'—'}</td>
+        <td style="color:#888;font-size:.7rem">${p.customer || p.source ||'—'}</td>
         <td style="font-size:.73rem">${p.owner||'—'}</td>
         <td class="l-amt q">${p.quote?fmtWanShort(p.quote)+' 万':'<span class="l-empty">—</span>'}</td>
         <td class="l-amt c">${p.contract?fmtWanShort(p.contract)+' 万':'<span class="l-empty">—</span>'}</td>
@@ -147,7 +147,7 @@ async function ledgerAiSearch() {
   const summary = projects.map(p => ({
     id: p.id, name: p.name, stage: STAGE_LABEL[p.stage],
     hasPendingCollect: hasOpenCollect(p),
-    channel: p.channel||'', source: p.source||'', owner: p.owner||'',
+    channel: p.channel||'', customer: p.customer || p.source ||'', owner: p.owner||'',
     quote: parseFloat(p.quote)||0, contract: parseFloat(p.contract)||0,
     cost: parseFloat(p.cost)||0, paymentPct: p.paymentPct||0,
     pendingTodos: (p.todos||[]).filter(t=>!t.done).length

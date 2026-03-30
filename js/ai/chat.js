@@ -141,7 +141,7 @@ function _execTool(name, input) {
       projects: ps.map(p => ({
         id:         String(p.id),
         name:       p.name        || '',
-        source:     p.source      || '',
+        customer:   p.customer || p.source || '',  // 兼容旧数据
         owner:      p.owner       || '',
         stage:      p.stage,
         stage_label:STAGE_LABELS[p.stage] || '未知',
@@ -421,7 +421,7 @@ async function _runChat(userText) {
     total: ps.length,
     stages: [0,1,2,3].map(s => ({ stage: STAGE_LABELS[s], count: ps.filter(p=>p.stage===s).length })),
     owners: [...new Set(ps.map(p=>p.owner).filter(Boolean))].slice(0,10),
-    sources: [...new Set(ps.map(p=>p.source).filter(Boolean))].slice(0,10)
+    customers: [...new Set(ps.map(p=>p.customer || p.source).filter(Boolean))].slice(0,10)  // 兼容旧数据
   };
   const systemPrompt = `你是一个项目管理数据分析助手，擅长从数据中发现洞察。
 

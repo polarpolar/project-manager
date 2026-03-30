@@ -15,7 +15,7 @@ const STAGE_MAP_IMPORT = {
 
 const COL_MAP = {
   '项目名称':     'name',  '项目名称*': 'name',
-  '项目来源':     'channel','客户名称': 'source',
+  '项目来源':     'channel','客户名称': 'customer',
   '负责人':       'owner',
   '产品类型':     'product','产品选型': 'product',
   '项目简介':     'desc',  '项目阶段':  'stageLabel',
@@ -189,7 +189,7 @@ async function parseExcel(buf, filename) {
 
 // 判断项目数据是否有实质性的变化（排除空值和无关字段）
 function hasProjectChanged(existing, incoming) {
-  const importantFields = ['name', 'source', 'owner', 'product', 'desc', 'stage', 'quote', 'contract', 'cost', 'collected', 'channel', 'contractDate'];
+  const importantFields = ['name', 'customer', 'owner', 'product', 'desc', 'stage', 'quote', 'contract', 'cost', 'collected', 'channel', 'contractDate'];
 
   for (const field of importantFields) {
     const existingVal = existing[field];
@@ -266,7 +266,7 @@ function getLatestProgressTime(project) {
 function getProjectChanges(existing, incoming) {
   const fieldLabels = {
     'name': '项目名称',
-    'source': '客户名称',
+    'customer': '客户名称',
     'owner': '负责人',
     'product': '产品选型',
     'desc': '项目简介',
@@ -285,7 +285,7 @@ function getProjectChanges(existing, incoming) {
     2: '已完结'
   };
   
-  const importantFields = ['name', 'source', 'owner', 'product', 'desc', 'stage', 'quote', 'contract', 'cost', 'collected', 'channel', 'contractDate'];
+  const importantFields = ['name', 'customer', 'owner', 'product', 'desc', 'stage', 'quote', 'contract', 'cost', 'collected', 'channel', 'contractDate'];
   const changes = [];
   
   for (const field of importantFields) {
@@ -361,7 +361,7 @@ function _renderImportPreview(filename) {
   const existNames = new Set(projects.map(p => p.name).filter(Boolean));
 
   const stageNames  = ['洽谈中','已签单·执行中','已完结'];
-  const fieldLabels = { name:'项目名称', stage:'阶段', channel:'项目来源', source:'客户名称', owner:'负责人', product:'产品选型', desc:'项目简介', quote:'报价（万）', contract:'合同（万）', cost:'成本（万）', collected:'已回款（万）', projectCode:'项目编号', uniqueCode:'唯一代码', contractDate:'合同日期', deliveryBrief:'交付内容', deliveryNote:'交付详情', monthlyProgress:'项目进度', paymentNodes:'回款节点' };
+  const fieldLabels = { name:'项目名称', stage:'阶段', channel:'项目来源', customer:'客户名称', owner:'负责人', product:'产品选型', desc:'项目简介', quote:'报价（万）', contract:'合同（万）', cost:'成本（万）', collected:'已回款（万）', projectCode:'项目编号', uniqueCode:'唯一代码', contractDate:'合同日期', deliveryBrief:'交付内容', deliveryNote:'交付详情', monthlyProgress:'项目进度', paymentNodes:'回款节点' };
   const SKIP = new Set(['id','todos','collectTasks','logs','active']);
 
   const fieldStats = {};
@@ -917,7 +917,7 @@ async function parseTableWithClaude(table, docTitle) {
     if (h?.includes('项目编号') || h?.includes('编号')) break;
   }
 
-  const prompt = `以下是项目管理表格的列名：\n${JSON.stringify(headers)}\n\n样本数据：\n${JSON.stringify(sampleRows)}\n\n请将列名映射到字段（不匹配跳过）：\n\n基本信息：\n- name: 项目名称\n- source: 项目来源/客户\n- owner: 负责人/销售\n- product: 产品选型/方案\n- desc: 项目简介/描述\n- stageLabel: 项目阶段/状态\n- active: 项目状态（active或inactive）\n- projectCode: 项目编号\n- uniqueCode: 项目唯一代码/唯一代码\n- contractDate: 合同签署日期/合同时间/签单时间/签约日期（注意：不是对接时间、交付时间、开始时间等）\n\n财务信息：\n- quote: 报价金额（万元）\n- quote_yuan: 报价金额（元）\n- contract: 合同金额（万元）\n- contract_yuan: 合同金额（元）\n- cost: 成本评估（万元）\n- cost_yuan: 成本评估（元）\n- collected: 已回款（万元）\n\n只返回JSON对象，key是列名，value是字段名。`;
+  const prompt = `以下是项目管理表格的列名：\n${JSON.stringify(headers)}\n\n样本数据：\n${JSON.stringify(sampleRows)}\n\n请将列名映射到字段（不匹配跳过）：\n\n基本信息：\n- name: 项目名称\n- customer: 客户名称/客户\n- owner: 负责人/销售\n- product: 产品选型/方案\n- desc: 项目简介/描述\n- stageLabel: 项目阶段/状态\n- active: 项目状态（active或inactive）\n- projectCode: 项目编号\n- uniqueCode: 项目唯一代码/唯一代码\n- contractDate: 合同签署日期/合同时间/签单时间/签约日期（注意：不是对接时间、交付时间、开始时间等）\n\n财务信息：\n- quote: 报价金额（万元）\n- quote_yuan: 报价金额（元）\n- contract: 合同金额（万元）\n- contract_yuan: 合同金额（元）\n- cost: 成本评估（万元）\n- cost_yuan: 成本评估（元）\n- collected: 已回款（万元）\n\n只返回JSON对象，key是列名，value是字段名。`;
 
   let mapping = {};
   try {
@@ -1092,7 +1092,7 @@ function parseBodySheet(bodySheetStr, docTitle) {
     '项目编号': 'projectCode', '编号': 'projectCode',
     '唯一代码': 'uniqueCode', '项目唯一代码': 'uniqueCode', '代码': 'uniqueCode',
     '项目来源': 'channel', '来源': 'channel', '客户来源': 'channel',
-    '客户名称': 'source', '客户': 'source',
+    '客户名称': 'customer', '客户': 'customer',
     '负责人': 'owner', '销售': 'owner', '业务员': 'owner',
     '产品选型': 'product', '产品': 'product', '方案': 'product',
     '项目简介': 'desc', '简介': 'desc', '描述': 'desc', '备注': 'desc',
@@ -1160,7 +1160,7 @@ async function parseYuqueDocWithClaude(content, title) {
   const data = await claudeCall({
     task: '语雀文档解析',
     max_tokens: 4000,
-    messages: [{ role: 'user', content: `你是项目数据提取助手。从语雀文档内容中提取项目列表表格，返回 JSON 数组。\n字段：name, source, owner, product, desc, stage(洽谈中/已签单·执行中/已完结), quote(万元), contract(万元), cost(万元), collected(万元), monthlyProgress(项目进度，数组格式，每个元素包含month和content字段)。只返回JSON数组。\n\n文档：${title}\n\n${content.slice(0, 14000)}` }]
+    messages: [{ role: 'user', content: `你是项目数据提取助手。从语雀文档内容中提取项目列表表格，返回 JSON 数组。\n字段：name, customer(客户名称), owner, product, desc, stage(洽谈中/已签单·执行中/已完结), quote(万元), contract(万元), cost(万元), collected(万元), monthlyProgress(项目进度，数组格式，每个元素包含month和content字段)。只返回JSON数组。\n\n文档：${title}\n\n${content.slice(0, 14000)}` }]
   });
   if (data.error) throw new Error('AI 解析失败：' + data.error.message);
   const text = (data._parsed?.text || data.content?.filter(b => b.type === 'text').map(b => b.text).join('') || '').replace(/```json|```/g, '').trim();
@@ -1199,7 +1199,7 @@ function renderYuquePreview(docTitle) {
   const existNames = new Set(projects.map(p => p.name).filter(Boolean));
 
   const stageNames  = ['洽谈中','已签单·执行中','已完结'];
-  const fieldLabels = { name:'项目名称', stage:'阶段', channel:'项目来源', source:'客户名称', owner:'负责人', product:'产品选型', desc:'项目简介', quote:'报价（万）', contract:'合同（万）', cost:'成本（万）', collected:'已回款（万）', projectCode:'项目编号', uniqueCode:'唯一代码', contractDate:'合同日期', deliveryBrief:'交付内容', deliveryNote:'交付详情', monthlyProgress:'项目进度', paymentNodes:'回款节点' };
+  const fieldLabels = { name:'项目名称', stage:'阶段', channel:'项目来源', customer:'客户名称', owner:'负责人', product:'产品选型', desc:'项目简介', quote:'报价（万）', contract:'合同（万）', cost:'成本（万）', collected:'已回款（万）', projectCode:'项目编号', uniqueCode:'唯一代码', contractDate:'合同日期', deliveryBrief:'交付内容', deliveryNote:'交付详情', monthlyProgress:'项目进度', paymentNodes:'回款节点' };
   const SKIP = new Set(['id','todos','collectTasks','logs','active']);
 
   const fieldStats = {};

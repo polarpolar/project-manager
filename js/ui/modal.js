@@ -1006,7 +1006,7 @@ function editProject(id) {
       modalTitle: document.getElementById('modal-title'),
       fName: document.getElementById('f-name'),
       fChannel: document.getElementById('f-channel'),
-      fSource: document.getElementById('f-source'),
+      fCustomer: document.getElementById('f-customer'),
       fOwner: document.getElementById('f-owner'),
       fProduct: document.getElementById('f-product'),
       fDesc: document.getElementById('f-desc'),
@@ -1039,7 +1039,7 @@ function editProject(id) {
     if (elements.modalTitle) elements.modalTitle.textContent = p.name;
     if (elements.fName) elements.fName.value = p.name||'';
     if (elements.fChannel) elements.fChannel.value = p.channel||'';
-    if (elements.fSource) elements.fSource.value = p.source||'';
+    if (elements.fCustomer) elements.fCustomer.value = p.customer || p.source || '';  // 兼容旧数据
     if (elements.fOwner) elements.fOwner.value = p.owner||'';
     if (elements.fProduct) elements.fProduct.value = p.product||'';
     if (elements.fDesc) elements.fDesc.value = p.desc||'';
@@ -1371,7 +1371,7 @@ async function saveProject() {
   const data = {
     name, stage,
     channel:      document.getElementById('f-channel').value.trim(),
-    source:       document.getElementById('f-source').value.trim(),
+    customer:     document.getElementById('f-customer').value.trim(),
     owner:        document.getElementById('f-owner').value.trim(),
     product:      document.getElementById('f-product').value.trim(),
     desc:         document.getElementById('f-desc').value.trim(),
@@ -1470,7 +1470,7 @@ async function saveProject() {
     const name = document.getElementById('f-name').value.trim();
     const stage = parseInt(document.getElementById('f-stage').value);
     const channel = document.getElementById('f-channel').value.trim();
-    const source = document.getElementById('f-source').value.trim();
+    const customer = document.getElementById('f-customer').value.trim();
     const owner = document.getElementById('f-owner').value.trim();
     const product = document.getElementById('f-product').value.trim();
     const desc = document.getElementById('f-desc').value.trim();
@@ -1489,7 +1489,7 @@ async function saveProject() {
       name !== (originalProjectData.name || '') ||
       stage !== originalProjectData.stage ||
       channel !== (originalProjectData.channel || '') ||
-      source !== (originalProjectData.source || '') ||
+      customer !== (originalProjectData.customer || originalProjectData.source || '') ||
       owner !== (originalProjectData.owner || '') ||
       product !== (originalProjectData.product || '') ||
       desc !== (originalProjectData.desc || '') ||

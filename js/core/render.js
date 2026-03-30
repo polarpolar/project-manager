@@ -108,10 +108,11 @@ function cardHTML(p, colKey) {
 
   const sAttr = colKey === 'c' ? 'c' : STAGE_S_ATTR[p.stage];
 
-  const metaHtml = (p.channel || p.source || p.owner || p.product || (p.stage === STAGE.NEGOTIATING && p.洽谈状态)) ? `
+  const customer = p.customer || p.source;  // 兼容旧数据
+  const metaHtml = (p.channel || customer || p.owner || p.product || (p.stage === STAGE.NEGOTIATING && p.洽谈状态)) ? `
     <div class="card-meta">
       ${p.channel ? `<span class="card-tag">🌐 ${esc(p.channel)}</span>` : ''}
-      ${p.source  ? `<span class="card-tag">📌 ${esc(p.source)}</span>`  : ''}
+      ${customer  ? `<span class="card-tag">📌 ${esc(customer)}</span>`  : ''}
       ${p.owner   ? `<span class="card-tag">👤 ${esc(p.owner)}</span>`   : ''}
       ${p.product ? `<span class="card-tag">📦 ${esc(p.product)}</span>` : ''}
       ${p.stage === STAGE.NEGOTIATING && p.洽谈状态 ? `<span class="card-tag">💬 ${esc(p.洽谈状态)}</span>` : ''}
@@ -237,14 +238,15 @@ function cardHTML(p, colKey) {
   if (p.stage === STAGE.DELIVERING)  actionBtns += `<button class="btn-sm btn-done" onclick="moveStage('${p.id}',${STAGE.COMPLETED})">→ 已完结</button>`;
   actionBtns += `<button class="btn-sm btn-del" onclick="deleteProject('${p.id}')">✕</button>`;
 
-  // 提取项目来源标签（优先使用channel，其次使用source）
-  const sourceValue = p.channel || p.source;
+  // 提取项目来源标签（优先使用channel）
+  const sourceValue = p.channel;
   const sourceTag = sourceValue ? `<span class="card-tag source-tag">🌐 ${esc(sourceValue)}</span>` : '';
   
-  // 保留客户名称（source）的显示
-  const filteredMetaHtml = (p.source || p.owner || p.product || (p.stage === STAGE.NEGOTIATING && p.洽谈状态)) ? `
+  // 客户名称（customer，兼容旧数据source）
+  const filteredCustomer = p.customer || p.source;
+  const filteredMetaHtml = (filteredCustomer || p.owner || p.product || (p.stage === STAGE.NEGOTIATING && p.洽谈状态)) ? `
     <div class="card-meta">
-      ${p.source  ? `<span class="card-tag">📌 ${esc(p.source)}</span>`  : ''}
+      ${filteredCustomer  ? `<span class="card-tag">📌 ${esc(filteredCustomer)}</span>`  : ''}
       ${p.owner   ? `<span class="card-tag">👤 ${esc(p.owner)}</span>`   : ''}
       ${p.product ? `<span class="card-tag">📦 ${esc(p.product)}</span>` : ''}
       ${p.stage === STAGE.NEGOTIATING && p.洽谈状态 ? `<span class="card-tag">💬 ${esc(p.洽谈状态)}</span>` : ''}
