@@ -117,11 +117,16 @@ function cardHTML(p, colKey) {
       ${p.stage === STAGE.NEGOTIATING && p.洽谈状态 ? `<span class="card-tag">💬 ${esc(p.洽谈状态)}</span>` : ''}
     </div>` : '';
 
-  const amtHtml = (p.quote || p.contract || p.cost) && p.stage === STAGE.NEGOTIATING ? `
+  const _procCost = p.procurement?.totalCost || parseFloat(p.cost) || 0;
+  const _grossProfit = (parseFloat(p.contract) || 0) - _procCost;
+  const _grossPct = (parseFloat(p.contract) || 0) > 0
+    ? Math.round((_grossProfit / parseFloat(p.contract)) * 100) : null;
+  const amtHtml = (p.quote || p.contract || p.cost || _procCost) && p.stage === STAGE.NEGOTIATING ? `
     <div class="card-amounts">
-      ${p.quote    ? `<div class="amount-item"><div class="alabel">报价</div><div class="aval">¥${fmtWanShort(p.quote)}万</div></div>`             : ''}
-      ${p.contract ? `<div class="amount-item"><div class="alabel">合同</div><div class="aval contract">¥${fmtWanShort(p.contract)}万</div></div>` : ''}
-      ${p.cost     ? `<div class="amount-item"><div class="alabel">成本</div><div class="aval cost">¥${fmtWanShort(p.cost)}万</div></div>`         : ''}
+      ${p.quote      ? `<div class="amount-item"><div class="alabel">报价</div><div class="aval">¥${fmtWanShort(p.quote)}万</div></div>` : ''}
+      ${p.contract   ? `<div class="amount-item"><div class="alabel">合同</div><div class="aval contract">¥${fmtWanShort(p.contract)}万</div></div>` : ''}
+      ${_procCost    ? `<div class="amount-item"><div class="alabel">采购成本</div><div class="aval" style="color:var(--sc)">¥${fmtWanShort(_procCost)}万</div></div>` : ''}
+      ${_procCost && p.contract ? `<div class="amount-item"><div class="alabel">毛利率</div><div class="aval" style="color:${_grossPct >= 30 ? 'var(--s2)' : _grossPct >= 15 ? '#e65100' : '#e53935'}">${_grossPct}%</div></div>` : ''}
     </div>` : '';
 
   // 交付中/已完结：合同签单信息（签单日期 + 合同金额）
@@ -134,12 +139,18 @@ function cardHTML(p, colKey) {
     const collected = p.collected || (p.paymentNodes || []).reduce((sum, n) => sum + (parseFloat(n.actualAmount) || 0), 0);
     const pct = p.paymentPct || Math.round((collected / p.contract) * 100) || 0;
     
+    const _cProcCost    = p.procurement?.totalCost || parseFloat(p.cost) || 0;
+    const _cGrossProfit = parseFloat(p.contract) - _cProcCost;
+    const _cGrossPct    = _cProcCost > 0
+      ? Math.round((_cGrossProfit / parseFloat(p.contract)) * 100) : null;
     contractInfoHtml = `
       <div class="card-amounts mt-sm">
         <div class="amount-item"><div class="alabel">📅 签单</div><div class="aval">${contractDateStr}</div></div>
         <div class="amount-item"><div class="alabel">合同额</div><div class="aval contract">¥${fmtWanShort(p.contract)}万</div></div>
         ${isDelivering ? `<div class="amount-item"><div class="alabel">已回款</div><div class="aval" style="color:var(--sc)">¥${fmtWanShort(collected)}万</div></div>` : ''}
         ${isDelivering ? `<div class="amount-item"><div class="alabel">回款率</div><div class="aval" style="color:${pct >= 100 ? 'var(--sc)' : '#e65100'}">${pct}%</div></div>` : ''}
+        ${_cProcCost   ? `<div class="amount-item"><div class="alabel">采购成本</div><div class="aval" style="color:var(--sc)">¥${fmtWanShort(_cProcCost)}万</div></div>` : ''}
+        ${_cGrossPct !== null ? `<div class="amount-item"><div class="alabel">毛利率</div><div class="aval" style="color:${_cGrossPct >= 30 ? 'var(--s2)' : _cGrossPct >= 15 ? '#e65100' : '#e53935'}">${_cGrossPct}%</div></div>` : ''}
       </div>`;
   }
 

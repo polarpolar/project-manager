@@ -1,0 +1,477 @@
+/* ╔════════════════════════════════════════════════════════════╗
+   ║  AI Chat Panel - 智能数据分析对话面板                      ║
+   ╚════════════════════════════════════════════════════════════╝ */
+
+/* ── 悬浮触发按钮 ── */
+#ai-chat-trigger {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent) 0%, #4a0080 100%);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 20px rgba(123, 31, 162, 0.45);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+  z-index: 1200;
+  color: #fff;
+  font-size: 1.3rem;
+}
+
+#ai-chat-trigger:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 28px rgba(123, 31, 162, 0.6);
+}
+
+#ai-chat-trigger.panel-open {
+  transform: scale(0.9) rotate(45deg);
+  background: linear-gradient(135deg, #555 0%, #333 100%);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+}
+
+/* ── 主面板容器 ── */
+#ai-chat-panel {
+  position: fixed;
+  bottom: 90px;
+  right: 28px;
+  width: clamp(380px, 32vw, 560px);
+  height: clamp(500px, 75vh, 820px);
+  background: #1a0533;
+  border: 1px solid rgba(123, 31, 162, 0.35);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(26, 5, 51, 0.5), 0 0 0 1px rgba(206, 147, 216, 0.1);
+  z-index: 1199;
+  overflow: hidden;
+  transform: translateY(20px) scale(0.97);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.25s cubic-bezier(0.34, 1.2, 0.64, 1), opacity 0.2s ease;
+}
+
+#ai-chat-panel.open {
+  transform: translateY(0) scale(1);
+  opacity: 1;
+  pointer-events: all;
+}
+
+/* ── 面板头部 ── */
+.acp-header {
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid rgba(206, 147, 216, 0.12);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  background: rgba(255,255,255,0.03);
+}
+
+.acp-header-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent), #4a0080);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.acp-header-text {
+  flex: 1;
+}
+
+.acp-header-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #f0e6ff;
+  letter-spacing: 0.01em;
+}
+
+.acp-header-sub {
+  font-size: 0.6rem;
+  color: rgba(206, 147, 216, 0.6);
+  margin-top: 1px;
+}
+
+.acp-clear-btn {
+  background: none;
+  border: none;
+  color: rgba(206, 147, 216, 0.4);
+  cursor: pointer;
+  font-size: 0.65rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+
+.acp-clear-btn:hover {
+  color: rgba(206, 147, 216, 0.8);
+  background: rgba(255,255,255,0.05);
+}
+
+/* ── 快捷提示区 ── */
+.acp-suggestions {
+  padding: 10px 14px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid rgba(206, 147, 216, 0.08);
+  flex-shrink: 0;
+}
+
+.acp-suggestion-chip {
+  background: rgba(123, 31, 162, 0.18);
+  border: 1px solid rgba(123, 31, 162, 0.3);
+  border-radius: 20px;
+  padding: 4px 10px;
+  font-size: 0.6rem;
+  color: rgba(206, 147, 216, 0.85);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.acp-suggestion-chip:hover {
+  background: rgba(123, 31, 162, 0.32);
+  border-color: rgba(123, 31, 162, 0.5);
+  color: #f0e6ff;
+}
+
+/* ── 消息区域 ── */
+.acp-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  scroll-behavior: smooth;
+}
+
+.acp-messages::-webkit-scrollbar { width: 4px; }
+.acp-messages::-webkit-scrollbar-track { background: transparent; }
+.acp-messages::-webkit-scrollbar-thumb { background: rgba(206, 147, 216, 0.2); border-radius: 4px; }
+
+/* ── 消息气泡 ── */
+.acp-msg {
+  display: flex;
+  gap: 8px;
+  animation: msgIn 0.2s ease;
+}
+
+@keyframes msgIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.acp-msg.user {
+  flex-direction: row-reverse;
+}
+
+.acp-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  margin-top: 2px;
+}
+
+.acp-msg.ai .acp-avatar {
+  background: linear-gradient(135deg, var(--accent), #4a0080);
+}
+
+.acp-msg.user .acp-avatar {
+  background: rgba(206, 147, 216, 0.2);
+  color: rgba(206, 147, 216, 0.8);
+}
+
+.acp-bubble {
+  max-width: 82%;
+  padding: 9px 12px;
+  border-radius: 12px;
+  font-size: 0.72rem;
+  line-height: 1.55;
+}
+
+.acp-msg.ai .acp-bubble {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(206, 147, 216, 0.12);
+  color: #e8d8f8;
+  border-radius: 4px 12px 12px 12px;
+}
+
+.acp-msg.user .acp-bubble {
+  background: rgba(123, 31, 162, 0.3);
+  border: 1px solid rgba(123, 31, 162, 0.4);
+  color: #f0e6ff;
+  border-radius: 12px 4px 12px 12px;
+}
+
+/* ── 工具调用状态提示 ── */
+.acp-tool-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(123, 31, 162, 0.12);
+  border: 1px solid rgba(123, 31, 162, 0.2);
+  border-radius: 8px;
+  font-size: 0.62rem;
+  color: rgba(206, 147, 216, 0.7);
+  max-width: 85%;
+  animation: msgIn 0.2s ease;
+}
+
+.acp-tool-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent2);
+  animation: pulse 1.2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+/* ── 图表容器 ── */
+.acp-chart-wrap {
+  margin-top: 10px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(206, 147, 216, 0.12);
+  border-radius: 10px;
+  padding: 12px;
+  overflow: hidden;
+}
+
+.acp-chart-title {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: rgba(206, 147, 216, 0.7);
+  margin-bottom: 10px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.acp-chart-canvas-wrap {
+  position: relative;
+  width: 100%;
+}
+
+/* ── 表格 ── */
+.acp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.65rem;
+  margin-top: 8px;
+}
+
+.acp-table th {
+  text-align: left;
+  padding: 5px 8px;
+  color: rgba(206, 147, 216, 0.6);
+  font-weight: 600;
+  border-bottom: 1px solid rgba(206, 147, 216, 0.12);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.acp-table td {
+  padding: 6px 8px;
+  color: #e8d8f8;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.acp-table tr:last-child td { border-bottom: none; }
+
+.acp-table tr:hover td {
+  background: rgba(255,255,255,0.03);
+}
+
+/* ── 项目列表结果 ── */
+.acp-project-list {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.acp-project-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 9px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 7px;
+  border: 1px solid rgba(255,255,255,0.06);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.acp-project-item:hover {
+  background: rgba(123, 31, 162, 0.2);
+}
+
+.acp-project-stage-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.acp-project-name {
+  font-size: 0.68rem;
+  color: #f0e6ff;
+  font-weight: 600;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.acp-project-meta {
+  font-size: 0.58rem;
+  color: rgba(206, 147, 216, 0.5);
+  white-space: nowrap;
+}
+
+/* ── 思考中动画 ── */
+.acp-thinking {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 4px 0;
+}
+
+.acp-thinking span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(206, 147, 216, 0.5);
+  animation: thinking 1.2s infinite;
+}
+
+.acp-thinking span:nth-child(2) { animation-delay: 0.2s; }
+.acp-thinking span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes thinking {
+  0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1.1); }
+}
+
+/* ── 错误提示 ── */
+.acp-error {
+  font-size: 0.68rem;
+  color: #ef5350;
+  padding: 6px 10px;
+  background: rgba(239, 83, 80, 0.08);
+  border-radius: 8px;
+  border: 1px solid rgba(239, 83, 80, 0.2);
+}
+
+/* ── 输入区 ── */
+.acp-input-area {
+  padding: 12px 14px 14px;
+  border-top: 1px solid rgba(206, 147, 216, 0.1);
+  flex-shrink: 0;
+  background: rgba(0,0,0,0.15);
+}
+
+.acp-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.acp-textarea {
+  flex: 1;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(206, 147, 216, 0.2);
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-size: 0.72rem;
+  color: #f0e6ff;
+  resize: none;
+  min-height: 38px;
+  max-height: 100px;
+  font-family: inherit;
+  outline: none;
+  line-height: 1.45;
+  transition: border-color 0.15s;
+}
+
+.acp-textarea::placeholder { color: rgba(206, 147, 216, 0.3); }
+
+.acp-textarea:focus {
+  border-color: rgba(123, 31, 162, 0.55);
+  background: rgba(255,255,255,0.08);
+}
+
+.acp-send-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--accent), #4a0080);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+  transition: transform 0.15s, opacity 0.15s;
+  box-shadow: 0 2px 10px rgba(123, 31, 162, 0.4);
+}
+
+.acp-send-btn:hover { transform: scale(1.05); }
+.acp-send-btn:active { transform: scale(0.95); }
+.acp-send-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+/* ── 空状态 ── */
+.acp-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: rgba(206, 147, 216, 0.35);
+  text-align: center;
+  padding: 20px;
+}
+
+.acp-empty-icon {
+  font-size: 2.2rem;
+  opacity: 0.5;
+}
+
+.acp-empty-text {
+  font-size: 0.72rem;
+  line-height: 1.55;
+}
+
+/* ── 响应式 ── */
+@media (max-width: 600px) {
+  #ai-chat-panel {
+    right: 8px;
+    left: 8px;
+    width: auto;
+    bottom: 80px;
+    height: calc(100dvh - 110px);
+  }
+}

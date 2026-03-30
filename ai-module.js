@@ -206,12 +206,12 @@ async function sendProviderChatTest() {
     const reply = result._parsed?.text || '';
     thinkBubble.textContent = reply || '（空响应）';
     // 添加 AI 回复到历史
-    window.chatTestHistory[modelId].push({ role: 'assistant', content: reply || '（空响应）' });
+    window.chatTestHistory[modelId].push({ role: 'assistant', content: reply || '（空响应）'});
   } catch(e) {
     thinkBubble.style.color = '#e57373';
     thinkBubble.textContent = '❌ ' + e.message;
     // 添加错误信息到历史
-    window.chatTestHistory[modelId].push({ role: 'assistant', content: '❌ ' + e.message });
+    window.chatTestHistory[modelId].push({ role: 'assistant', content: '❌ ' + e.message});
   } finally {
     history.scrollTop = history.scrollHeight;
   }
@@ -356,7 +356,7 @@ let aiLogs = [];
 try { aiLogs = JSON.parse(localStorage.getItem(window.STORAGE_KEY.AI_LOGS) || '[]'); } catch(e) { aiLogs = []; }
 
 // 对话测试历史（按模型配置ID存储）
-let chatTestHistory = {};
+window.chatTestHistory = {};
 
 // claudeCall：优先用任务槽位系统，兜底用旧配置
 async function claudeCall({ task, model, max_tokens, messages }) {

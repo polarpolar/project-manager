@@ -2,19 +2,19 @@
 // ║  MODULE: modal-form（Modal 表单控制器）    ║
 // ╚══════════════════════════════════════════╝
 
-// Tab 节点缓存，只查找一次
-let _tabNodes = null;
+// Tab 节点：每次都重新查找，不缓存（避免DOM重排后引用失效）
 function getTabNodes() {
-  if (_tabNodes) return _tabNodes;
-  _tabNodes = {
-    basic:    document.querySelector('.m-tab[onclick="switchModalTab(\'basic\',this)"]'),
-    payment:  document.querySelector('.m-tab[onclick="switchModalTab(\'payment\',this)"]'),
-    delivery: document.querySelector('.m-tab[onclick="switchModalTab(\'delivery\',this)"]'),
-    progress: document.querySelector('.m-tab[onclick="switchModalTab(\'progress\',this)"]'),
-    files:    document.querySelector('.m-tab[onclick="switchModalTab(\'files\',this)"]'),
-    log:      document.querySelector('.m-tab[onclick="switchModalTab(\'log\',this)"]'),
+  // 注意：用 document.getElementById 查 cost，避免 querySelector 对单引号转义问题
+  const nodes = {
+    basic:    document.querySelector('.m-tab[onclick*="basic"]'),
+    payment:  document.querySelector('.m-tab[onclick*="payment"]'),
+    delivery: document.querySelector('.m-tab[onclick*="delivery"]'),
+    progress: document.querySelector('.m-tab[onclick*="progress"]'),
+    files:    document.querySelector('.m-tab[onclick*="files"]'),
+    cost:     document.getElementById('tab-cost'),
+    log:      document.querySelector('.m-tab[onclick*="log"]'),
   };
-  return _tabNodes;
+  return nodes;
 }
 
 // ═══════════════════════════════════════════════════
@@ -94,7 +94,7 @@ function onStageChange() {
   
   // 显示/隐藏回款管理、交付情况tab页（洽谈中和已终止项目显示交付情况，不显示回款管理）
   const { basic: basicTab, payment: paymentTab, delivery: deliveryTab, 
-          progress: progressTab, files: filesTab, log: logTab } = getTabNodes();
+          progress: progressTab, files: filesTab, cost: costTab, log: logTab } = getTabNodes();
   
   if (paymentTab) {
     paymentTab.style.display = (stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) ? 'flex' : 'none';
@@ -129,25 +129,31 @@ function onStageChange() {
       // 移除所有Tab
       const tabsToAdd = [];
       if (stage === STAGE.NEGOTIATING) {
-        // 洽谈中：基本信息 / 交付情况 / 项目进度 / 本地文件 / 更新日志
-        tabsToAdd.push(basicTab, deliveryTab, progressTab, filesTab, logTab);
+        // 洽谈中：基本信息 / 交付情况 / 项目进度 / 本地文件 / 成本分析 / 更新日志
+        tabsToAdd.push(basicTab, deliveryTab, progressTab, filesTab);
+        if (costTab) tabsToAdd.push(costTab);
+        tabsToAdd.push(logTab);
       } else if (stage === STAGE.DELIVERING || stage === STAGE.COMPLETED) {
-        // 执行中/已完结：基本信息 / 回款管理 / 交付情况 / 项目进度 / 本地文件 / 更新日志
+        // 执行中/已完结：基本信息 / 回款管理 / 交付情况 / 项目进度 / 本地文件 / 成本分析 / 更新日志
         if (paymentTab) {
-          tabsToAdd.push(basicTab, paymentTab, deliveryTab, progressTab, filesTab, logTab);
+          tabsToAdd.push(basicTab, paymentTab, deliveryTab, progressTab, filesTab);
+          if (costTab) tabsToAdd.push(costTab);
+          tabsToAdd.push(logTab);
         }
       } else {
-        // 已终止：基本信息 / 交付情况 / 项目进度 / 本地文件 / 更新日志
+        // 已终止：基本信息 / 交付情况 / 项目进度 / 本地文件 / 更新日志（无成本分析）
         tabsToAdd.push(basicTab, deliveryTab, progressTab, filesTab, logTab);
       }
+
       
       // 清空现有Tab（使用removeChild保留节点引用）
       while (modalTabs.firstChild) {
         modalTabs.removeChild(modalTabs.firstChild);
       }
       
-      // 添加Tab并重新激活
+      // 添加Tab并重新激活（同时清除 display:none，防止初始隐藏状态残留）
       tabsToAdd.forEach(tab => {
+        tab.style.display = '';
         modalTabs.appendChild(tab);
       });
       
@@ -267,6 +273,11 @@ function switchModalTab(tab, el) {
     const p = projects.find(x => x.id === currentEditProjectId);
     if (p) {
       renderMonthlyProgress(p);
+    }
+  } else if (tab === 'cost' && currentEditProjectId) {
+    // 切换到成本分析标签页时渲染内容
+    if (typeof window.renderCostAnalysisTab === 'function') {
+      window.renderCostAnalysisTab(currentEditProjectId);
     }
   }
 }
@@ -958,8 +969,12 @@ function openModal() {
   document.getElementById('dt-ai-hint2').textContent = '';
   setDtags({});
   addTodoRow();
-  document.querySelectorAll('.m-tab').forEach((t,i)=>t.classList.toggle('active',i===0));
-  document.querySelectorAll('.m-tab-body').forEach((b,i)=>b.classList.toggle('active',i===0));
+  document.querySelectorAll('.m-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.m-tab-body').forEach(b => b.classList.remove('active'));
+  const _oFirstTab = document.querySelector('.m-tab[onclick*="basic"]');
+  const _oFirstBody = document.getElementById('mtab-basic');
+  if (_oFirstTab)  _oFirstTab.classList.add('active');
+  if (_oFirstBody) _oFirstBody.classList.add('active');
   // 新建：清空编号相关字段
   const _codeEl = document.getElementById('f-code-display');
   if (_codeEl) _codeEl.value = '';
@@ -1233,10 +1248,17 @@ function editProject(id) {
     
     // 14. 渲染日志历史
     renderLogHistory(p.logs||[]);
+
+    // 14b. 基本信息Tab的采购成本只读区块更新
+    updateProcurementSummary(p);
     
-    // 15. 切换到第一个标签页
-    document.querySelectorAll('.m-tab').forEach((t,i)=>t.classList.toggle('active',i===0));
-    document.querySelectorAll('.m-tab-body').forEach((b,i)=>b.classList.toggle('active',i===0));
+    // 15. 切换到基本信息标签页（用 id 方式，避免索引错位问题）
+    document.querySelectorAll('.m-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.m-tab-body').forEach(b => b.classList.remove('active'));
+    const _firstTab = document.querySelector('.m-tab[onclick*="basic"]');
+    const _firstBody = document.getElementById('mtab-basic');
+    if (_firstTab)  _firstTab.classList.add('active');
+    if (_firstBody) _firstBody.classList.add('active');
     
     // 16. 显示模态框
     if (elements.overlay) {
@@ -1357,6 +1379,8 @@ async function saveProject() {
     quote:        document.getElementById('f-quote').value,
     contract:     document.getElementById('f-contract').value,
     cost:         document.getElementById('f-cost').value,
+    // procurement 字段不从表单读取，由成本分析模块直接写入 projects 数组
+    // 这里只做保留（merge 时不覆盖）
     collected:    document.getElementById('f-collected').value,
     deliveryNote: document.getElementById('f-delivery-note').value.trim(),
     deliveryBrief: deliveryBrief,
@@ -1400,6 +1424,8 @@ async function saveProject() {
     }
     data.projectCode  = projectCode;
     data.contractDate = contractDate;
+    // 保留 procurement（成本分析结果），不被表单数据覆盖
+    if (old.procurement) data.procurement = old.procurement;
     projects[idx] = {...old, ...data};
     // 标记项目为已修改
     markProjectModified(editingId);
@@ -1581,6 +1607,39 @@ async function saveProject() {
 }
 
 
+// ── 基本信息Tab：更新采购成本只读显示 ───────────────────────────
+function updateProcurementSummary(p) {
+  const summary  = document.getElementById('f-procurement-summary');
+  const srcLabel = document.getElementById('f-procurement-source');
+  const costEl   = document.getElementById('f-cost-readonly');
+  const gpEl     = document.getElementById('f-gross-profit-display');
+  const pctEl    = document.getElementById('f-gross-pct-display');
+  if (!summary) return;
+
+  const proc = p?.procurement;
+  if (!proc || !proc.totalCost) {
+    summary.style.display = 'none';
+    return;
+  }
+
+  summary.style.display = '';
+  if (srcLabel) srcLabel.textContent = `📄 ${proc.sourceFile || '已识别'} → 点击查看详情`;
+
+  const totalCost   = parseFloat(proc.totalCost) || 0;
+  const contract    = parseFloat(p.contract) || 0;
+  const grossProfit = contract - totalCost;
+  const grossPct    = contract > 0 ? Math.round((grossProfit / contract) * 100) : null;
+
+  if (costEl) costEl.value = totalCost.toFixed(2) + ' 万';
+  if (gpEl)   gpEl.value   = contract > 0 ? grossProfit.toFixed(2) + ' 万' : '—';
+  if (pctEl)  pctEl.value  = grossPct !== null ? grossPct + '%' : '—';
+
+  // 毛利率颜色
+  const color = grossPct === null ? '#888' : grossPct >= 30 ? 'var(--s2)' : grossPct >= 15 ? '#e65100' : '#e53935';
+  if (gpEl)  gpEl.style.color  = color;
+  if (pctEl) pctEl.style.color = color;
+}
+
 // ══════════════════════════════════════════
 export {
   // Modal 开关
@@ -1628,6 +1687,8 @@ export {
   getTodos,
   // 日志
   renderLogHistory,
+  // 成本分析
+  updateProcurementSummary,
   clearProjectLogs,
   _appendPendingLog
 };

@@ -57,7 +57,15 @@ async function loadModules() {
     // 加载文件识别分析模块
     const fileAnalysisModule = await import('./file-analysis.js?v=2');
     Object.assign(window, fileAnalysisModule);
-    
+
+    // 加载 AI 数据分析对话模块
+    const aiChatModule = await import('./ai-chat.js');
+    Object.assign(window, aiChatModule);
+
+    // 加载成本分析模块
+    const costModule = await import('./cost-analysis.js');
+    Object.assign(window, costModule);
+
     console.log('模块加载成功');
     return true;
   } catch (error) {
@@ -85,6 +93,11 @@ async function initApp() {
       loadParseMode();
       document.getElementById('importOverlay').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeImport(); });
       document.getElementById('overlay').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeModal(); });
+
+      // 初始化 AI 数据分析对话面板
+      if (typeof initAiChat === 'function') initAiChat();
+
+
 
       // 尝试恢复根目录
       const saved = await loadRootHandle();

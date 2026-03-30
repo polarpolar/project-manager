@@ -991,7 +991,7 @@ async function identifyProgressColumns(headers) {
   if (!headers || !headers.length) return {};
 
   const currentYear = new Date().getFullYear();
-  const prompt = `以下是一个项目管理表格的列名列表：\n${JSON.stringify(headers)}\n\n请识别其中属于"项目进度/项目动态/本月进展"类型的列，并将其对应的月份标准化为"YYYY年M月"格式。\n规则：\n- 如果列名中有完整年月（如"2026年3月"、"2025.6"、"25年3月"），直接提取\n- 如果列名中只有月份没有年份（如"3月进展"、"三月进度"），用当前年份 ${currentYear} 补全\n- 如果无法判断是进度列，返回 null\n- 只返回 JSON 对象，key 是原始列名，value 是标准化月份字符串或 null\n\n示例输出：\n{\n  "本月进展（2026年3月）": "2026年3月",\n  "本月进展（2025年6月）": "2025年6月",\n  "3月进度": "${currentYear}年3月",\n  "2025.2进展": "2025年2月",\n  "负责人": null,\n  "项目名称": null\n}`;
+  const prompt = `以下是一个项目管理表格的列名列表：\n${JSON.stringify(headers)}\n\n请识别其中属于"项目进度/项目动态/本月进展"类型的列，并将其对应的月份标准化为"YYYY年M月"格式。\n规则：\n- 如果列名中有完整年月（如"2026年3月"、"2025.6"、"25年3月"），直接提取\n- 如果列名中只有月份没有年份（如"3月进展"、"三月进度"），用当前年份 ${currentYear} 补全\n- 如果列名中只有年份（如"2025年及以前"、"2024年以前"），将其视为该年份的12月\n- 如果无法判断是进度列，返回 null\n- 只返回 JSON 对象，key 是原始列名，value 是标准化月份字符串或 null\n\n示例输出：\n{\n  "本月进展（2026年3月）": "2026年3月",\n  "本月进展（2025年6月）": "2025年6月",\n  "3月进度": "${currentYear}年3月",\n  "2025.2进展": "2025年2月",\n  "2025年及以前": "2025年12月",\n  "2024年以前": "2024年12月",\n  "负责人": null,\n  "项目名称": null\n}`;
 
   try {
     const data = await claudeCall({ task: '进度列识别', max_tokens: 1000, messages: [{ role: 'user', content: prompt }] });
@@ -1014,11 +1014,13 @@ async function identifyProgressColumns(headers) {
   // 回退：手动识别包含月份的列
   const result = {};
   const monthPatterns = /(20\d{2}|\d{2})[年\.]?\s*(\d{1,2})[月\.]?|(\d{1,2})[月\.]?/;
+  const yearOnlyPatterns = /(20\d{2}|\d{2})年[\s\S]*?(及以前|以前|之前)/;
   headers.forEach(h => {
     if (!h) {
       result[h] = null;
       return;
     }
+    // 先尝试匹配带月份的模式
     const match = h.match(monthPatterns);
     if (match) {
       let year, month;
@@ -1029,9 +1031,23 @@ async function identifyProgressColumns(headers) {
         year = currentYear;
         month = match[3];
       }
-      result[h] = `${year}年${parseInt(month)}月`;
+      // 确保月份在1-12之间
+      const monthNum = parseInt(month);
+      if (monthNum >= 1 && monthNum <= 12) {
+        result[h] = `${year}年${monthNum}月`;
+      } else {
+        result[h] = null;
+      }
     } else {
-      result[h] = null;
+      // 再尝试匹配只有年份的模式，如"2025年及以前"
+      const yearMatch = h.match(yearOnlyPatterns);
+      if (yearMatch) {
+        const year = yearMatch[1].length === 2 ? `20${yearMatch[1]}` : yearMatch[1];
+        // 将"2025年及以前"视为2025年12月
+        result[h] = `${year}年12月`;
+      } else {
+        result[h] = null;
+      }
     }
   });
   return result;
@@ -1276,6 +1292,9 @@ async function confirmYuqueImport() {
   // 记录项目的最新进度时间
   const projectLatestProgress = new Map();
 
+  const ts = new Date();
+  const currentTime = `${ts.getFullYear()}-${String(ts.getMonth()+1).padStart(2,'0')}-${String(ts.getDate()).padStart(2,'0')} ${String(ts.getHours()).padStart(2,'0')}:${String(ts.getMinutes()).padStart(2,'0')}`;
+
   yuquePendingImport.forEach(p => {
     let idx = -1;
 
@@ -1353,9 +1372,14 @@ async function confirmYuqueImport() {
             }
           }
         }
-          projects[currentIdx] = { ...projects[currentIdx], ...p, id: projects[currentIdx].id };
+          // 更新项目并设置 updatedAt 字段
+          projects[currentIdx] = { ...projects[currentIdx], ...p, id: projects[currentIdx].id, updatedAt: currentTime };
           importedNames.push({ name: p.name, projectCode: projects[currentIdx].projectCode });
           updatedProjectIds.add(projects[currentIdx].id); // 记录更新的项目ID
+          // 标记项目为已修改，确保数据被保存
+          if (window.markProjectModified) {
+            window.markProjectModified(projects[currentIdx].id);
+          }
           updated++;
         }
       }
@@ -1453,9 +1477,16 @@ async function confirmYuqueImport() {
         addDefaultPaymentNode(p);
       }
       
+      // 为新项目设置 updatedAt 字段
+      p.updatedAt = currentTime;
+      
       projects.push(p);
       newYuqueProjectIds.add(p.id); // 记录新增项目id
       importedNames.push({ name: p.name, projectCode: p.projectCode, id: p.id });
+      // 标记项目为已修改，确保数据被保存
+      if (window.markProjectModified) {
+        window.markProjectModified(p.id);
+      }
       added++;
     }
   });
@@ -1677,6 +1708,16 @@ function showImportConfirmation(added, updated, progressUpdated, addedProjects, 
         <div class="import-project-items">
           ${inactiveProjects.map((p, index) => {
             const latestProgress = projectLatestProgress.get(p.id) || getLatestProgressTime(p);
+            let reason = '';
+            if (latestProgress) {
+              // 计算月份差异
+              const [latestYear, latestMonth] = latestProgress.match(/(\d{4})年(\d+)月/).slice(1).map(Number);
+              const now = new Date();
+              const monthDiff = (now.getFullYear() - latestYear) * 12 + (now.getMonth() + 1 - latestMonth);
+              reason = `（最新进度：${latestProgress}，超过1个月）`;
+            } else {
+              reason = '（无最新进展）';
+            }
             return `
             <div class="import-project-item">
               <div class="import-project-header">
@@ -1684,7 +1725,37 @@ function showImportConfirmation(added, updated, progressUpdated, addedProjects, 
                 ${p.channel ? `<span class="import-project-channel">🌐 ${p.channel}</span>` : ''}
                 <span class="import-project-name">${p.name}</span>
                 ${p.projectCode ? `<span class="import-project-code">${p.projectCode}</span>` : ''}
-                ${latestProgress ? `<span class="import-project-progress">（最新进度：${latestProgress}）</span>` : ''}
+                <span class="import-project-progress">${reason}</span>
+              </div>
+            </div>
+          `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  }
+  
+  if (activeChanges && (activeChanges.activeAdded > 0)) {
+    html += `
+      <div class="import-project-section">
+        <div class="import-section-title">转为活跃 (${activeChanges.activeAdded})</div>
+        <div class="import-project-items">
+          ${activeProjects.map((p, index) => {
+            const latestProgress = projectLatestProgress.get(p.id) || getLatestProgressTime(p);
+            let reason = '';
+            if (latestProgress) {
+              reason = `（最新进度：${latestProgress}，未超过1个月）`;
+            } else {
+              reason = '（新增项目或无最新进展）';
+            }
+            return `
+            <div class="import-project-item">
+              <div class="import-project-header">
+                <span class="import-project-tag active">${index + 1}</span>
+                ${p.channel ? `<span class="import-project-channel">🌐 ${p.channel}</span>` : ''}
+                <span class="import-project-name">${p.name}</span>
+                ${p.projectCode ? `<span class="import-project-code">${p.projectCode}</span>` : ''}
+                <span class="import-project-progress">${reason}</span>
               </div>
             </div>
           `;
