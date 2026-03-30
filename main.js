@@ -15,55 +15,55 @@ window.fsCurrentProjectId = null; // 当前文件操作的项目ID
 async function loadModules() {
   try {
     // 加载数据库模块
-    const { default: dbModule } = await import('./db.js');
+    const { default: dbModule } = await import('./js/core/db.js');
     window.db = dbModule;
     
     // 加载项目管理模块
-    const projectModule = await import('./project-module.js');
+    const projectModule = await import('./js/core/project.js');
     Object.assign(window, projectModule);
     
     // 加载渲染模块
-    const renderModule = await import('./render-module.js?v=2');
+    const renderModule = await import('./js/core/render.js?v=2');
     Object.assign(window, renderModule);
     
     // 加载AI模块
-    const aiModule = await import('./ai-module.js');
+    const aiModule = await import('./js/ai/engine.js');
     Object.assign(window, aiModule);
     
     // 加载文件系统模块
-    const fsModule = await import('./file-system-module.js');
+    const fsModule = await import('./js/file/system.js');
     Object.assign(window, fsModule);
 
     // 加载待办分析面板模块
-    const todosModule = await import('./todos-panel.js');
+    const todosModule = await import('./js/features/todos.js');
     Object.assign(window, todosModule);
 
     // 加载台账模块
-    const ledgerModule = await import('./ledger.js');
+    const ledgerModule = await import('./js/features/ledger.js');
     Object.assign(window, ledgerModule); 
 
     // 加载 AI 界面控制模块
-    const aiUiModule = await import('./ai-ui.js');
+    const aiUiModule = await import('./js/ai/ui.js');
     Object.assign(window, aiUiModule);
 
     // 加载导入模块
-    const importModule = await import('./import-module.js');
+    const importModule = await import('./js/features/import.js');
     Object.assign(window, importModule);
 
     // 加载 Modal 表单模块
-    const modalModule = await import('./modal-form.js');
+    const modalModule = await import('./js/ui/modal.js');
     Object.assign(window, modalModule);
 
     // 加载文件识别分析模块
-    const fileAnalysisModule = await import('./file-analysis.js?v=2');
+    const fileAnalysisModule = await import('./js/file/analysis.js?v=2');
     Object.assign(window, fileAnalysisModule);
 
     // 加载 AI 数据分析对话模块
-    const aiChatModule = await import('./ai-chat.js');
+    const aiChatModule = await import('./js/ai/chat.js');
     Object.assign(window, aiChatModule);
 
     // 加载成本分析模块
-    const costModule = await import('./cost-analysis.js');
+    const costModule = await import('./js/features/cost.js');
     Object.assign(window, costModule);
 
     console.log('模块加载成功');
