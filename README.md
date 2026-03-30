@@ -207,7 +207,7 @@
 
 ## 代码结构
 
-项目采用模块化设计，将功能拆分为多个独立的 JavaScript 模块，通过动态导入实现代码拆分和懒加载：
+项目采用模块化设计，将功能拆分为多个独立的 JavaScript 模块，通过动态导入实现代码拆分和懒加载。代码结构已重新组织为更清晰的目录结构：
 
 ```
 project-manager/
@@ -223,50 +223,65 @@ project-manager/
 │   ├── sidebar.css              # 左侧导航栏样式
 │   ├── file-panel.css           # 文件面板样式
 │   ├── ai-analysis.css          # AI 识别结果展示样式
+│   ├── ai-chat.css              # AI 对话界面样式
 │   ├── panels.css               # 侧边栏面板样式（待办、台账、导入、监控）
 │   ├── panels-ai-monitor.css    # AI 监控面板样式
 │   └── import-confirmation.css  # 导入确认面板样式
 │
-├── project-module.js     # 项目管理核心模块（常量、数据管理、回收站）
-├── render-module.js      # 渲染模块（看板视图、卡片、统计）
-│
-├── ai-module.js          # AI 服务核心模块（多服务商支持、API调用、缓存）
-├── ai-ui.js              # AI 界面控制模块（监控面板、沙盒调试台）
-│
-├── todos-panel.js        # 待办分析面板模块（分类、多维度展示）
-├── ledger.js             # 台账模块（表格、筛选、AI搜索）
-├── import-module.js      # 数据导入模块（Excel/语雀导入、表格解析）
-│
-├── file-system-module.js # 文件系统模块（本地文件夹、上传、预览）
-├── file-analysis.js      # 文件识别分析模块（合同/技术协议识别）
-├── modal-form.js         # Modal 表单控制模块（项目编辑表单）
-└── db.js                 # IndexedDB 数据库模块（持久化存储）
+├── js/                  # JavaScript 代码目录（按功能分类）
+│   ├── core/            # 核心功能模块
+│   │   ├── db.js        # IndexedDB 数据库模块（持久化存储）
+│   │   ├── project.js   # 项目管理核心模块（常量、数据管理、回收站）
+│   │   └── render.js    # 渲染模块（看板视图、卡片、统计）
+│   │
+│   ├── ai/              # AI 相关模块
+│   │   ├── chat.js      # AI 数据分析对话模块
+│   │   ├── engine.js    # AI 服务核心模块（多服务商支持、API调用、缓存）
+│   │   └── ui.js        # AI 界面控制模块（监控面板、沙盒调试台）
+│   │
+│   ├── features/        # 功能模块
+│   │   ├── cost.js      # 成本分析模块
+│   │   ├── import.js    # 数据导入模块（Excel/语雀导入、表格解析）
+│   │   ├── ledger.js    # 台账模块（表格、筛选、AI搜索）
+│   │   └── todos.js     # 待办分析面板模块（分类、多维度展示）
+│   │
+│   ├── file/            # 文件相关模块
+│   │   ├── analysis.js  # 文件识别分析模块（合同/技术协议识别）
+│   │   └── system.js    # 文件系统模块（本地文件夹、上传、预览）
+│   │
+│   └── ui/              # UI 相关模块
+│       ├── debug.js     # 调试模块
+│       └── modal.js     # Modal 表单控制模块（项目编辑表单）
 ```
 
 ### 模块依赖关系
 
 - **main.js**：依赖所有模块，负责初始化和协调
-- **file-system-module.js**：独立模块，提供文件系统操作
-- **file-analysis.js**：依赖 file-system-module.js，提供文件识别和分析功能
-- **ai-module.js**：独立模块，提供 AI 服务功能
-- **其他模块**：根据功能需要相互依赖
+- **js/core/**：核心功能模块，其他模块的基础
+- **js/ai/**：AI 相关功能，提供智能识别和对话能力
+- **js/features/**：具体业务功能模块
+- **js/file/**：文件系统操作和分析功能
+- **js/ui/**：用户界面相关模块
 
 ### 模块说明
 
 | 模块 | 职责 | 导出内容 |
 |------|------|----------|
 | `main.js` | 应用入口 | 初始化全局变量， orchestrate 模块加载 |
-| `project-module.js` | 项目管理 | `STAGE`, `STORAGE_KEY`, `save`, `exportData`, `moveToRecycleBin` 等 |
-| `render-module.js` | 视图渲染 | `render`, `cardHTML`, `updateStats`, `refreshView` |
-| `ai-module.js` | AI 服务 | `claudeCall`, `AI_PROVIDERS`, `classifyFileNames`, `getAiConfig` |
-| `ai-ui.js` | AI 界面 | `openMonitor`, `openSandbox`, `sendTestChat`, `initDragAndDrop` |
-| `todos-panel.js` | 待办面板 | `openTodosPanel`, `renderTodosPanel`, `toggleTodo`, `TODO_TYPES` |
-| `ledger.js` | 台账 | `openLedger`, `renderLedger`, `ledgerAiSearch`, `clearAiFilter` |
-| `import-module.js` | 数据导入 | `parseExcel`, `parseYuqueTable`, `initImportDropZone`, `loadYuqueSettings` |
-| `file-system-module.js` | 文件系统 | `selectRootDir`, `saveRootHandle`, `loadRootHandle`, `updateRootBar`, `getProjectDir`, `renameProjectDir`, `readDocxText`, `clearFileOperationCache`, `previewFile`, `deleteFile`, `openFsRoot` |
-| `file-analysis.js` | 文件识别分析 | `loadModalFilePanel`, `renderModalFileSection`, `toggleFileSelection`, `renderPaymentNodes`, `updatePaymentNode`, `togglePaymentNodeDone`, `togglePaymentNodeTaskCompleted`, `removePaymentNode`, `addPaymentNodeToProject`, `analyzeContractsForPayment`, `analyzeContractsForDelivery`, `analyzeContracts`, `analyzeAgreements`, `analyzeQuotes`, `toggleFileSelect`, `getSelectedFileNames`, `analyzeContractFile`, `analyzeContractText`, `analyzeAgreementFile`, `analyzeAgreementText`, `analyzeQuoteFile`, `analyzeQuoteText`, `renderContractAnalysis`, `confirmAIAnalysis`, `cancelAIAnalysis`, `renderAgreementAnalysis`, `confirmAgreementAIAnalysis`, `cancelAgreementAIAnalysis`, `renderQuoteAnalysis`, `switchToDeliveryTab`, `getFileIcon`, `closePreview`, `organizeFilesForProjectStart` |
-| `modal-form.js` | Modal 表单控制 | `openModal`, `closeModal`, `saveProject`, `onStageChange` |
-| `db.js` | 数据库 | `Database` 类（IndexedDB 封装）|
+| `js/core/db.js` | 数据库 | `Database` 类（IndexedDB 封装）| 
+| `js/core/project.js` | 项目管理 | `STAGE`, `STORAGE_KEY`, `save`, `exportData`, `moveToRecycleBin` 等 |
+| `js/core/render.js` | 视图渲染 | `render`, `cardHTML`, `updateStats`, `refreshView` |
+| `js/ai/engine.js` | AI 服务 | `claudeCall`, `AI_PROVIDERS`, `classifyFileNames`, `getAiConfig` |
+| `js/ai/ui.js` | AI 界面 | `openMonitor`, `openSandbox`, `sendTestChat`, `initDragAndDrop` |
+| `js/ai/chat.js` | AI 对话 | `initAiChat`, `sendChatMessage`, `renderChatResponse` |
+| `js/features/todos.js` | 待办面板 | `openTodosPanel`, `renderTodosPanel`, `toggleTodo`, `TODO_TYPES` |
+| `js/features/ledger.js` | 台账 | `openLedger`, `renderLedger`, `ledgerAiSearch`, `clearAiFilter` |
+| `js/features/import.js` | 数据导入 | `parseExcel`, `parseYuqueTable`, `initImportDropZone`, `loadYuqueSettings` |
+| `js/features/cost.js` | 成本分析 | `renderCostAnalysisTab`, `analyzeProcurement`, `scanProcurementFiles` |
+| `js/file/system.js` | 文件系统 | `selectRootDir`, `saveRootHandle`, `loadRootHandle`, `updateRootBar`, `getProjectDir`, `renameProjectDir`, `readDocxText`, `clearFileOperationCache`, `previewFile`, `deleteFile`, `openFsRoot` |
+| `js/file/analysis.js` | 文件识别分析 | `loadModalFilePanel`, `renderModalFileSection`, `toggleFileSelection`, `renderPaymentNodes`, `updatePaymentNode`, `togglePaymentNodeDone`, `togglePaymentNodeTaskCompleted`, `removePaymentNode`, `addPaymentNodeToProject`, `analyzeContractsForPayment`, `analyzeContractsForDelivery`, `analyzeContracts`, `analyzeAgreements`, `analyzeQuotes`, `toggleFileSelect`, `getSelectedFileNames`, `analyzeContractFile`, `analyzeContractText`, `analyzeAgreementFile`, `analyzeAgreementText`, `analyzeQuoteFile`, `analyzeQuoteText`, `renderContractAnalysis`, `confirmAIAnalysis`, `cancelAIAnalysis`, `renderAgreementAnalysis`, `confirmAgreementAIAnalysis`, `cancelAgreementAIAnalysis`, `renderQuoteAnalysis`, `switchToDeliveryTab`, `getFileIcon`, `closePreview`, `organizeFilesForProjectStart` |
+| `js/ui/modal.js` | Modal 表单控制 | `openModal`, `closeModal`, `saveProject`, `onStageChange` |
+| `js/ui/debug.js` | 调试工具 | 调试相关功能 |
 
 ### 模块加载流程
 
@@ -274,9 +289,9 @@ project-manager/
 2. **全局变量初始化**：`main.js` 在 `window` 上初始化全局状态
 3. **模块动态导入**：`loadModules()` 按顺序导入所有模块
    ```
-   db.js → project-module.js → render-module.js → ai-module.js 
-   → file-system-module.js → todos-panel.js → ledger.js → ai-ui.js 
-   → import-module.js → modal-form.js → file-analysis.js
+   js/core/db.js → js/core/project.js → js/core/render.js → js/ai/engine.js 
+   → js/file/system.js → js/features/todos.js → js/features/ledger.js → js/ai/ui.js 
+   → js/features/import.js → js/ui/modal.js → js/file/analysis.js → js/ai/chat.js → js/features/cost.js
    ```
 4. **模块导出挂载**：使用 `Object.assign(window, module)` 将模块导出挂载到全局
 5. **应用初始化**：`initApp()` 调用 `initDatabase()` 加载数据
@@ -530,7 +545,16 @@ css/
 
 ## 版本说明
 
-当前版本：**v1.6**
+当前版本：**v1.7**
+
+### v1.7 更新内容（架构重构）
+
+- **代码架构重构**：将 JavaScript 代码重新组织为按功能分类的目录结构，包括 `js/core/`、`js/ai/`、`js/features/`、`js/file/` 和 `js/ui/`
+- **模块重命名**：将模块文件重命名为更简洁的名称，如 `project-module.js` → `project.js`、`ai-module.js` → `engine.js` 等
+- **CSS 架构完善**：新增 `ai-chat.css` 等样式文件，实现更细粒度的模块化
+- **成本分析功能**：新增成本分析模块，支持从采购文件中识别成本数据
+- **AI 对话功能**：新增 AI 数据分析对话模块，提供智能数据分析能力
+- **调试工具**：新增调试模块，提供开发和调试支持
 
 ### v1.6 更新内容（CSS 架构完善）
 
