@@ -1,6 +1,6 @@
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  ai-chat.js — 智能数据分析对话面板                            ║
-// ║  依赖：ai-module.js (claudeCall / _doCall)                   ║
+// ║  依赖：ai-module.js (claudeCallWithTools - 统一AI调用出口)    ║
 // ║        Chart.js (从 CDN 动态加载)                            ║
 // ╚══════════════════════════════════════════════════════════════╝
 
@@ -453,13 +453,25 @@ async function _runChat(userText) {
   try {
     // 多轮 Tool Use 循环（最多5轮防死循环）
     for (let round = 0; round < 5; round++) {
+      // 检查 AI 配置是否可用（claudeCallWithTools 会再次检查，这里提前检查给出更好的错误提示）
       const entry = _resolveEntry();
       if (!entry) throw new Error('未找到 AI 配置，请先在右上角「⚙ AI 设置」中配置模型');
-      // 检查是否有有效的 key 或 proxy
       if (!entry.key && !entry.proxy) throw new Error(`AI 配置「${entry.name || '默认'}」缺少 API Key 或代理地址，请在设置中完善`);
 
-      // 调用 API（需要支持 tools 的格式）
-      const result = await _callWithTools({ entry, systemPrompt, messages: apiMessages });
+      // 调用 API（使用统一出口 claudeCallWithTools，支持日志记录）
+      if (typeof window.claudeCallWithTools !== 'function') {
+        throw new Error('AI 模块尚未完全加载，请稍后再试');
+      }
+      const response = await window.claudeCallWithTools({ 
+        task: 'AI数据分析', 
+        max_tokens: 4000, 
+        messages: apiMessages, 
+        systemPrompt, 
+        tools: CHAT_TOOLS 
+      });
+      
+      // 解析响应
+      const result = response._parsed;
 
       _removeThinking();
 
@@ -534,119 +546,6 @@ async function _runChat(userText) {
   if (sendBtn) sendBtn.disabled = false;
   const inp = _getInput();
   if (inp) inp.focus();
-}
-
-// ── 调用支持 Tools 的 API ────────────────────────────────────────
-// 直接用 window.AI_PROVIDERS + window.getAiConfig 构建请求
-// 避免依赖未导出的内部函数 _buildCallParams
-async function _callWithTools({ entry, systemPrompt, messages }) {
-  const AI_PROVIDERS = window.AI_PROVIDERS;
-  if (!AI_PROVIDERS) throw new Error('AI 模块尚未加载，请稍后再试');
-
-  const providerType = entry.type || 'claude';
-  const provider     = AI_PROVIDERS[providerType] || AI_PROVIDERS.custom;
-  const proxy        = (entry.proxy || '').replace(/\/+$/, '');
-  const key          = entry.key   || '';
-  const model        = entry.model || '';
-  const maxTokens    = entry.maxTokens || 2000;
-
-  // 计算 endpoint
-  let endpoint;
-  if (providerType === 'custom') {
-    endpoint = proxy.endsWith('/chat/completions') ? proxy : proxy + '/chat/completions';
-  } else {
-    endpoint = typeof provider.endpoint === 'function'
-      ? provider.endpoint(proxy, model, key)
-      : provider.endpoint;
-  }
-
-  const headers = provider.buildHeaders(key, proxy);
-
-  let body;
-
-  if (providerType === 'claude') {
-    // Claude 原生 Tool Use 格式
-    body = {
-      model,
-      max_tokens: maxTokens,
-      system: systemPrompt,
-      tools: CHAT_TOOLS,
-      messages: messages.map(m => ({ role: m.role, content: m.content }))
-    };
-  } else if (providerType === 'openai' || providerType === 'custom') {
-    // OpenAI function calling 格式
-    body = {
-      model,
-      max_tokens: maxTokens,
-      tools: CHAT_TOOLS.map(t => ({
-        type: 'function',
-        function: { name: t.name, description: t.description, parameters: t.input_schema }
-      })),
-      messages: [
-        { role: 'system', content: systemPrompt },
-        ...messages.map(m => {
-          if (Array.isArray(m.content)) {
-            const toolResults = m.content.filter(c => c.type === 'tool_result');
-            if (toolResults.length) {
-              return toolResults.map(tr => ({
-                role: 'tool', tool_call_id: tr.tool_use_id, content: tr.content
-              }));
-            }
-            const toolUses = m.content.filter(c => c.type === 'tool_use');
-            const texts    = m.content.filter(c => c.type === 'text');
-            return [{
-              role: 'assistant',
-              content: texts.map(t => t.text).join('') || null,
-              tool_calls: toolUses.map(tu => ({
-                id: tu.id, type: 'function',
-                function: { name: tu.name, arguments: JSON.stringify(tu.input) }
-              }))
-            }];
-          }
-          return { role: m.role, content: m.content };
-        }).flat()
-      ]
-    };
-  } else {
-    // Gemini 等：不支持 tool use，降级为纯文本
-    const lastMsg = messages[messages.length - 1];
-    const userText = Array.isArray(lastMsg?.content)
-      ? lastMsg.content.map(c => c.text || c.content || '').join('')
-      : (lastMsg?.content || '');
-    const simpleBody = provider.buildBody(model, maxTokens, [
-      { role: 'user', content: systemPrompt + '\n\n用户问题：' + userText }
-    ]);
-    const resp = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(simpleBody) });
-    const data = await resp.json();
-    const text = provider.parseResponse(data).text || '';
-    return { stop_reason: 'end_turn', content: [{ type: 'text', text }] };
-  }
-
-  const resp = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body) });
-  const data = await resp.json();
-  if (!resp.ok) throw new Error(data.error?.message || `HTTP ${resp.status}`);
-
-  // OpenAI/custom → 统一转为 Claude 格式返回
-  if (providerType !== 'claude') {
-    const choice  = data.choices?.[0];
-    const msg     = choice?.message || {};
-    const content = [];
-    if (msg.content) content.push({ type: 'text', text: msg.content });
-    if (msg.tool_calls) {
-      msg.tool_calls.forEach(tc => {
-        content.push({
-          type: 'tool_use', id: tc.id, name: tc.function.name,
-          input: JSON.parse(tc.function.arguments || '{}')
-        });
-      });
-    }
-    return {
-      stop_reason: choice?.finish_reason === 'tool_calls' ? 'tool_use' : 'end_turn',
-      content
-    };
-  }
-
-  return data; // Claude 原生格式直接返回
 }
 
 // ── UI 初始化 ────────────────────────────────────────────────────

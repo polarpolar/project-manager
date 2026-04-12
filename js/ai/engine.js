@@ -154,6 +154,123 @@ async function _doVisionCall({ task, max_tokens, images, textPrompt, entry }) {
   } catch(e) { log.dur = ((Date.now() - t0) / 1000).toFixed(2); log.status = 'err'; log.error = e.message; _pushLog(log); throw e; }
 }
 
+// ═════════════════════════════════════════════════════════════════
+// Tools/Function Calling 支持（统一出口，带日志记录）
+// ═════════════════════════════════════════════════════════════════
+
+// 内部实现：支持Tools的调用（带日志记录）
+// 对于不支持Tools的Provider（如Gemini），自动降级为纯文本模式
+async function _doCallWithTools({ task, max_tokens, messages, systemPrompt, tools, entry }) {
+  const t0 = Date.now();
+  const type = entry.type || 'custom';
+  const provider = AI_PROVIDERS[type] || AI_PROVIDERS.custom;
+  
+  const proxy = (entry.proxy || '').replace(/\/+$/, '');
+  const model = entry.model || '';
+  const key = entry.key || '';
+  const maxTokens = entry.maxTokens || 2000;
+  
+  // 构建endpoint
+  let endpoint;
+  if (type === 'custom') { 
+    endpoint = proxy.endsWith('/chat/completions') ? proxy : proxy + '/chat/completions'; 
+  } else { 
+    endpoint = typeof provider.endpoint === 'function' ? provider.endpoint(proxy, model, key) : provider.endpoint; 
+  }
+  
+  // 日志记录
+  const log = { 
+    id: Date.now(), 
+    time: new Date().toLocaleString(), 
+    task, 
+    model, 
+    provider: type, 
+    in: 0, 
+    out: 0, 
+    dur: 0, 
+    status: 'ok', 
+    error: '' 
+  };
+  
+  try {
+    let data, parsed;
+    
+    // 检查provider是否支持Tools
+    if (!provider.buildToolsBody) {
+      // 降级为纯文本模式（Gemini等不支持Tools的Provider）
+      const lastMsg = messages[messages.length - 1];
+      const userText = Array.isArray(lastMsg?.content)
+        ? lastMsg.content.map(c => c.text || c.content || '').join('')
+        : (lastMsg?.content || '');
+      
+      // 构建提示词（包含Tools定义）
+      const toolsDesc = tools.map(t => `- ${t.name}: ${t.description}`).join('\n');
+      const fallbackPrompt = `${systemPrompt}\n\n注意：你可以使用以下工具来完成任务，请根据用户问题选择合适的工具：\n${toolsDesc}\n\n用户问题：${userText}`;
+      
+      const body = provider.buildBody(model, maxTokens, [
+        { role: 'user', content: fallbackPrompt }
+      ]);
+      
+      const resp = await fetch(endpoint, { 
+        method: 'POST', 
+        headers: provider.buildHeaders(key, proxy), 
+        body: JSON.stringify(body) 
+      });
+      
+      data = await resp.json();
+      const providerParsed = provider.parseResponse(data);
+      
+      // 转换为Tools响应格式
+      parsed = {
+        content: [{ type: 'text', text: providerParsed.text }],
+        stop_reason: 'end_turn',
+        usage: providerParsed.usage,
+        error: providerParsed.error
+      };
+    } else {
+      // 使用Provider统一的Tools构建方法
+      const body = provider.buildToolsBody(model, max_tokens || maxTokens, messages, systemPrompt, tools);
+      
+      const resp = await fetch(endpoint, { 
+        method: 'POST', 
+        headers: provider.buildHeaders(key, proxy), 
+        body: JSON.stringify(body) 
+      });
+      
+      data = await resp.json();
+      parsed = provider.parseToolsResponse(data);
+    }
+    
+    log.dur = ((Date.now() - t0) / 1000).toFixed(2);
+    
+    if (parsed.usage) { 
+      log.in = parsed.usage.input_tokens || 0; 
+      log.out = parsed.usage.output_tokens || 0; 
+    }
+    if (!data || parsed.error) { 
+      log.status = 'err'; 
+      log.error = parsed.error || '请求失败'; 
+    }
+    
+    _pushLog(log);  // 记录到AI监控
+    return { ...data, _parsed: parsed };
+    
+  } catch(e) { 
+    log.dur = ((Date.now() - t0) / 1000).toFixed(2); 
+    log.status = 'err'; 
+    log.error = e.message; 
+    _pushLog(log); 
+    throw e; 
+  }
+}
+
+// 对外接口：支持Tools的统一调用（优先使用任务槽位系统）
+async function claudeCallWithTools({ task, max_tokens, messages, systemPrompt, tools }) {
+  const entry = getProviderForTask(task);
+  if (!entry) throw new Error('未找到可用的 AI 配置');
+  return _doCallWithTools({ task, max_tokens, messages, systemPrompt, tools, entry });
+}
+
 async function sendProviderChatTest() {
   const input = document.getElementById('ape-chat-input');
   const msg = input.value.trim();
@@ -260,6 +377,20 @@ const AI_PROVIDERS = {
       text:  data.content?.filter(b => b.type === 'text').map(b => b.text).join('') || '',
       usage: data.usage,
       error: data.error?.message
+    }),
+    // Tools 支持
+    buildToolsBody: (model, max_tokens, messages, systemPrompt, tools) => ({
+      model,
+      max_tokens,
+      system: systemPrompt,
+      tools,
+      messages: messages.map(m => ({ role: m.role, content: m.content }))
+    }),
+    parseToolsResponse: (data) => ({
+      content: data.content || [],
+      stop_reason: data.stop_reason,
+      usage: data.usage,
+      error: data.error?.message
     })
   },
   openai: {
@@ -282,7 +413,81 @@ const AI_PROVIDERS = {
       text:  data.choices?.[0]?.message?.content || '',
       usage: data.usage ? { input_tokens: data.usage.prompt_tokens, output_tokens: data.usage.completion_tokens } : null,
       error: data.error?.message
-    })
+    }),
+    // Tools 支持（OpenAI Function Calling 格式）
+    buildToolsBody: (model, max_tokens, messages, systemPrompt, tools) => ({
+      model,
+      max_tokens,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        ...messages.map(m => {
+          // 处理工具调用和结果的特殊格式
+          if (Array.isArray(m.content)) {
+            const toolResults = m.content.filter(c => c.type === 'tool_result');
+            if (toolResults.length) {
+              // 返回工具结果消息
+              return toolResults.map(tr => ({
+                role: 'tool',
+                tool_call_id: tr.tool_use_id,
+                content: tr.content
+              }));
+            }
+            const toolUses = m.content.filter(c => c.type === 'tool_use');
+            const texts = m.content.filter(c => c.type === 'text');
+            return [{
+              role: 'assistant',
+              content: texts.map(t => t.text).join('') || null,
+              tool_calls: toolUses.map(tu => ({
+                id: tu.id,
+                type: 'function',
+                function: {
+                  name: tu.name,
+                  arguments: JSON.stringify(tu.input)
+                }
+              }))
+            }];
+          }
+          return { role: m.role, content: m.content };
+        }).flat()
+      ],
+      tools: tools.map(t => ({
+        type: 'function',
+        function: {
+          name: t.name,
+          description: t.description,
+          parameters: t.input_schema
+        }
+      }))
+    }),
+    parseToolsResponse: (data) => {
+      const choice = data.choices?.[0];
+      const msg = choice?.message || {};
+      const content = [];
+      
+      if (msg.content) {
+        content.push({ type: 'text', text: msg.content });
+      }
+      if (msg.tool_calls) {
+        msg.tool_calls.forEach(tc => {
+          content.push({
+            type: 'tool_use',
+            id: tc.id,
+            name: tc.function.name,
+            input: JSON.parse(tc.function.arguments || '{}')
+          });
+        });
+      }
+      
+      return {
+        content,
+        stop_reason: choice?.finish_reason === 'tool_calls' ? 'tool_use' : choice?.finish_reason,
+        usage: data.usage ? {
+          input_tokens: data.usage.prompt_tokens,
+          output_tokens: data.usage.completion_tokens
+        } : null,
+        error: data.error?.message
+      };
+    }
   },
   gemini: {
     name: 'Gemini', icon: '💎',
@@ -311,7 +516,10 @@ const AI_PROVIDERS = {
         ? { input_tokens: data.usageMetadata.promptTokenCount, output_tokens: data.usageMetadata.candidatesTokenCount }
         : null,
       error: data.error?.message
-    })
+    }),
+    // Gemini 不支持 Tools，标记为 null，会自动降级为纯文本
+    buildToolsBody: null,
+    parseToolsResponse: null
   },
   custom: {
     name: '自定义', icon: '🔧',
@@ -336,6 +544,13 @@ const AI_PROVIDERS = {
           : null,
         error: data.error?.message || (truncated ? '输出被截断（token 不足），请在模型配置中调大 max_tokens' : undefined)
       };
+    },
+    // Tools 支持：复用 openai 的格式（自定义API通常兼容OpenAI格式）
+    buildToolsBody: function(model, max_tokens, messages, systemPrompt, tools) {
+      return AI_PROVIDERS.openai.buildToolsBody(model, max_tokens, messages, systemPrompt, tools);
+    },
+    parseToolsResponse: function(data) {
+      return AI_PROVIDERS.openai.parseToolsResponse(data);
     }
   }
 };
@@ -654,6 +869,7 @@ export {
   claudeCallForTask,
   claudeCallWithVision,
   claudeCallWithVisionForTask,
+  claudeCallWithTools,
   providerSupportsVision,
   getProviderName,
   aiLogs,
