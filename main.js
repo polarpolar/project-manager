@@ -23,7 +23,7 @@ async function loadModules() {
     Object.assign(window, projectModule);
     
     // 加载渲染模块
-    const renderModule = await import('./js/core/render.js?v=2');
+    const renderModule = await import('./js/core/render.js');
     Object.assign(window, renderModule);
     
     // 加载AI模块
@@ -55,7 +55,7 @@ async function loadModules() {
     Object.assign(window, modalModule);
 
     // 加载文件识别分析模块
-    const fileAnalysisModule = await import('./js/file/analysis.js?v=2');
+    const fileAnalysisModule = await import('./js/file/analysis.js');
     Object.assign(window, fileAnalysisModule);
 
     // 加载 AI 数据分析对话模块

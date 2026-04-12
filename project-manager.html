@@ -7,7 +7,7 @@
 <!-- 预加载关键资源 -->
 <link rel="preload" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@300;400;500&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@300;400;500&display=swap"></noscript>
-<link rel="preload" href="./db.js" as="script">
+<link rel="preload" href="./js/core/db.js" as="script">
 <!-- 外部脚本 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
 <!-- 样式系统 -->
@@ -362,7 +362,7 @@
       </div>
       <div class="form-row">
         <div class="form-group"><label>项目来源</label><input type="text" id="f-channel" placeholder="例：老客户介绍、展会、网络搜索"></div>
-        <div class="form-group"><label>客户名称</label><input type="text" id="f-customer" placeholder="例：XX科技有限公司"></div>
+        <div class="form-group"><label>客户名称</label><input type="text" id="f-source" placeholder="例：XX科技有限公司"></div>
         <div class="form-group"><label>负责人</label><input type="text" id="f-owner" placeholder="例：苏奕玮"></div>
         <div class="form-group"><label>产品/方案</label><input type="text" id="f-product" placeholder="例：G01+V03"></div>
       </div>
@@ -499,6 +499,16 @@
       <div class="todos-editor">
         <div id="todos-list"></div>
         <button type="button" class="btn-add-todo" onclick="addTodoRow()">＋ 新增待办</button>
+      </div>
+    </div>
+
+    <!-- Tab：成本分析 -->
+    <div class="m-tab-body" id="mtab-cost">
+      <div id="cost-analysis-root">
+        <!-- 由 cost-analysis.js 动态渲染 -->
+        <div style="color:#bbb;font-size:.75rem;text-align:center;padding:40px 0">
+          请先保存项目并绑定本地文件夹，再进行成本分析
+        </div>
       </div>
     </div>
 
@@ -679,16 +689,6 @@
         <div class="file-note-save">
           <span id="modalFileNoteSaveStatus" style="font-size:.68rem;color:#aaa"></span>
           <button class="btn-save" style="padding:6px 16px;font-size:.75rem" onclick="saveNote()">保存备注</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Tab：成本分析 -->
-    <div class="m-tab-body" id="mtab-cost">
-      <div id="cost-analysis-root">
-        <!-- 由 cost-analysis.js 动态渲染 -->
-        <div style="color:#bbb;font-size:.75rem;text-align:center;padding:40px 0">
-          请先保存项目并绑定本地文件夹，再进行成本分析
         </div>
       </div>
     </div>

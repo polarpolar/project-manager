@@ -324,7 +324,7 @@ window.fsCurrentProjectId = null;
   "projectCode": "PM-20250101-0001",
   "name": "项目名称",
   "channel": "项目来源",
-  "source": "客户名称",
+  "customer": "客户名称",
   "owner": "负责人",
   "product": "产品选型/方案",
   "quote": 50,

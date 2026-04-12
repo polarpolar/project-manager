@@ -27,3 +27,5 @@ local-config.js
 # 忽略临时文件
 *.tmp
 *.temp
+# 忽略备份目录
+project-manager-backup/
