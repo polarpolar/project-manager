@@ -331,9 +331,16 @@ function getProjectChanges(existing, incoming) {
   const incomingProgress = incoming.monthlyProgress || [];
   
   // 只有当导入的进度数据不是 undefined 时，才比较差异
-  if (incomingProgress !== undefined) {
+  if (incomingProgress !== undefined && incomingProgress.length > 0) {
+    // 获取最新进度（最后一条）
+    const latestProgress = incomingProgress[incomingProgress.length - 1];
+    
     if (existingProgress.length !== incomingProgress.length) {
-      changes.push(`进度数据: ${existingProgress.length} 条 → ${incomingProgress.length} 条`);
+      // 进度条数有变化，显示最新进度详情
+      const progressInfo = latestProgress 
+        ? `📋 进度更新：${latestProgress.month || '未知日期'} - ${(latestProgress.content || '').substring(0, 50)}${(latestProgress.content || '').length > 50 ? '...' : ''}（共 ${incomingProgress.length} 条）`
+        : `进度数据: ${existingProgress.length} 条 → ${incomingProgress.length} 条`;
+      changes.push(progressInfo);
     } else if (existingProgress.length > 0) {
       // 检查是否有进度内容变化
       let progressChanged = false;
@@ -345,8 +352,9 @@ function getProjectChanges(existing, incoming) {
           break;
         }
       }
-      if (progressChanged) {
-        changes.push('进度数据内容已更新');
+      if (progressChanged && latestProgress) {
+        // 显示最新进度详情
+        changes.push(`📋 进度更新：${latestProgress.month || '未知日期'} - ${(latestProgress.content || '').substring(0, 50)}${(latestProgress.content || '').length > 50 ? '...' : ''}`);
       }
     }
   }
