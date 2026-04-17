@@ -332,8 +332,13 @@ function getProjectChanges(existing, incoming) {
   
   // 只有当导入的进度数据不是 undefined 时，才比较差异
   if (incomingProgress !== undefined && incomingProgress.length > 0) {
-    // 获取最新进度（最后一条）
-    const latestProgress = incomingProgress[incomingProgress.length - 1];
+    // 按日期排序获取最新进度（降序，最新的在前）
+    const sortedProgress = [...incomingProgress].sort((a, b) => {
+      const [yearA, monthA] = (a.month || '').match(/(\d{4})年(\d+)月/)?.slice(1).map(Number) || [0, 0];
+      const [yearB, monthB] = (b.month || '').match(/(\d{4})年(\d+)月/)?.slice(1).map(Number) || [0, 0];
+      return yearB - yearA || monthB - monthA; // 降序排列
+    });
+    const latestProgress = sortedProgress[0];
     
     if (existingProgress.length !== incomingProgress.length) {
       // 进度条数有变化，显示最新进度详情
