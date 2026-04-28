@@ -14,7 +14,39 @@ const AI_CALL_CONFIG = {
   maxRetries: 3, // 最大重试次数
   retryDelay: 1000, // 重试延迟（ms）
   batchSize: 20, // 批量处理大小
+  timeout: 60000, // 默认超时时间（60秒）
 };
+
+// AI 调用包装器：统一错误处理、重试机制、超时控制
+async function aiCallWrapper(callFn, options = {}) {
+  const { task, maxRetries = AI_CALL_CONFIG.maxRetries, timeout = AI_CALL_CONFIG.timeout } = options;
+
+  for (let retry = 0; retry < maxRetries; retry++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    try {
+      const result = await callFn({ signal: controller.signal });
+      clearTimeout(timeoutId);
+      return result;
+    } catch (error) {
+      clearTimeout(timeoutId);
+
+      if (error.name === 'AbortError') {
+        throw new Error(`AI 请求超时（${timeout / 1000}秒）`);
+      }
+
+      if (retry === maxRetries - 1) {
+        throw error;
+      }
+
+      // 指数退避
+      const delay = AI_CALL_CONFIG.retryDelay * Math.pow(2, retry);
+      if (window.DEBUG) console.warn(`AI 调用失败，将在 ${delay}ms 后重试:`, error.message);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+}
 
 // ── 多 Provider 管理 ──────────────────────
 const PROVIDER_LIST_KEY = 'pmAiProviders';
@@ -54,9 +86,55 @@ function getAiConfig() {
     maxTokens:   parseInt(localStorage.getItem(window.STORAGE_KEY.AI_MAX_TOKENS)) || 2000};
 }
 
+// 安全配置前缀
+const SECURE_KEY_PREFIX = 'pm_secure_';
+
+// 简单的 Base64 混淆（防止普通用户直接看到明文，非真正加密）
+function _obfuscate(str) {
+  return btoa(str.split('').reverse().join(''));
+}
+
+function _deobfuscate(str) {
+  try {
+    return atob(str).split('').reverse().join('');
+  } catch (e) {
+    return null;
+  }
+}
+
+// 安全保存敏感配置（优先使用 sessionStorage，失败则降级到 localStorage）
+function saveSecureConfig(key, value) {
+  const storageKey = SECURE_KEY_PREFIX + key;
+  try {
+    sessionStorage.setItem(storageKey, _obfuscate(value));
+  } catch (e) {
+    // sessionStorage 不可用（如隐私模式），降级到 localStorage
+    try {
+      localStorage.setItem(storageKey, _obfuscate(value));
+    } catch (e2) {}
+  }
+}
+
+// 安全读取敏感配置
+function getSecureConfig(key) {
+  const storageKey = SECURE_KEY_PREFIX + key;
+  try {
+    const value = sessionStorage.getItem(storageKey) || localStorage.getItem(storageKey);
+    if (value) {
+      const decoded = _deobfuscate(value);
+      return decoded || value;
+    }
+  } catch (e) {}
+  return null;
+}
+
 // 保存 AI 配置
 function saveAiProxy(v)       { try { localStorage.setItem(window.STORAGE_KEY.AI_PROXY, v.trim()); } catch(e) {} }
-function saveAiKey(v)         { try { localStorage.setItem(window.STORAGE_KEY.AI_KEY, v.trim()); } catch(e) {} }
+function saveAiKey(v)         { try {
+  // 同时保存到安全存储
+  saveSecureConfig(window.STORAGE_KEY.AI_KEY, v.trim());
+  localStorage.setItem(window.STORAGE_KEY.AI_KEY, v.trim());
+} catch(e) {} }
 function saveAiModel(v)       { try { localStorage.setItem(window.STORAGE_KEY.AI_MODEL, v); } catch(e) {} }
 function saveAiProvider(v)    { try { localStorage.setItem(window.STORAGE_KEY.AI_PROVIDER, v); } catch(e) {} }
 function saveModelPolicy(v)   { try { localStorage.setItem(window.STORAGE_KEY.AI_MODEL_POLICY, v); } catch(e) {} }
@@ -860,6 +938,11 @@ export {
   TASK_TO_SLOT,
   _inferVision,
   _doCall,
+  // AI 调用包装器
+  aiCallWrapper,
+  // 安全配置
+  saveSecureConfig,
+  getSecureConfig,
   // AI 服务商
   AI_PROVIDERS,
   TASK_MODEL_OVERRIDE,

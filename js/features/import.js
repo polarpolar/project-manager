@@ -681,7 +681,16 @@ function loadParseMode() {
 // ── 语雀导入 ──────────────────────────────
 
 function saveYuqueProxy() { try { localStorage.setItem(STORAGE_KEY.YUQUE_PROXY, document.getElementById('yuque-proxy').value.trim()); } catch(e) {} }
-function saveYuqueToken() { try { localStorage.setItem(STORAGE_KEY.YUQUE_TOKEN, document.getElementById('yuque-token').value.trim()); } catch(e) {} }
+function saveYuqueToken() {
+  const token = document.getElementById('yuque-token').value.trim();
+  try {
+    localStorage.setItem(STORAGE_KEY.YUQUE_TOKEN, token);
+    // 同时保存到安全存储
+    if (typeof window.saveSecureConfig === 'function') {
+      window.saveSecureConfig(STORAGE_KEY.YUQUE_TOKEN, token);
+    }
+  } catch(e) {}
+}
 function saveYuqueUrl()   { try { localStorage.setItem(STORAGE_KEY.YUQUE_URL,   document.getElementById('yuque-url').value.trim());   } catch(e) {} }
 
 function loadYuqueSettings() {
