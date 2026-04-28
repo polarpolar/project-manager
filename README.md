@@ -124,8 +124,46 @@
 - 下载导入模板
 
 **语雀导入**
-- 通过本地代理服务（`node yuque-proxy.js`）读取语雀文档表格
-- 需配置语雀 Personal Access Token 和代理地址
+
+> ⚠️ **重要**：语雀导入功能需要配置本地代理服务才能正常工作。
+
+**为什么需要代理？**
+
+由于浏览器同源策略限制，直接从前端访问语雀 API（`pi2star.yuque.com`）会被 CORS 阻止。本地代理服务解决这一限制，使浏览器可以正常调用语雀 API。
+
+**配置步骤：**
+
+1. **安装 Node.js**（如果尚未安装）
+
+2. **启动本地代理服务**：
+```bash
+cd project-manager
+
+# 使用 pm2 启动服务（后台运行 + 开机自启）
+npm install -g pm2
+pm2 start local-yuque-proxy.js --name yuque-proxy
+pm2 startup
+pm2 save
+```
+
+3. **在应用界面配置代理地址**：
+   - 打开「语雀导入」面板
+   - 将代理地址改为：`http://localhost:3030`
+
+**日常使用：**
+
+- 开机后 `pm2` 会自动启动代理服务
+- 管理命令：
+  - `pm2 status` - 查看服务状态
+  - `pm2 logs yuque-proxy` - 查看日志
+  - `pm2 restart yuque-proxy` - 重启服务
+
+**代理架构说明：**
+
+```
+浏览器 → 本地代理 (localhost:3030) → 语雀 API（国内可直连）
+```
+
 - 支持 AI 智能识别表格结构
 
 ---
@@ -225,13 +263,14 @@ project-manager/
 │   ├── ai-analysis.css          # AI 识别结果展示样式
 │   ├── ai-chat.css              # AI 对话界面样式
 │   ├── panels.css               # 侧边栏面板样式（待办、台账、导入、监控）
-│   ├── panels-ai-monitor.css    # AI 监控面板样式
+│   ├── panels-ai-monitor.css   # AI 监控面板样式
 │   └── import-confirmation.css  # 导入确认面板样式
 │
 ├── js/                  # JavaScript 代码目录（按功能分类）
 │   ├── core/            # 核心功能模块
 │   │   ├── db.js        # IndexedDB 数据库模块（持久化存储）
 │   │   ├── project.js   # 项目管理核心模块（常量、数据管理、回收站）
+│   │   ├── store.js     # 统一状态管理模块
 │   │   └── render.js    # 渲染模块（看板视图、卡片、统计）
 │   │
 │   ├── ai/              # AI 相关模块
@@ -247,11 +286,13 @@ project-manager/
 │   │
 │   ├── file/            # 文件相关模块
 │   │   ├── analysis.js  # 文件识别分析模块（合同/技术协议识别）
-│   │   └── system.js    # 文件系统模块（本地文件夹、上传、预览）
+│   │   └── system.js   # 文件系统模块（本地文件夹、上传、预览）
 │   │
 │   └── ui/              # UI 相关模块
 │       ├── debug.js     # 调试模块
 │       └── modal.js     # Modal 表单控制模块（项目编辑表单）
+│
+└── local-yuque-proxy.js # 本地语雀代理服务（CORS 代理，解决跨域问题）
 ```
 
 ### 模块依赖关系
@@ -268,8 +309,9 @@ project-manager/
 | 模块 | 职责 | 导出内容 |
 |------|------|----------|
 | `main.js` | 应用入口 | 初始化全局变量， orchestrate 模块加载 |
-| `js/core/db.js` | 数据库 | `Database` 类（IndexedDB 封装）| 
+| `js/core/db.js` | 数据库 | `Database` 类（IndexedDB 封装）|
 | `js/core/project.js` | 项目管理 | `STAGE`, `STORAGE_KEY`, `save`, `exportData`, `moveToRecycleBin` 等 |
+| `js/core/store.js` | 状态管理 | 统一状态对象 `store`，`setState()`, `getState()` |
 | `js/core/render.js` | 视图渲染 | `render`, `cardHTML`, `updateStats`, `refreshView` |
 | `js/ai/engine.js` | AI 服务 | `claudeCall`, `AI_PROVIDERS`, `classifyFileNames`, `getAiConfig` |
 | `js/ai/ui.js` | AI 界面 | `openMonitor`, `openSandbox`, `sendTestChat`, `initDragAndDrop` |
@@ -289,8 +331,8 @@ project-manager/
 2. **全局变量初始化**：`main.js` 在 `window` 上初始化全局状态
 3. **模块动态导入**：`loadModules()` 按顺序导入所有模块
    ```
-   js/core/db.js → js/core/project.js → js/core/render.js → js/ai/engine.js 
-   → js/file/system.js → js/features/todos.js → js/features/ledger.js → js/ai/ui.js 
+   js/core/db.js → js/core/project.js → js/core/render.js → js/ai/engine.js
+   → js/file/system.js → js/features/todos.js → js/features/ledger.js → js/ai/ui.js
    → js/features/import.js → js/ui/modal.js → js/file/analysis.js → js/ai/chat.js → js/features/cost.js
    ```
 4. **模块导出挂载**：使用 `Object.assign(window, module)` 将模块导出挂载到全局
@@ -336,19 +378,19 @@ window.fsCurrentProjectId = null;
   "active": "active",
   "洽谈状态": "需求沟通",
   "desc": "项目描述",
-  "deliveryTags": { 
-    "wireless_hardware": true, 
-    "wired_hardware": false, 
-    "software": true, 
-    "other": false 
+  "deliveryTags": {
+    "wireless_hardware": true,
+    "wired_hardware": false,
+    "software": true,
+    "other": false
   },
   "deliveryBrief": "AI生成的交付描述",
   "deliveryNote": "补充说明",
   "todos": [{ "text": "待办事项", "done": false }],
   "collectTasks": [{ "date": "2025-01-01", "amount": 10, "owner": "", "note": "", "done": false }],
-  "paymentNodes": [{ 
-    "condition": "合同签订后", 
-    "planDate": "2025-01-01", 
+  "paymentNodes": [{
+    "condition": "合同签订后",
+    "planDate": "2025-01-01",
     "planAmount": 15,
     "actualDate": "",
     "actualAmount": 0,
@@ -510,22 +552,22 @@ css/
   /* 主色调 */
   --ink: #1a0533;           /* 主文字色 - 深紫黑 */
   --ink-light: #5b3478;     /* 次要文字 - 浅紫 */
-  
+
   /* 背景色 */
   --paper: #f8f0ff;         /* 主背景 - 极浅紫 */
   --paper2: #f0e6ff;        /* 次级背景 */
   --paper3: #e6d4f7;        /* 第三级背景 */
-  
+
   /* 强调色 */
   --accent: #7b1fa2;        /* 主强调色 - 紫色 */
   --gold: #ce93d8;          /* 金色/高亮色 */
-  
+
   /* 项目阶段色 */
   --s0: #6a1b9a;            /* 洽谈中 - 紫色 */
   --s1: #1565c0;            /* 交付中 - 蓝色 */
   --sc: #e65100;            /* 催款中 - 橙色 */
   --s2: #2e7d32;            /* 已完结 - 绿色 */
-  
+
   /* 间距与动效 */
   --radius: 10px;
   --radius-lg: 16px;
@@ -545,7 +587,17 @@ css/
 
 ## 版本说明
 
-当前版本：**v1.7**
+当前版本：**v1.8**
+
+### v1.8 更新内容（代码优化 + 语雀代理改进）
+
+- **统一状态管理**：新增 `js/core/store.js`，提供统一的状态管理模块
+- **DEBUG 常量统一**：在 `main.js` 统一定义 DEBUG 常量，添加开发环境自动检测
+- **全局错误边界**：添加全局错误和未处理 Promise 拒绝的监听与友好提示
+- **数据库模块重构**：提取公共删除方法 `deleteByIndex()`，简化 `saveProject()` 逻辑
+- **渲染缓存优化**：添加缓存大小限制和 LRU 清理策略
+- **ESLint 配置**：新增 `.eslintrc.json` 代码规范配置
+- **本地语雀代理**：改进 `local-yuque-proxy.js`，支持 CORS 预检请求，解决跨域问题
 
 ### v1.7 更新内容（架构重构）
 
@@ -571,8 +623,6 @@ css/
 - **HTML 轻量化**：`project-manager.html` 从 ~2000 行缩减至 ~1070 行
 - **缓存优化**：样式文件可被浏览器独立缓存，提升加载性能
 - **可维护性提升**：按功能模块组织样式，便于后续开发和维护
-
-### v1.4 更新内容
 
 ### v1.4 更新内容
 

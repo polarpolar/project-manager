@@ -1,4 +1,7 @@
-// 数据库管理模块
+// ╔══════════════════════════════════════════╗
+// ║  MODULE: db（数据库管理）                 ║
+// ╚══════════════════════════════════════════╝
+
 class Database {
   constructor(dbName = 'project_manager.db') {
     this.dbName = dbName;
@@ -7,9 +10,8 @@ class Database {
 
   async init() {
     try {
-      // 检查是否支持IndexedDB
       if (!('indexedDB' in window)) {
-        console.error('浏览器不支持IndexedDB');
+        if (window.DEBUG) console.error('浏览器不支持IndexedDB');
         return false;
       }
 
@@ -27,12 +29,12 @@ class Database {
         };
 
         request.onerror = (event) => {
-          console.error('数据库打开失败:', event.target.error);
+          if (window.DEBUG) console.error('数据库打开失败:', event.target.error);
           reject(false);
         };
       });
     } catch (error) {
-      console.error('数据库初始化失败:', error);
+      if (window.DEBUG) console.error('数据库初始化失败:', error);
       return false;
     }
   }
@@ -78,9 +80,26 @@ class Database {
     }
   }
 
+  // ────────────────────────────────────────────
+  // 辅助方法：通过索引批量删除数据
+  // ────────────────────────────────────────────
+  async deleteByIndex(store, indexName, value) {
+    return new Promise((resolve) => {
+      const index = store.index(indexName);
+      const cursorRequest = index.openCursor(value);
+      cursorRequest.onsuccess = (event) => {
+        const cursor = event.target.result;
+        if (cursor) {
+          store.delete(cursor.value.id);
+          cursor.continue();
+        } else {
+          resolve();
+        }
+      };
+    });
+  }
+
   // 通用事务方法
-  // - storeNames 为字符串时，callback 直接收到该 objectStore
-  // - storeNames 为数组时，callback 收到 { storeName: objectStore, ... } 对象
   async transaction(storeNames, mode, callback) {
     return new Promise((resolve, reject) => {
       try {
@@ -88,10 +107,8 @@ class Database {
 
         let callbackArg;
         if (typeof storeNames === 'string') {
-          // 单个 store：直接传 objectStore
           callbackArg = transaction.objectStore(storeNames);
         } else {
-          // 多个 store：传 { name: objectStore } 对象
           callbackArg = {};
           storeNames.forEach(name => {
             callbackArg[name] = transaction.objectStore(name);
@@ -100,7 +117,6 @@ class Database {
 
         const result = callback(callbackArg);
 
-        // 检查result是否为Promise
         if (result && typeof result.then === 'function') {
           result.then(resolvedResult => {
             transaction.oncomplete = () => resolve(resolvedResult);
@@ -126,7 +142,9 @@ class Database {
     });
   }
 
+  // ────────────────────────────────────────────
   // 项目相关操作
+  // ────────────────────────────────────────────
   async saveProject(project) {
     try {
       await this.transaction(
@@ -136,80 +154,32 @@ class Database {
           // 保存项目基本信息
           stores.projects.put(project);
 
-          // 保存回款节点
+          // 保存回款节点（先删后写）
           if (project.paymentNodes && project.paymentNodes.length) {
-            const nodeIndex = stores.paymentNodes.index('projectId');
-            const nodeCursorRequest = nodeIndex.openCursor(project.id);
-            await new Promise((resolve) => {
-              nodeCursorRequest.onsuccess = (event) => {
-                const cursor = event.target.result;
-                if (cursor) {
-                  stores.paymentNodes.delete(cursor.value.id);
-                  cursor.continue();
-                } else {
-                  resolve();
-                }
-              };
-            });
+            await this.deleteByIndex(stores.paymentNodes, 'projectId', project.id);
             for (const node of project.paymentNodes) {
               stores.paymentNodes.add({ ...node, projectId: project.id });
             }
           }
 
-          // 保存催款任务
+          // 保存催款任务（先删后写）
           if (project.collectTasks && project.collectTasks.length) {
-            const taskIndex = stores.collectTasks.index('projectId');
-            const taskCursorRequest = taskIndex.openCursor(project.id);
-            await new Promise((resolve) => {
-              taskCursorRequest.onsuccess = (event) => {
-                const cursor = event.target.result;
-                if (cursor) {
-                  stores.collectTasks.delete(cursor.value.id);
-                  cursor.continue();
-                } else {
-                  resolve();
-                }
-              };
-            });
+            await this.deleteByIndex(stores.collectTasks, 'projectId', project.id);
             for (const task of project.collectTasks) {
               stores.collectTasks.add({ ...task, projectId: project.id });
             }
           }
 
-          // 保存待办事项
+          // 保存待办事项（先删后写）
           if (project.todos && project.todos.length) {
-            const todoIndex = stores.todos.index('projectId');
-            const todoCursorRequest = todoIndex.openCursor(project.id);
-            await new Promise((resolve) => {
-              todoCursorRequest.onsuccess = (event) => {
-                const cursor = event.target.result;
-                if (cursor) {
-                  stores.todos.delete(cursor.value.id);
-                  cursor.continue();
-                } else {
-                  resolve();
-                }
-              };
-            });
+            await this.deleteByIndex(stores.todos, 'projectId', project.id);
             for (const todo of project.todos) {
               stores.todos.add({ ...todo, projectId: project.id });
             }
           }
 
           // 保存更新日志（先删后写）
-          const logIndex = stores.logs.index('projectId');
-          const logCursorRequest = logIndex.openCursor(project.id);
-          await new Promise((resolve) => {
-            logCursorRequest.onsuccess = (event) => {
-              const cursor = event.target.result;
-              if (cursor) {
-                stores.logs.delete(cursor.value.id);
-                cursor.continue();
-              } else {
-                resolve();
-              }
-            };
-          });
+          await this.deleteByIndex(stores.logs, 'projectId', project.id);
           if (project.logs && project.logs.length) {
             for (const log of project.logs) {
               stores.logs.add({ ...log, projectId: project.id });
@@ -219,14 +189,13 @@ class Database {
       );
       return true;
     } catch (error) {
-      console.error('保存项目失败:', error);
+      if (window.DEBUG) console.error('保存项目失败:', error);
       return false;
     }
   }
 
   async getProjects() {
     try {
-      // 先获取所有项目（单 store，callback 直接收到 objectStore）
       const projects = await this.transaction('projects', 'readonly', (store) => {
         const request = store.getAll();
         return new Promise((resolve) => {
@@ -339,7 +308,7 @@ class Database {
 
       return projects;
     } catch (error) {
-      console.error('获取项目失败:', error);
+      if (window.DEBUG) console.error('获取项目失败:', error);
       return [];
     }
   }
@@ -405,7 +374,7 @@ class Database {
 
       return project;
     } catch (error) {
-      console.error('获取项目失败:', error);
+      if (window.DEBUG) console.error('获取项目失败:', error);
       return null;
     }
   }
@@ -417,56 +386,22 @@ class Database {
         'readwrite',
         async (stores) => {
           stores.projects.delete(id);
-
-          const nodeIndex = stores.paymentNodes.index('projectId');
-          const nodeCursorRequest = nodeIndex.openCursor(id);
-          await new Promise((resolve) => {
-            nodeCursorRequest.onsuccess = (event) => {
-              const cursor = event.target.result;
-              if (cursor) { stores.paymentNodes.delete(cursor.value.id); cursor.continue(); }
-              else resolve();
-            };
-          });
-
-          const taskIndex = stores.collectTasks.index('projectId');
-          const taskCursorRequest = taskIndex.openCursor(id);
-          await new Promise((resolve) => {
-            taskCursorRequest.onsuccess = (event) => {
-              const cursor = event.target.result;
-              if (cursor) { stores.collectTasks.delete(cursor.value.id); cursor.continue(); }
-              else resolve();
-            };
-          });
-
-          const todoIndex = stores.todos.index('projectId');
-          const todoCursorRequest = todoIndex.openCursor(id);
-          await new Promise((resolve) => {
-            todoCursorRequest.onsuccess = (event) => {
-              const cursor = event.target.result;
-              if (cursor) { stores.todos.delete(cursor.value.id); cursor.continue(); }
-              else resolve();
-            };
-          });
-
-          const logIndex = stores.logs.index('projectId');
-          const logCursorRequest = logIndex.openCursor(id);
-          await new Promise((resolve) => {
-            logCursorRequest.onsuccess = (event) => {
-              const cursor = event.target.result;
-              if (cursor) { stores.logs.delete(cursor.value.id); cursor.continue(); }
-              else resolve();
-            };
-          });
+          await this.deleteByIndex(stores.paymentNodes, 'projectId', id);
+          await this.deleteByIndex(stores.collectTasks, 'projectId', id);
+          await this.deleteByIndex(stores.todos, 'projectId', id);
+          await this.deleteByIndex(stores.logs, 'projectId', id);
         }
       );
       return true;
     } catch (error) {
-      console.error('删除项目失败:', error);
+      if (window.DEBUG) console.error('删除项目失败:', error);
       return false;
     }
   }
 
+  // ────────────────────────────────────────────
   // 回收站操作
+  // ────────────────────────────────────────────
   async saveToRecycleBin(project) {
     try {
       await this.transaction('recycleBin', 'readwrite', (store) => {
@@ -474,7 +409,7 @@ class Database {
       });
       return true;
     } catch (error) {
-      console.error('保存到回收站失败:', error);
+      if (window.DEBUG) console.error('保存到回收站失败:', error);
       return false;
     }
   }
@@ -488,7 +423,7 @@ class Database {
         });
       });
     } catch (error) {
-      console.error('获取回收站失败:', error);
+      if (window.DEBUG) console.error('获取回收站失败:', error);
       return [];
     }
   }
@@ -500,7 +435,7 @@ class Database {
       });
       return true;
     } catch (error) {
-      console.error('从回收站删除失败:', error);
+      if (window.DEBUG) console.error('从回收站删除失败:', error);
       return false;
     }
   }
@@ -512,7 +447,7 @@ class Database {
       });
       return true;
     } catch (error) {
-      console.error('清空回收站失败:', error);
+      if (window.DEBUG) console.error('清空回收站失败:', error);
       return false;
     }
   }

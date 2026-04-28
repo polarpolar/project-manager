@@ -522,12 +522,61 @@ async function getProjectDir(projectName) {
 
 // 重命名项目目录
 async function renameProjectDir(oldName, newName) {
-  if (!window.fsRootHandle) return;
+  if (!window.fsRootHandle || oldName === newName) return;
   try {
-    const oldDir = await window.fsRootHandle.getDirectoryHandle(oldName, { create: false });
-    await window.fsRootHandle.rename(oldDir, newName);
+    // 首先尝试找到项目目录（可能通过映射，也可能通过名称）
+    let oldDir = null;
+    
+    // 尝试从映射中获取
+    if (window.projectDirMap && window.currentEditProjectId) {
+      oldDir = window.projectDirMap[window.currentEditProjectId];
+    }
+    
+    // 如果映射中没有，尝试按名称查找
+    if (!oldDir) {
+      try {
+        oldDir = await window.fsRootHandle.getDirectoryHandle(oldName, { create: false });
+      } catch (e) {
+        if (DEBUG) console.warn('找不到旧目录，跳过重命名:', e);
+        return;
+      }
+    }
+    
+    // 尝试多种重命名方式（不同浏览器API不同）
+    try {
+      // 方式1: 使用 dir.move
+      if (typeof oldDir.move === 'function') {
+        await oldDir.move(newName);
+      }
+      // 方式2: 使用 root.rename
+      else if (typeof window.fsRootHandle.rename === 'function') {
+        await window.fsRootHandle.rename(oldDir, newName);
+      }
+      // 方式3: 不支持重命名，就不做了（只在控制台警告）
+      else {
+        if (DEBUG) console.warn('当前浏览器不支持目录重命名，跳过');
+        return;
+      }
+      
+      // 更新映射
+      if (window.currentEditProjectId && window.projectDirMap) {
+        try {
+          const newDir = await window.fsRootHandle.getDirectoryHandle(newName, { create: false });
+          window.projectDirMap[window.currentEditProjectId] = newDir;
+          saveDirMapToStorage(window.projectDirMap);
+        } catch (e) {
+          if (DEBUG) console.error('更新目录映射失败:', e);
+        }
+      }
+      
+      if (DEBUG) console.log('目录重命名成功:', oldName, '->', newName);
+    } catch (e) {
+      if (DEBUG) console.error('目录重命名失败，但不影响其他操作:', e);
+      // 重命名失败不影响保存项目，只是目录名称不变
+    }
   } catch(e) {
-    if (DEBUG) console.error('重命名目录失败:', e);
+    if (DEBUG) console.error('处理目录重命名出错:', e);
+    // 任何错误都不阻止项目保存
   }
 }
 
@@ -565,6 +614,54 @@ async function uploadFiles(files, dir, projectId) {
   } catch(e) {
     if (DEBUG) console.error('上传文件失败:', e);
     showToast('❌ 文件上传失败：' + e.message);
+  }
+}
+
+// 触发文件上传
+function triggerFileUpload() {
+  const input = document.getElementById('modalFileUploadInput');
+  if (input) {
+    input.click();
+  }
+}
+
+// 保存备注到备注.txt
+async function saveNote() {
+  const noteText = document.getElementById('modalFileNoteText')?.value || '';
+  const projectId = window.currentEditProjectId;
+  
+  if (!projectId) {
+    showToast('请先选择项目');
+    return;
+  }
+  
+  if (!window.fsRootHandle) {
+    showToast('请先配置根目录');
+    return;
+  }
+  
+  try {
+    const dir = await getProjectDirById(projectId);
+    if (!dir) {
+      showToast('项目文件夹不存在，请先关联文件夹');
+      return;
+    }
+    
+    // 写入备注.txt
+    const fileHandle = await dir.getFileHandle('备注.txt', { create: true });
+    const writable = await fileHandle.createWritable();
+    await writable.write(noteText);
+    await writable.close();
+    
+    // 更新保存状态
+    const statusEl = document.getElementById('modalFileNoteSaveStatus');
+    if (statusEl) {
+      statusEl.textContent = '已保存 ' + new Date().toLocaleTimeString();
+    }
+    showToast('✅ 备注已保存');
+  } catch (e) {
+    if (DEBUG) console.error('保存备注失败:', e);
+    showToast('❌ 保存备注失败：' + e.message);
   }
 }
 
@@ -778,6 +875,13 @@ export {
   matchExistingDirs,
   initProjectDirMap,
   renameProjectDir,
+  openFolderMatch,
+  closeFolderMatch,
+  toggleFolderMatch,
+  acceptAllFolderMatches,
+  confirmFolderMatches,
+  triggerFileUpload,
+  saveNote,
   readDocxText,
   clearFileOperationCache,
   previewFile,

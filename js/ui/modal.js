@@ -2,6 +2,12 @@
 // ║  MODULE: modal-form（Modal 表单控制器）    ║
 // ╚══════════════════════════════════════════╝
 
+// 安全获取表单值的辅助函数
+function getValueById(id, defaultValue = '') {
+  const el = document.getElementById(id);
+  return el?.value ?? defaultValue;
+}
+
 // Tab 节点：每次都重新查找，不缓存（避免DOM重排后引用失效）
 function getTabNodes() {
   // 注意：用 document.getElementById 查 cost，避免 querySelector 对单引号转义问题
@@ -1370,28 +1376,28 @@ async function saveProject() {
 
   const data = {
     name, stage,
-    channel:      document.getElementById('f-channel').value.trim(),
-    customer:     document.getElementById('f-customer').value.trim(),
-    owner:        document.getElementById('f-owner').value.trim(),
-    product:      document.getElementById('f-product').value.trim(),
-    desc:         document.getElementById('f-desc').value.trim(),
-    active:       document.getElementById('f-active').value,
-    quote:        document.getElementById('f-quote').value,
-    contract:     document.getElementById('f-contract').value,
-    cost:         document.getElementById('f-cost').value,
+    channel:      getValueById('f-channel').trim(),
+    customer:     getValueById('f-customer').trim(),
+    owner:        getValueById('f-owner').trim(),
+    product:      getValueById('f-product').trim(),
+    desc:         getValueById('f-desc').trim(),
+    active:       getValueById('f-active'),
+    quote:        getValueById('f-quote'),
+    contract:     getValueById('f-contract'),
+    cost:         getValueById('f-cost'),
     // procurement 字段不从表单读取，由成本分析模块直接写入 projects 数组
     // 这里只做保留（merge 时不覆盖）
-    collected:    document.getElementById('f-collected').value,
-    deliveryNote: document.getElementById('f-delivery-note').value.trim(),
+    collected:    getValueById('f-collected'),
+    deliveryNote: getValueById('f-delivery-note').trim(),
     deliveryBrief: deliveryBrief,
-    terminationReason: document.getElementById('f-termination-reason')?.value.trim() || '',
+    terminationReason: getValueById('f-termination-reason').trim() || '',
     paymentPct, paymentNodes, deliveryTags,
     collectTasks: collectTasks,
     todos:        getTodos(),
-   洽谈状态:     document.getElementById('f-discuss-status')?.value || '需求沟通',
+   洽谈状态:     getValueById('f-discuss-status') || '需求沟通',
     updatedAt:    ts};
   // 合同签署日期
-  const contractDate = document.getElementById('f-contract-date')?.value || '';
+  const contractDate = getValueById('f-contract-date') || '';
 
   let autoLogs = [];
   

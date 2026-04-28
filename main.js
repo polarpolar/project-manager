@@ -1,19 +1,96 @@
-// 主入口脚本，使用动态导入实现代码拆分和懒加载
+// ╔══════════════════════════════════════════╗
+// ║  MODULE: main（应用主入口）              ║
+// ╚══════════════════════════════════════════╝
 
-// 全局变量
+// ────────────────────────────────────────────
+// 1. 统一 DEBUG 常量定义
+// ────────────────────────────────────────────
+window.DEBUG = false;
+
+// 开发环境自动检测
+if (window.location.hostname === 'localhost' || 
+    window.location.hostname === '127.0.0.1' || 
+    window.location.search.includes('debug')) {
+  window.DEBUG = true;
+  console.log('🔧 调试模式已启用');
+}
+
+// ────────────────────────────────────────────
+// 2. 全局错误边界处理
+// ────────────────────────────────────────────
+window.addEventListener('error', (event) => {
+  if (window.DEBUG) console.error('🚨 全局错误:', event.error);
+  showToast(`❌ 系统错误：${event.error.message || '未知错误'}`);
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  if (window.DEBUG) console.error('🚨 未处理的 Promise 拒绝:', event.reason);
+  showToast(`❌ 操作失败：${event.reason?.message || '未知错误'}`);
+});
+
+// 通用提示函数
+function showToast(message, type = 'info') {
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.textContent = message;
+  toast.style.cssText = `
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    background: #1a1a2e;
+    color: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    z-index: 9999;
+    font-size: 0.8rem;
+    animation: slideIn 0.3s ease;
+    max-width: 300px;
+  `;
+  
+  document.body.appendChild(toast);
+  
+  setTimeout(() => {
+    toast.style.animation = 'slideOut 0.3s ease';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+
+// 添加动画样式
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes slideIn {
+    from { transform: translateX(100px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+  @keyframes slideOut {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(100px); opacity: 0; }
+  }
+`;
+document.head.appendChild(style);
+
+// ────────────────────────────────────────────
+// 3. 全局变量（保留向后兼容）
+// ────────────────────────────────────────────
 window.projects = [];
 window.recycleBin = [];
 window.editingId = null;
 window.currentEditProjectId = null;
-window.statsFilter = 'thisYear'; // all 或 thisYear
+window.statsFilter = 'thisYear';
 window.db = null;
-window.DEBUG = false;
-window.fsRootHandle = null; // 根目录句柄
-window.fsCurrentProjectId = null; // 当前文件操作的项目ID
+window.fsRootHandle = null;
+window.fsCurrentProjectId = null;
 
-// 动态导入各个模块
+// ────────────────────────────────────────────
+// 4. 动态导入各个模块
+// ────────────────────────────────────────────
 async function loadModules() {
   try {
+    // 加载状态管理模块（优先加载）
+    const storeModule = await import('./js/core/store.js');
+    Object.assign(window, storeModule);
+    
     // 加载数据库模块
     const { default: dbModule } = await import('./js/core/db.js');
     window.db = dbModule;
@@ -66,15 +143,18 @@ async function loadModules() {
     const costModule = await import('./js/features/cost.js');
     Object.assign(window, costModule);
 
-    console.log('模块加载成功');
+    if (window.DEBUG) console.log('✅ 模块加载成功');
     return true;
   } catch (error) {
-    console.error('模块加载失败:', error);
+    if (window.DEBUG) console.error('❌ 模块加载失败:', error);
+    showToast('模块加载失败，请刷新页面重试');
     return false;
   }
 }
 
-// 初始化应用
+// ────────────────────────────────────────────
+// 5. 初始化应用
+// ────────────────────────────────────────────
 async function initApp() {
   try {
     // 加载所有模块
@@ -91,31 +171,40 @@ async function initApp() {
       initImportDropZone();
       loadYuqueSettings();
       loadParseMode();
-      document.getElementById('importOverlay').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeImport(); });
-      document.getElementById('overlay').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeModal(); });
+      document.getElementById('importOverlay').addEventListener('click', e => { 
+        if (e.target === e.currentTarget) closeImport(); 
+      });
+      document.getElementById('overlay').addEventListener('click', e => { 
+        if (e.target === e.currentTarget) closeModal(); 
+      });
 
       // 初始化 AI 数据分析对话面板
       if (typeof initAiChat === 'function') initAiChat();
-
-
 
       // 尝试恢复根目录
       const saved = await loadRootHandle();
       if (saved) {
         try {
           const perm = await saved.queryPermission({ mode: 'readwrite' });
-          if (perm === 'granted') { window.fsRootHandle = saved; updateRootBar(); await initProjectDirMap(); }
-        } catch(e) {}
+          if (perm === 'granted') { 
+            window.fsRootHandle = saved; 
+            updateRootBar(); 
+            await initProjectDirMap(); 
+          }
+        } catch(e) {
+          if (window.DEBUG) console.warn('恢复根目录权限失败:', e);
+        }
       }
     } else {
-      // 模块加载失败，显示错误信息
       showToast('模块加载失败，请刷新页面重试');
     }
   } catch (error) {
-    console.error('初始化应用失败:', error);
+    if (window.DEBUG) console.error('❌ 初始化应用失败:', error);
     showToast('初始化失败，请刷新页面重试');
   }
 }
 
-// 页面加载时初始化应用
+// ────────────────────────────────────────────
+// 6. 页面加载时初始化应用
+// ────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', initApp);

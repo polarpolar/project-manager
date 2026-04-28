@@ -2,25 +2,27 @@
 // ║  MODULE: render-board（看板视图层）       ║
 // ╚══════════════════════════════════════════╝
 
-// 卡片 HTML 缓存（key = projectId_colKey_updatedAt）
+// ────────────────────────────────────────────
+// 渲染缓存配置
+// ────────────────────────────────────────────
 const renderCache = new Map();
+const MAX_CACHE_SIZE = 500; // 最大缓存条目数
 
-// ── render() ──────────────────────────────────────
-// 同步渲染四列看板，用 DocumentFragment 减少回流。
-// 不使用 setTimeout / requestAnimationFrame 分批，
-// 对几十个项目的规模一次性渲染反而更快。
+// ────────────────────────────────────────────
+// 渲染主函数
+// ────────────────────────────────────────────
 function render() {
   // 筛选按钮高亮
   const buttons = document.querySelectorAll('.sb-stats-title button');
   buttons.forEach(btn => {
-    const isActive = btn.onclick.toString().includes(statsFilter);
+    const isActive = btn.onclick.toString().includes(window.statsFilter);
     btn.style.background = isActive ? 'var(--gold)' : 'none';
     btn.style.color      = isActive ? 'var(--ink)'  : 'rgba(255,255,255,.72)';
   });
 
   // 按列分组
   const cols = { '0':[], '1':[], '2':[], '3':[] };
-  projects.forEach(p => cols[getBoardColumn(p)].push(p));
+  window.projects.forEach(p => cols[getBoardColumn(p)].push(p));
 
   // 渲染每列
   ['0','1','2','3'].forEach(key => {
@@ -35,12 +37,10 @@ function render() {
 
     // 排序：活跃度 > 最新更新时间 > 项目名称
     const sortedProjects = cols[key].sort((a, b) => {
-      // 1. 活跃度排序：活跃的排在前面
       if (a.active !== b.active) {
         return a.active === 'active' ? -1 : 1;
       }
       
-      // 2. 最新更新时间排序：更新时间晚的排在前面
       if (a.updatedAt && b.updatedAt) {
         return new Date(b.updatedAt) - new Date(a.updatedAt);
       } else if (a.updatedAt) {
@@ -49,7 +49,6 @@ function render() {
         return 1;
       }
       
-      // 3. 项目名称排序：按字母顺序
       return a.name.localeCompare(b.name);
     });
 
@@ -67,7 +66,9 @@ function render() {
   updateStats();
 }
 
-// ── updateStats() ─────────────────────────────────
+// ────────────────────────────────────────────
+// 更新统计数据
+// ────────────────────────────────────────────
 function updateStats() {
   const statTotal    = document.getElementById('stat-total');
   const statQuote    = document.getElementById('stat-quote');
@@ -77,19 +78,19 @@ function updateStats() {
 
   const thisYear = new Date().getFullYear();
 
-  const filteredProjects = statsFilter === 'thisYear'
-    ? projects.filter(p => {
+  const filteredProjects = window.statsFilter === 'thisYear'
+    ? window.projects.filter(p => {
         if (!p.contractDate) return false;
         return new Date(p.contractDate).getFullYear() === thisYear;
       })
-    : projects.filter(p => {
+    : window.projects.filter(p => {
         if (p.stage === STAGE.NEGOTIATING) return true;
         if (p.contractDate) return new Date(p.contractDate).getFullYear() === thisYear;
         return false;
       });
 
-  const totalCount  = projects.length;
-  const quoteSum    = projects.filter(p => p.stage === STAGE.NEGOTIATING)
+  const totalCount  = window.projects.length;
+  const quoteSum    = window.projects.filter(p => p.stage === STAGE.NEGOTIATING)
                               .reduce((a, p) => a + (parseFloat(p.quote) || 0), 0);
   const contractSum = filteredProjects.reduce((a, p) => a + (parseFloat(p.contract) || 0), 0);
   const todoCount   = filteredProjects.reduce((a, p) => a + (p.todos || []).filter(t => !t.done).length, 0);
@@ -100,15 +101,25 @@ function updateStats() {
   statTodo.textContent     = todoCount;
 }
 
-// ── cardHTML() ────────────────────────────────────
+// ────────────────────────────────────────────
+// 卡片HTML生成（带缓存优化）
+// ────────────────────────────────────────────
 function cardHTML(p, colKey) {
   // 缓存：同一项目、同一列、同一 updatedAt → 直接返回
-  const cacheKey = `${p.id}_${colKey}_${p.updatedAt || ''}`;
+  const cacheKey = `${p.id}_${colKey}_${p.updatedAt || ''}_${p.version || 0}`;
+  
+  // 检查缓存大小，超过限制时清理一半最旧的缓存
+  if (renderCache.size > MAX_CACHE_SIZE) {
+    const keys = Array.from(renderCache.keys()).slice(0, Math.floor(MAX_CACHE_SIZE / 2));
+    keys.forEach(key => renderCache.delete(key));
+    if (window.DEBUG) console.log(`清理渲染缓存：移除 ${keys.length} 条`);
+  }
+
   if (renderCache.has(cacheKey)) return renderCache.get(cacheKey);
 
   const sAttr = colKey === 'c' ? 'c' : STAGE_S_ATTR[p.stage];
 
-  const customer = p.customer || p.source;  // 兼容旧数据
+  const customer = p.customer || p.source;
   const metaHtml = (p.channel || customer || p.owner || p.product || (p.stage === STAGE.NEGOTIATING && p.洽谈状态)) ? `
     <div class="card-meta">
       ${p.channel ? `<span class="card-tag">🌐 ${esc(p.channel)}</span>` : ''}
@@ -130,7 +141,6 @@ function cardHTML(p, colKey) {
       ${_procCost && p.contract ? `<div class="amount-item"><div class="alabel">毛利率</div><div class="aval" style="color:${_grossPct >= 30 ? 'var(--s2)' : _grossPct >= 15 ? '#e65100' : '#e53935'}">${_grossPct}%</div></div>` : ''}
     </div>` : '';
 
-  // 交付中/已完结：合同签单信息（签单日期 + 合同金额）
   let contractInfoHtml = '';
   if ((p.stage === STAGE.DELIVERING || p.stage === STAGE.COMPLETED) && p.contract) {
     const contractDateStr = p.contractDate 
@@ -155,7 +165,6 @@ function cardHTML(p, colKey) {
       </div>`;
   }
 
-  // 交付标签（交付中/已完结显示）
   const tags = p.deliveryTags || {};
   const tagItems = [
     tags.wireless_hardware && `<span class="delivery-chip wireless">📡 无线</span>`,
@@ -173,7 +182,6 @@ function cardHTML(p, colKey) {
       ${!hasDelivery ? `<div class="delivery-empty">暂无交付信息，可通过文件面板识别技术协议自动提取</div>` : ''}
     </div>` : '';
 
-  // 回款进度条 + 付款节点详情（仅交付中/已完结显示）
   let paymentHtml = '';
   const nodes = p.paymentNodes || [];
   if ((p.stage === STAGE.DELIVERING || p.stage === STAGE.COMPLETED) && p.contract && nodes.length > 0) {
@@ -201,7 +209,6 @@ function cardHTML(p, colKey) {
     </div>`;
   }
 
-  // 催款任务预览
   let collectHtml = '';
   const tasks = p.collectTasks || [];
   if (colKey === 'c' && tasks.length && p.stage === STAGE.NEGOTIATING) {
@@ -238,11 +245,9 @@ function cardHTML(p, colKey) {
   if (p.stage === STAGE.DELIVERING)  actionBtns += `<button class="btn-sm btn-done" onclick="moveStage('${p.id}',${STAGE.COMPLETED})">→ 已完结</button>`;
   actionBtns += `<button class="btn-sm btn-del" onclick="deleteProject('${p.id}')">✕</button>`;
 
-  // 提取项目来源标签（优先使用channel）
   const sourceValue = p.channel;
   const sourceTag = sourceValue ? `<span class="card-tag source-tag">🌐 ${esc(sourceValue)}</span>` : '';
   
-  // 客户名称（customer，兼容旧数据source）
   const filteredCustomer = p.customer || p.source;
   const filteredMetaHtml = (filteredCustomer || p.owner || p.product || (p.stage === STAGE.NEGOTIATING && p.洽谈状态)) ? `
     <div class="card-meta">
@@ -274,19 +279,21 @@ function cardHTML(p, colKey) {
   return html;
 }
 
-// ── 侧边栏 ────────────────────────────────────────
+// ────────────────────────────────────────────
+// 侧边栏操作
+// ────────────────────────────────────────────
 function toggleSidebar() {
   const sb  = document.getElementById('sidebar');
   const btn = sb.querySelector('.sb-toggle');
   sb.classList.toggle('collapsed');
   const collapsed = sb.classList.contains('collapsed');
   btn.textContent = collapsed ? '▶' : '◀';
-  try { localStorage.setItem(STORAGE_KEY.SB_COLLAPSED, collapsed ? '1' : '0'); } catch(e) {}
+  try { localStorage.setItem(window.STORAGE_KEY.SB_COLLAPSED, collapsed ? '1' : '0'); } catch(e) {}
 }
 
 function initSidebar() {
   try {
-    if (localStorage.getItem(STORAGE_KEY.SB_COLLAPSED) === '1') {
+    if (localStorage.getItem(window.STORAGE_KEY.SB_COLLAPSED) === '1') {
       const sb  = document.getElementById('sidebar');
       const btn = sb?.querySelector('.sb-toggle');
       if (sb)  sb.classList.add('collapsed');
@@ -295,14 +302,27 @@ function initSidebar() {
   } catch(e) {}
 }
 
-// ── 缓存管理 ──────────────────────────────────────
-function clearRenderCache() {
-  renderCache.clear();
+// ────────────────────────────────────────────
+// 缓存管理
+// ────────────────────────────────────────────
+function clearRenderCache(projectId = null) {
+  if (projectId) {
+    // 只清除特定项目的缓存
+    renderCache.forEach((_, key) => {
+      if (key.startsWith(projectId)) {
+        renderCache.delete(key);
+      }
+    });
+    if (window.DEBUG) console.log(`清理项目 ${projectId} 的渲染缓存`);
+  } else {
+    renderCache.clear();
+    if (window.DEBUG) console.log('清理所有渲染缓存');
+  }
 }
 
-// ── refreshView() ─────────────────────────────────
-// 清缓存 → 重渲染看板 → 按需刷新侧边面板。
-// 调用方不需要关心面板是否打开，统一走这里。
+// ────────────────────────────────────────────
+// 视图刷新
+// ────────────────────────────────────────────
 function refreshView() {
   clearRenderCache();
   render();
@@ -310,9 +330,11 @@ function refreshView() {
   if (document.getElementById('ledgerPanel').classList.contains('open')) renderLedger();
 }
 
-// 设置统计筛选器
+// ────────────────────────────────────────────
+// 统计筛选器
+// ────────────────────────────────────────────
 function setStatsFilter(filter) {
-  statsFilter = filter;
+  window.statsFilter = filter;
   render();
   const buttons = document.querySelectorAll('.sb-stats-title button');
   buttons.forEach(btn => {
@@ -322,7 +344,9 @@ function setStatsFilter(filter) {
   });
 }
 
-// ── 导出 ──────────────────────────────────────────
+// ────────────────────────────────────────────
+// 导出模块
+// ────────────────────────────────────────────
 export {
   render,
   updateStats,

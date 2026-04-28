@@ -1,0 +1,47 @@
+{
+  "env": {
+    "browser": true,
+    "es2021": true
+  },
+  "extends": "eslint:recommended",
+  "parserOptions": {
+    "ecmaVersion": "latest",
+    "sourceType": "module"
+  },
+  "rules": {
+    "no-console": "warn",
+    "no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+    "indent": ["error", 2],
+    "quotes": ["error", "single"],
+    "semi": ["error", "always"],
+    "no-trailing-spaces": "error",
+    "eol-last": "error",
+    "comma-spacing": ["error", { "before": false, "after": true }],
+    "space-before-blocks": ["error", "always"],
+    "keyword-spacing": ["error", { "before": true, "after": true }],
+    "space-infix-ops": "error",
+    "object-curly-spacing": ["error", "always"],
+    "array-bracket-spacing": ["error", "always"],
+    "func-call-spacing": ["error", "never"],
+    "no-multiple-empty-lines": ["error", { "max": 2, "maxEOF": 1 }],
+    "prefer-const": "warn",
+    "no-var": "warn",
+    "camelcase": "warn"
+  },
+  "globals": {
+    "window": "readonly",
+    "document": "readonly",
+    "localStorage": "readonly",
+    "sessionStorage": "readonly",
+    "indexedDB": "readonly",
+    "showToast": "readonly",
+    "confirm": "readonly",
+    "alert": "readonly",
+    "DEBUG": "readonly"
+  },
+  "ignorePatterns": [
+    "node_modules/",
+    "dist/",
+    "*.min.js"
+  ]
+}
